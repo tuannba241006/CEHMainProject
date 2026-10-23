@@ -1,0 +1,25 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f8fc;
+    color: #183153;
+}
+
+.container {
+    max-width: 800px;
+    margin: 80px auto;
+    padding: 32px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgb(0 0 0 / 8%);
+}
+
+h1 {
+    color: #2563a6;
+}
+
+#api-status {
+    padding: 12px;
+    background: #eaf3ff;
+    border-radius: 8px;
+}
