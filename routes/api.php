@@ -3,7 +3,6 @@
 use App\Models\Event;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 
 // Kiểm tra API và kết nối database
 Route::get('/health', function () {
