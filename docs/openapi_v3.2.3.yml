@@ -36,6 +36,8 @@ info:
     \ == user.ma_tai_khoan`.\n- **`CertificateOwnerOrAdmin`:** Chứng nhận thuộc vé có `dang_ky.ma_tai_khoan == user.ma_tai_khoan`\
     \ (hoặc `user.loai_tai_khoan == 'Admin'`).\n- **`NotificationOwner`:** `thong_bao.ma_tai_khoan == user.ma_tai_khoan`.\n"
 servers:
+- url: http://localhost:4010/api/v1
+  description: Local Mock Server (Prism API v1)
 - url: http://localhost:8000/api/v1
   description: Local Development Server (Laravel 11 API v1)
 - url: https://campuseventhub.uit.edu.vn/api/v1

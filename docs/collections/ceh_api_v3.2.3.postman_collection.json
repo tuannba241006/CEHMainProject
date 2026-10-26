@@ -1,0 +1,1734 @@
+{
+  "info": {
+    "_postman_id": "c3a72678-75b2-4dc9-9832-ceh-main-v323",
+    "name": "Campus Event Hub (CEH) API v3.2.3",
+    "description": "Bộ sưu tập API hoàn chỉnh cho dự án Campus Event Hub (CEH) — IS207 UIT.\nTuân thủ đặc tả OpenAPI v3.2.3, SRS v3.1.2 và CSDL v3.1.2.\nBao gồm 5 phân hệ cốt lõi: Auth, Events, Registrations, Kiosk Check-in, Admin & Analytics.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Authentication & Account (UC-AUTH-01 -> 05)",
+      "description": "Quản lý xác thực Sanctum SPA Cookie, Đăng ký OTP, Đăng nhập, Hồ sơ & Đổi mật khẩu",
+      "item": [
+        {
+          "name": "01. Get CSRF Cookie",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sanctum/csrf-cookie",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sanctum",
+                "csrf-cookie"
+              ]
+            },
+            "description": "Khởi tạo cookie XSRF-TOKEN cho SPA React trước khi thực hiện các tác vụ Auth"
+          },
+          "response": []
+        },
+        {
+          "name": "02. Register Student Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Đăng ký tài khoản Sinh viên mới và gửi mã OTP qua email",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@uit.edu.vn\",\n  \"mat_khau\": \"Passw0rd!123\",\n  \"mat_khau_confirmation\": \"Passw0rd!123\",\n  \"ho_ten\": \"Nguyễn Văn Sinh Viên\",\n  \"mssv\": \"21520000\",\n  \"ma_khoa\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "03. Verify Registration OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-registration-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-registration-otp"
+              ]
+            },
+            "description": "Xác thực mã OTP 6 số để kích hoạt tài khoản",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@uit.edu.vn\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "04. Resend Registration OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-registration-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "resend-registration-otp"
+              ]
+            },
+            "description": "Gửi lại mã OTP kích hoạt tài khoản",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@uit.edu.vn\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "05. Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Đăng nhập hệ thống (Sinh viên, Ban Tổ chức, Khoa, Admin)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@uit.edu.vn\",\n  \"mat_khau\": \"Passw0rd!123\",\n  \"remember\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "06. Get Current User Profile (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Lấy thông tin người dùng đang đăng nhập trong phiên"
+          },
+          "response": []
+        },
+        {
+          "name": "07. Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Cập nhật thông tin cá nhân (họ tên, số điện thoại, avatar)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ho_ten\": \"Nguyễn Văn Sinh Viên\",\n  \"so_dien_thoai\": \"0901234567\",\n  \"anh_dai_dien\": \"https://ceh.local/avatars/user.jpg\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "08. Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "Đổi mật khẩu người dùng (bắt buộc khi buoc_doi_mat_khau = true)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mat_khau_cu\": \"Passw0rd!123\",\n  \"mat_khau_moi\": \"NewPassw0rd!456\",\n  \"mat_khau_moi_confirmation\": \"NewPassw0rd!456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "09. Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Yêu cầu cấp lại mật khẩu qua email",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@uit.edu.vn\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "10. Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Đặt lại mật khẩu với token xác thực",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student@uit.edu.vn\",\n  \"token\": \"sample-reset-token\",\n  \"mat_khau\": \"NewPassw0rd!456\",\n  \"mat_khau_confirmation\": \"NewPassw0rd!456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11. Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Đăng xuất và hủy phiên làm việc hiện tại"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. Events & Management (UC-EVT-01 -> 03, UC-ROOM-01 -> 02)",
+      "description": "Khám phá sự kiện, Soạn thảo, Duyệt đa cấp, Lịch phòng & Hội trường",
+      "item": [
+        {
+          "name": "01. List Public Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events?page=1&limit=20&sort=moi_cong_bo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events?page=1&limit=20&sort=moi_cong_bo"
+              ]
+            },
+            "description": "Khám phá danh sách sự kiện công khai có phân trang, bộ lọc chuyên đề, ngày giờ"
+          },
+          "response": []
+        },
+        {
+          "name": "02. Public Event Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}"
+              ]
+            },
+            "description": "Xem chi tiết sự kiện công khai theo ID"
+          },
+          "response": []
+        },
+        {
+          "name": "03. Create Draft Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events"
+              ]
+            },
+            "description": "Tạo bản nháp sự kiện mới từ tài khoản Ban Tổ chức",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ten_su_kien\": \"Hội thảo Công nghệ Web 2026\",\n  \"mo_ta\": \"Hội thảo chia sẻ kiến thức chuyên sâu về Web Development\",\n  \"ma_chuyen_de\": 1,\n  \"ma_phong\": 1,\n  \"thoi_gian_bat_dau\": \"2026-11-20T08:00:00+07:00\",\n  \"thoi_gian_ket_thuc\": \"2026-11-20T11:30:00+07:00\",\n  \"so_luong_toi_da\": 150,\n  \"khong_gioi_han_slot\": false,\n  \"dieu_khoan_drl\": \"Dieu3\",\n  \"diem_drl_du_kien\": 5,\n  \"dien_gia\": \"TS. Nguyễn Văn A\",\n  \"danh_sach_ma_dong_to_chuc\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "04. Update Event",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}"
+              ]
+            },
+            "description": "Chỉnh sửa thông tin sự kiện ở trạng thái DRAFT / REJECTED",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ten_su_kien\": \"Hội thảo Công nghệ Web 2026 (Cập nhật)\",\n  \"mo_ta\": \"Nội dung cập nhật chi tiết\",\n  \"ma_chuyen_de\": 1,\n  \"ma_phong\": 1,\n  \"thoi_gian_bat_dau\": \"2026-11-20T08:00:00+07:00\",\n  \"thoi_gian_ket_thuc\": \"2026-11-20T11:30:00+07:00\",\n  \"so_luong_toi_da\": 180,\n  \"khong_gioi_han_slot\": false,\n  \"dieu_khoan_drl\": \"Dieu3\",\n  \"diem_drl_du_kien\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "05. Submit Event for Approval",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/submit-approval",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "submit-approval"
+              ]
+            },
+            "description": "Nộp sự kiện lên quy trình phê duyệt đa cấp"
+          },
+          "response": []
+        },
+        {
+          "name": "06. Review Event (Faculty / Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "review"
+              ]
+            },
+            "description": "Duyệt hoặc từ chối sự kiện (Khoa / CTSV / Admin)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hanh_dong\": \"DUYET\",\n  \"ly_do_tu_choi\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "07. Co-Host Respond Invitation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/co-host-respond",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "co-host-respond"
+              ]
+            },
+            "description": "Phản hồi lời mời đồng tổ chức (DONG_Y / TU_CHOI)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dong_y\": true,\n  \"ly_do\": \"Đồng ý tham gia phối hợp tổ chức\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "08. Emergency Cancel Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/emergency-cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "emergency-cancel"
+              ]
+            },
+            "description": "Hủy sự kiện khẩn cấp và thông báo toàn bộ người đăng ký",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ly_do_huy\": \"Sự cố kỹ thuật bất khả kháng tại hội trường\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "09. Organizer Events List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/organizer/events?page=1&limit=20&vai_tro_don_vi=ALL",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "organizer",
+                "events?page=1&limit=20&vai_tro_don_vi=ALL"
+              ]
+            },
+            "description": "Danh sách sự kiện do đơn vị hiện tại tổ chức hoặc đồng tổ chức"
+          },
+          "response": []
+        },
+        {
+          "name": "10. Approval Queue List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/review-queue?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "review-queue?page=1&limit=20"
+              ]
+            },
+            "description": "Danh sách hàng đợi chờ phê duyệt dành cho Cán bộ Quản lý"
+          },
+          "response": []
+        },
+        {
+          "name": "11. Check Room Availability",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}/availability?thoi_gian_bat_dau=2026-11-20T08:00:00%2B07:00&thoi_gian_ket_thuc=2026-11-20T11:30:00%2B07:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rooms",
+                "{{roomId}}",
+                "availability?thoi_gian_bat_dau=2026-11-20T08:00:00%2B07:00&thoi_gian_ket_thuc=2026-11-20T11:30:00%2B07:00"
+              ]
+            },
+            "description": "Kiểm tra xung đột phòng ốc kèm khoảng đệm 15 phút"
+          },
+          "response": []
+        },
+        {
+          "name": "12. Room Schedule Timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rooms/{{roomId}}/schedule?tu_ngay=2026-11-01T00:00:00%2B07:00&den_ngay=2026-11-30T23:59:59%2B07:00",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "rooms",
+                "{{roomId}}",
+                "schedule?tu_ngay=2026-11-01T00:00:00%2B07:00&den_ngay=2026-11-30T23:59:59%2B07:00"
+              ]
+            },
+            "description": "Lịch sử dụng phòng hội trường trong khoảng thời gian"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. Registrations & Tickets (UC-BOOK-01 -> 03, UC-TCK-01 -> 02)",
+      "description": "Đăng ký vé, Hàng đợi Waitlist FIFO, Ví vé cá nhân & Hủy vé",
+      "item": [
+        {
+          "name": "01. Pre-booking Conflict Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/booking-check",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "booking-check"
+              ]
+            },
+            "description": "Kiểm tra trước khi đặt vé: trùng lịch sự kiện khác, đã đăng ký chưa, còn vé không"
+          },
+          "response": []
+        },
+        {
+          "name": "02. Book Event Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/book",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "book"
+              ]
+            },
+            "description": "Đặt vé tham gia sự kiện có xử lý chống race condition (Pessimistic Locking)"
+          },
+          "response": []
+        },
+        {
+          "name": "03. Join Waitlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/waitlist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "waitlist"
+              ]
+            },
+            "description": "Ghi danh vào hàng đợi chờ vé khi sự kiện đã hết chỗ"
+          },
+          "response": []
+        },
+        {
+          "name": "04. My Tickets List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/my-tickets?tab=upcoming&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "my-tickets?tab=upcoming&page=1&limit=10"
+              ]
+            },
+            "description": "Danh sách ví vé của sinh viên theo tab: Sắp diễn ra, Lịch sử, Vi phạm"
+          },
+          "response": []
+        },
+        {
+          "name": "05. Ticket Detail & Dynamic QR",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "{{ticketId}}"
+              ]
+            },
+            "description": "Xem chi tiết vé cá nhân kèm mã QR ký HMAC-SHA256"
+          },
+          "response": []
+        },
+        {
+          "name": "06. Cancel Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "{{ticketId}}",
+                "cancel"
+              ]
+            },
+            "description": "Hủy vé trước giờ G (Khóa hủy trong vòng T-4h trước sự kiện)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ly_do\": \"Bận lịch học đột xuất\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "07. My Waitlist Entries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/waitlist/my-entries?tab=active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "waitlist",
+                "my-entries?tab=active"
+              ]
+            },
+            "description": "Danh sách các lượt chờ vé hiện tại của người dùng"
+          },
+          "response": []
+        },
+        {
+          "name": "08. Claim Waitlist Offered Slot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/waitlist/{{waitlistId}}/claim",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "waitlist",
+                "{{waitlistId}}",
+                "claim"
+              ]
+            },
+            "description": "Xác nhận nhận vé khi được nhượng quyền (Claim Window 2h)"
+          },
+          "response": []
+        },
+        {
+          "name": "09. Decline Waitlist Offered Slot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/waitlist/{{waitlistId}}/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "waitlist",
+                "{{waitlistId}}",
+                "decline"
+              ]
+            },
+            "description": "Từ chối suất vé chờ để nhường cho người tiếp theo trong hàng đợi"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. Kiosk & Attendance Operations (UC-OPS-01 -> 05)",
+      "description": "Vận hành Điểm danh Kiosk TOTP 30s, Soát vé Staff, Chống gian lận Check-in/Check-out",
+      "item": [
+        {
+          "name": "01. Start Kiosk Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/kiosk/start",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "kiosk",
+                "start"
+              ]
+            },
+            "description": "Mở phiên Kiosk trình chiếu mã QR động cho hội trường",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ten_thiet_bi\": \"Kiosk Hội trường E - Màn hình chính\",\n  \"thoi_luong_phut\": 180\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02. Stream Kiosk Dynamic TOTP",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/kiosk/totp-stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kiosk",
+                "totp-stream"
+              ]
+            },
+            "description": "Nhận luồng Server-Sent Events (SSE) cập nhật mã TOTP xoay vòng mỗi 30 giây"
+          },
+          "response": []
+        },
+        {
+          "name": "03. Open Check-in Gate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/kiosk/open-checkin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "kiosk",
+                "open-checkin"
+              ]
+            },
+            "description": "Mở cổng nhận điểm danh vào (Check-in Gate)"
+          },
+          "response": []
+        },
+        {
+          "name": "04. Open Check-out Gate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/kiosk/open-checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "kiosk",
+                "open-checkout"
+              ]
+            },
+            "description": "Mở cổng nhận điểm danh ra (Check-out Gate)"
+          },
+          "response": []
+        },
+        {
+          "name": "05. Close Gates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/kiosk/close-gates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "kiosk",
+                "close-gates"
+              ]
+            },
+            "description": "Đóng toàn bộ cổng điểm danh sự kiện"
+          },
+          "response": []
+        },
+        {
+          "name": "06. Staff Scan Ticket (NFC / QR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/staff-scan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "staff-scan"
+              ]
+            },
+            "description": "Cán bộ/Cộng tác viên quét vé người tham dự (Hỗ trợ Offline Buffer)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ma_su_kien\": 101,\n  \"payload_qr\": \"CEH1.12345678-1234-1234-1234-1234567890ab.1.101.samplehmac64characterslengthhashstringhere1234567890abcdef12345678\",\n  \"loai_quet\": \"CHECK_IN\",\n  \"phuong_thuc\": \"QR\",\n  \"thoi_gian_quet\": \"2026-11-20T08:15:00+07:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "07. Student Self Check-in",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/self-check-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "self-check-in"
+              ]
+            },
+            "description": "Sinh viên tự quét mã QR Kiosk hội trường từ ứng dụng di động",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ma_su_kien\": 101,\n  \"qr_payload\": \"CEH1K.101.839201\",\n  \"toa_do_lat\": 10.87,\n  \"toa_do_lng\": 106.803\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "08. Student Self Check-out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/self-check-out",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "self-check-out"
+              ]
+            },
+            "description": "Sinh viên tự quét mã Kiosk khi kết thúc sự kiện",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ma_su_kien\": 101,\n  \"qr_payload\": \"CEH1K.101.492019\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "09. Event Participants Attendance List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/participants?page=1&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "participants?page=1&limit=50"
+              ]
+            },
+            "description": "Danh sách người tham dự kèm trạng thái Điểm danh, Nghi vấn gian lận, ĐRL"
+          },
+          "response": []
+        },
+        {
+          "name": "10. Manual Override Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/attendance/manual-override",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "attendance",
+                "manual-override"
+              ]
+            },
+            "description": "Cán bộ can thiệp duyệt điểm danh thủ công khi có sự cố kỹ thuật",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ma_dang_ky\": 1,\n  \"loai_ghi_de\": \"CHECK_IN\",\n  \"ly_do\": \"Thiết bị sinh viên hết pin, đã đối chiếu thẻ sinh viên vật lý\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. Admin, Analytics & AI (UC-ADM-01, UC-REP-01 -> 02, UC-AI-01 -> 02)",
+      "description": "Thống kê BI vĩ mô, Chứng nhận điện tử, Khảo sát & AI Copilot",
+      "item": [
+        {
+          "name": "01. Admin Macro BI Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/analytics/macro?tu_ngay=2026-01-01&den_ngay=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "analytics",
+                "macro?tu_ngay=2026-01-01&den_ngay=2026-12-31"
+              ]
+            },
+            "description": "Báo cáo vĩ mô toàn trường về tỷ lệ tham gia, no-show, chuyên đề"
+          },
+          "response": []
+        },
+        {
+          "name": "02. Export Macro Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/analytics/macro/export?dinh_dang=xlsx&tu_ngay=2026-01-01&den_ngay=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "analytics",
+                "macro",
+                "export?dinh_dang=xlsx&tu_ngay=2026-01-01&den_ngay=2026-12-31"
+              ]
+            },
+            "description": "Xuất file báo cáo thống kê Excel/PDF"
+          },
+          "response": []
+        },
+        {
+          "name": "03. No-Show Violations Management",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/analytics/no-show-violations?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "analytics",
+                "no-show-violations?page=1&limit=20"
+              ]
+            },
+            "description": "Danh sách sinh viên vi phạm vắng mặt không báo trước (No-show)"
+          },
+          "response": []
+        },
+        {
+          "name": "04. Organizer Event Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/organizer/events/{{eventId}}/analytics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "organizer",
+                "events",
+                "{{eventId}}",
+                "analytics"
+              ]
+            },
+            "description": "Báo cáo thống kê hiệu quả của 1 sự kiện cụ thể"
+          },
+          "response": []
+        },
+        {
+          "name": "05. Submit Event Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "feedback"
+              ]
+            },
+            "description": "Sinh viên gửi khảo sát đánh giá sau khi tham gia sự kiện",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"diem_danh_gia\": 5,\n  \"noi_dung\": \"Sự kiện được tổ chức chuyên nghiệp, diễn giả chia sẻ rất bổ ích\",\n  \"an_danh\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "06. Issue e-Certificate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketId}}/certificate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "{{ticketId}}",
+                "certificate"
+              ]
+            },
+            "description": "Cấp giấy chứng nhận điện tử ký số SHA-256"
+          },
+          "response": []
+        },
+        {
+          "name": "07. Verify Certificate Public",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/certificates/verify/{{hash}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "certificates",
+                "verify",
+                "{{hash}}"
+              ]
+            },
+            "description": "Tra cứu & xác thực tính toàn vẹn của giấy chứng nhận công khai"
+          },
+          "response": []
+        },
+        {
+          "name": "08. Lock Event DRL Points",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/drl/lock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "drl",
+                "lock"
+              ]
+            },
+            "description": "Khóa chốt danh sách sinh viên được cộng Điểm rèn luyện gửi CTSV"
+          },
+          "response": []
+        },
+        {
+          "name": "09. Export DRL List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/drl/export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "drl",
+                "export"
+              ]
+            },
+            "description": "Xuất danh sách sinh viên đạt chuẩn ĐRL theo mẫu CTSV"
+          },
+          "response": []
+        },
+        {
+          "name": "10. AI Generate Event Content",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ai/organizer/generate-content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "organizer",
+                "generate-content"
+              ]
+            },
+            "description": "AI hỗ trợ viết tiêu đề, mô tả sự kiện hấp dẫn cho Ban Tổ chức",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"chu_de\": \"Hội thảo Trí tuệ nhân tạo GenAI\",\n  \"doi_tuong\": \"Sinh viên năm 3, 4 ngành Khoa học Máy tính\",\n  \"diem_nhan\": \"Thực hành trực tiếp với Gemini 1.5 Pro và LangChain\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "11. AI Summarize Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/ai/summarize-feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "ai",
+                "summarize-feedback"
+              ]
+            },
+            "description": "AI tóm tắt hàng trăm nhận xét khảo sát của sinh viên thành các ý chính"
+          },
+          "response": []
+        },
+        {
+          "name": "12. AI Admin Text-to-Insight",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ai/admin/text-to-insight",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ai",
+                "admin",
+                "text-to-insight"
+              ]
+            },
+            "description": "AI trả lời các câu hỏi thống kê vĩ mô qua ngôn ngữ tự nhiên",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cau_hoi\": \"Top 3 câu lạc bộ có tỷ lệ sinh viên tham dự sự kiện cao nhất học kỳ vừa qua là những đơn vị nào?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
