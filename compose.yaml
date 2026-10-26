@@ -1,4 +1,3 @@
-
 services:
   app:
     build:
@@ -10,7 +9,15 @@ services:
     command:
       - sh
       - -lc
-      - php artisan serve --host=0.0.0.0 --port=8000
+      - |
+        if [ ! -f "vendor/autoload.php" ]; then
+          composer install --no-interaction --prefer-dist
+        fi
+        if ! grep -q "^APP_KEY=base64:" .env 2>/dev/null; then
+          php artisan key:generate --force
+        fi
+        php artisan migrate --force
+        php artisan serve --host=0.0.0.0 --port=8000
     ports:
       - "8000:8000"
     environment:
