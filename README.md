@@ -63,3 +63,7 @@ Dự án hệ thống quản lý sự kiện trong trường học (Campus Event
   ```bash
   docker-compose down
   ```
+
+## DevOps CI Audit
+
+This section verifies the GitHub Actions CI workflow.
