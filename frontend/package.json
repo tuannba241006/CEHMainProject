@@ -80,5 +80,3 @@
     "yocto-queue": "^0.1.0"
   }
 }
-
-const = ;
