@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
@@ -15,5 +14,26 @@ class ExampleTest extends TestCase
         $response = $this->get('/');
 
         $response->assertStatus(200);
+    }
+
+    /**
+     * Test health check API endpoint.
+     */
+    public function test_api_health_endpoint(): void
+    {
+        $response = $this->getJson('/api/health');
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'status' => 'ok',
+                'service' => 'CEH Main Project API',
+                'database' => 'connected',
+            ])
+            ->assertJsonStructure([
+                'status',
+                'service',
+                'database',
+                'server_time',
+            ]);
     }
 }
