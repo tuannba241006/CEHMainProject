@@ -39,7 +39,7 @@ class CryptoServiceTest extends TestCase
         $signature = $this->cryptoService->signTicket($uuid, $userId, $eventId);
 
         // Tamper signature
-        $tamperedSignature = substr_replace($signature, '0', 0, 1);
+        $tamperedSignature = substr_replace($signature, $signature[0] === '0' ? '1' : '0', 0, 1);
         $this->assertFalse($this->cryptoService->verifyTicket($tamperedSignature, $uuid, $userId, $eventId));
 
         // Tamper event ID
