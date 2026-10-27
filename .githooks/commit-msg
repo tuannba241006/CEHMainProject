@@ -1,0 +1,41 @@
+#!/bin/sh
+# Campus Event Hub - Commit Message Hook
+# Bắt buộc chuẩn Conventional Commits
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(head -n 1 "$COMMIT_MSG_FILE")
+
+# Regex kiểm tra Conventional Commits: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_-]+\))?!?: .+"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo "❌ [ERROR] COMMIT MESSAGE SAI ĐỊNH DẠNG CONVENTIONAL COMMITS!"
+    echo "------------------------------------------------------------------"
+    echo "Tiêu đề commit hiện tại:"
+    echo "  \"$COMMIT_MSG\""
+    echo ""
+    echo "Cấu trúc chuẩn bắt buộc:"
+    echo "  <type>(<scope>): <mô tả ngắn gọn>"
+    echo ""
+    echo "Các <type> hợp lệ:"
+    echo "  feat:     Tính năng mới (Feature)"
+    echo "  fix:      Sửa lỗi (Bug fix)"
+    echo "  docs:     Tài liệu (Documentation)"
+    echo "  style:    Định dạng code, khoảng trắng, không đổi logic"
+    echo "  refactor: Tái cấu trúc code (không thêm tính năng, không sửa lỗi)"
+    echo "  perf:     Cải thiện hiệu năng"
+    echo "  test:     Thêm hoặc cập nhật kịch bản kiểm thử"
+    echo "  build:    Thay đổi build system hoặc dependencies (Composer, NPM)"
+    echo "  ci:       Cấu hình CI/CD"
+    echo "  chore:    Công việc phụ trợ, tooling, git hooks"
+    echo ""
+    echo "Ví dụ đúng:"
+    echo "  feat(auth): bổ sung xác thực mã OTP đăng ký sinh viên"
+    echo "  fix(booking): sửa lỗi race condition khi đặt vé cùng thời điểm"
+    echo "  docs(plans): cập nhật tiến độ hoàn thành WP0.4"
+    echo "------------------------------------------------------------------"
+    exit 1
+fi
+
+echo "✅ [CEH Commit-Msg] Commit message hợp lệ theo chuẩn Conventional Commits."
+exit 0
