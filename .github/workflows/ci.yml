@@ -69,6 +69,7 @@ jobs:
       DB_DATABASE: ceh_test
       DB_USERNAME: ceh_user
       DB_PASSWORD: ceh_local_password
+      SESSION_DRIVER: database
 
     steps:
       - name: Checkout
@@ -92,8 +93,8 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      - name: Verify migrations against MySQL
-        run: php artisan migrate:fresh --force
+      - name: Verify migrations and seeders against MySQL
+        run: php artisan migrate:fresh --seed --force
 
       - name: Run Laravel tests
         run: php artisan test
