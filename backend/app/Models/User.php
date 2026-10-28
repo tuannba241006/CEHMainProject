@@ -65,7 +65,7 @@ class User extends Authenticatable
         return $this->belongsTo(DonViToChuc::class, 'ma_don_vi_to_chuc', 'ma_don_vi_to_chuc');
     }
 
-    public function khoa(): BelongsTo
+    public function donViKhoa(): BelongsTo
     {
         return $this->belongsTo(DonViToChuc::class, 'ma_khoa', 'ma_don_vi_to_chuc');
     }

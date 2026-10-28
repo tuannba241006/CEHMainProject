@@ -4,7 +4,7 @@ services:
       context: ./docker/php
     working_dir: /var/www/html
     volumes:
-      - ./backend:/var/www/html
+      - ./backend:/var/www/html:z
       - backend_vendor:/var/www/html/vendor
     command:
       - sh
