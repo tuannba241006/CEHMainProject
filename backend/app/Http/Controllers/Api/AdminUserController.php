@@ -21,7 +21,7 @@ class AdminUserController extends Controller
     ) {}
 
     /**
-     * UC-ADM-01: Lấy danh sách tài khoản toàn trường (có tìm kiếm và phân trang)
+     * UC-ADM-01: Retrieve system users list with search and pagination
      * GET /api/v1/admin/users
      */
     public function index(Request $request): JsonResponse
@@ -70,7 +70,7 @@ class AdminUserController extends Controller
     }
 
     /**
-     * UC-ADM-01: Cấp phát tài khoản Cán bộ / Ban tổ chức nội bộ (@uit.edu.vn)
+     * UC-ADM-01: Provision internal staff/organizer account (@uit.edu.vn)
      * POST /api/v1/admin/users
      * POST /api/v1/admin/users/create-internal
      */

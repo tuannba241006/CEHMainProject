@@ -39,7 +39,7 @@ class AuthController extends Controller
     ) {}
 
     /**
-     * UC-AUTH-01: Đăng ký tài khoản Sinh viên qua Email OTP
+     * UC-AUTH-01: Register student account via email OTP
      * POST /api/v1/auth/register
      */
     public function register(RegisterRequest $request): JsonResponse
@@ -121,7 +121,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-01: Gửi lại mã OTP kích hoạt tài khoản
+     * UC-AUTH-01: Resend registration OTP code
      * POST /api/v1/auth/resend-registration-otp
      */
     public function resendRegistrationOtp(ResendRegistrationOtpRequest $request): JsonResponse
@@ -174,7 +174,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-01: Xác thực OTP và kích hoạt tài khoản
+     * UC-AUTH-01: Verify registration OTP and activate student account
      * POST /api/v1/auth/verify-registration-otp
      */
     public function verifyRegistrationOtp(VerifyRegistrationOtpRequest $request): JsonResponse
@@ -257,7 +257,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-02: Đăng nhập hệ thống (Cookie SPA Sanctum & Single Active Session)
+     * UC-AUTH-02: User login (Sanctum SPA Session & Single Active Session)
      * POST /api/v1/auth/login
      */
     public function login(LoginRequest $request): JsonResponse
@@ -334,7 +334,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-05: Đăng xuất an toàn và thu hồi phiên làm việc
+     * UC-AUTH-05: Safe logout and session revocation
      * POST /api/v1/auth/logout
      */
     public function logout(Request $request): JsonResponse
@@ -372,7 +372,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-03: Lấy thông tin tài khoản hiện tại
+     * UC-AUTH-03: Retrieve current user profile
      * GET /api/v1/auth/me
      */
     public function me(Request $request): JsonResponse
@@ -396,7 +396,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-03: Cập nhật hồ sơ cá nhân
+     * UC-AUTH-03: Update user personal profile
      * PUT /api/v1/auth/profile
      */
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
@@ -415,7 +415,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-03: Đổi mật khẩu tài khoản (Gỡ bỏ cờ buoc_doi_mat_khau)
+     * UC-AUTH-03: Change account password (Dismisses buoc_doi_mat_khau flag)
      * PUT /api/v1/auth/change-password
      */
     public function changePassword(ChangePasswordRequest $request): JsonResponse
@@ -443,7 +443,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-04: Yêu cầu mã OTP khôi phục mật khẩu
+     * UC-AUTH-04: Request password recovery OTP
      * POST /api/v1/auth/forgot-password
      */
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
@@ -475,7 +475,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-04: Xác thực mã OTP khôi phục mật khẩu và cấp Reset Token
+     * UC-AUTH-04: Verify password recovery OTP and issue reset token
      * POST /api/v1/auth/verify-forgot-password-otp
      */
     public function verifyForgotPasswordOtp(VerifyForgotPasswordOtpRequest $request): JsonResponse
@@ -545,7 +545,7 @@ class AuthController extends Controller
     }
 
     /**
-     * UC-AUTH-04: Đặt lại mật khẩu với Reset Token
+     * UC-AUTH-04: Reset account password using validated reset token
      * POST /api/v1/auth/reset-password
      */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse

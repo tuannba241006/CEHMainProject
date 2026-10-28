@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "ceh-phase-1-auth-collection-v1",
     "name": "Campus Event Hub (CEH) - Phase 1: Auth & Account Module",
-    "description": "Postman Collection hoàn chỉnh cho Phase 1: Phân hệ Xác thực & Quản lý Tài khoản (UC-AUTH-01 -> UC-AUTH-05, UC-ADM-01). Chuẩn API OpenAPI v3.2.3 và kiến trúc Unified Envelope.",
+    "description": "Comprehensive Postman Collection for Phase 1: Authentication & Account Management Module (UC-AUTH-01 through UC-AUTH-05, UC-ADM-01). Fully compliant with OpenAPI v3.2.3 and Unified Response Envelope.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -19,10 +19,10 @@
   ],
   "item": [
     {
-      "name": "1. Đăng ký & Kích hoạt Sinh viên (UC-AUTH-01)",
+      "name": "1. Student Registration & Activation (UC-AUTH-01)",
       "item": [
         {
-          "name": "1.1 Đăng ký tài khoản Sinh viên qua Email OTP",
+          "name": "1.1 Register Student Account via Email OTP",
           "request": {
             "method": "POST",
             "header": [
@@ -37,18 +37,18 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ho_ten\": \"Nguyễn Văn A\",\n  \"mssv\": \"22521199\",\n  \"email\": \"22521199@gm.uit.edu.vn\",\n  \"mat_khau\": \"SinhVien@123\",\n  \"mat_khau_confirmation\": \"SinhVien@123\",\n  \"lop_sinh_hoat\": \"HTTT2022\",\n  \"khoa\": \"Khoa Hệ thống Thông tin\",\n  \"so_dien_thoai\": \"0912345678\",\n  \"dong_y_nghi_dinh_13\": true\n}"
+              "raw": "{\n  \"ho_ten\": \"Nguyen Van A\",\n  \"mssv\": \"22521199\",\n  \"email\": \"22521199@gm.uit.edu.vn\",\n  \"mat_khau\": \"SinhVien@123\",\n  \"xac_nhan_mat_khau\": \"SinhVien@123\",\n  \"lop_sinh_hoat\": \"HTTT2022\",\n  \"khoa\": \"Khoa He thong Thong tin\",\n  \"so_dien_thoai\": \"0912345678\",\n  \"dong_y_nghi_dinh_13\": true\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
               "host": ["{{base_url}}"],
               "path": ["auth", "register"]
             },
-            "description": "Đăng ký sinh viên bằng email @gm.uit.edu.vn có đối chiếu MSSV và Nghị định 13."
+            "description": "Register student account using UIT email (@gm.uit.edu.vn). Enforces MSSV parity with email prefix and Decree 13 consent."
           }
         },
         {
-          "name": "1.2 Gửi lại mã OTP Đăng ký",
+          "name": "1.2 Resend Registration OTP",
           "request": {
             "method": "POST",
             "header": [
@@ -70,11 +70,11 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "resend-registration-otp"]
             },
-            "description": "Gửi lại OTP đăng ký (tối đa 3 lần / 10 phút)."
+            "description": "Resend registration OTP code (rate limited to max 3 requests per 10-minute sliding window)."
           }
         },
         {
-          "name": "1.3 Xác thực OTP Kích hoạt tài khoản",
+          "name": "1.3 Verify Registration OTP & Activate Account",
           "request": {
             "method": "POST",
             "header": [
@@ -96,16 +96,16 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "verify-registration-otp"]
             },
-            "description": "Xác thực OTP 6 số để hoàn tất tạo tài khoản Sinh viên."
+            "description": "Verify 6-digit OTP code to complete student account activation."
           }
         }
       ]
     },
     {
-      "name": "2. Đăng nhập & Quản lý Phiên (UC-AUTH-02, 03, 05)",
+      "name": "2. Authentication & Session Management (UC-AUTH-02, 03, 05)",
       "item": [
         {
-          "name": "2.1 Đăng nhập bằng Email (Sinh viên / Admin / Tổ chức)",
+          "name": "2.1 Login via Email (Admin / Organizer / Student)",
           "request": {
             "method": "POST",
             "header": [
@@ -127,11 +127,11 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "login"]
             },
-            "description": "Đăng nhập Sanctum SPA Cookie và kích hoạt Single Session nếu là Sinh viên."
+            "description": "Login via institutional email address. Issues Sanctum SPA session cookie and enforces Single Active Session for student accounts."
           }
         },
         {
-          "name": "2.2 Đăng nhập bằng MSSV (Sinh viên)",
+          "name": "2.2 Login via Student ID (MSSV)",
           "request": {
             "method": "POST",
             "header": [
@@ -153,11 +153,11 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "login"]
             },
-            "description": "Đăng nhập trực tiếp bằng MSSV 8 chữ số."
+            "description": "Login directly using 8-digit Student ID (MSSV)."
           }
         },
         {
-          "name": "2.3 Lấy thông tin cá nhân (/auth/me)",
+          "name": "2.3 Get Current User Profile (/auth/me)",
           "request": {
             "method": "GET",
             "header": [
@@ -171,11 +171,11 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "me"]
             },
-            "description": "Lấy thông tin người dùng đang đăng nhập (được phép gọi khi buoc_doi_mat_khau = true)."
+            "description": "Retrieve current authenticated user profile. Exempted from initial password change enforcement."
           }
         },
         {
-          "name": "2.4 Cập nhật hồ sơ cá nhân",
+          "name": "2.4 Update User Profile",
           "request": {
             "method": "PUT",
             "header": [
@@ -197,11 +197,11 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "profile"]
             },
-            "description": "Cập nhật số điện thoại, avatar (bị chặn nếu chưa đổi mật khẩu lần đầu)."
+            "description": "Update phone number and avatar. Blocked with HTTP 403 PASSWORD_CHANGE_REQUIRED if initial password change flag is active."
           }
         },
         {
-          "name": "2.5 Đổi mật khẩu tài khoản",
+          "name": "2.5 Change Account Password",
           "request": {
             "method": "PUT",
             "header": [
@@ -223,11 +223,11 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "change-password"]
             },
-            "description": "Đổi mật khẩu và tự động gỡ bỏ cờ buoc_doi_mat_khau."
+            "description": "Change account password and automatically dismiss buoc_doi_mat_khau initial requirement flag."
           }
         },
         {
-          "name": "2.6 Đăng xuất an toàn (/auth/logout)",
+          "name": "2.6 Safe Logout (/auth/logout)",
           "request": {
             "method": "POST",
             "header": [
@@ -241,16 +241,16 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "logout"]
             },
-            "description": "Đăng xuất, hủy session DB và làm mất hiệu lực cookie."
+            "description": "Safely invalidate session in database, clear auth guards, and revoke session cookie."
           }
         }
       ]
     },
     {
-      "name": "3. Khôi phục Mật khẩu qua OTP (UC-AUTH-04)",
+      "name": "3. Password Recovery via OTP (UC-AUTH-04)",
       "item": [
         {
-          "name": "3.1 Yêu cầu OTP Quên mật khẩu",
+          "name": "3.1 Request Forgot Password OTP",
           "request": {
             "method": "POST",
             "header": [
@@ -272,11 +272,11 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "forgot-password"]
             },
-            "description": "Gửi OTP 6 số qua email (chống email enumeration)."
+            "description": "Dispatch 6-digit recovery OTP via email. Implements anti-enumeration protection."
           }
         },
         {
-          "name": "3.2 Xác thực OTP Quên mật khẩu",
+          "name": "3.2 Verify Forgot Password OTP",
           "request": {
             "method": "POST",
             "header": [
@@ -298,11 +298,11 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "verify-forgot-password-otp"]
             },
-            "description": "Xác thực OTP và trả về reset_token dùng 1 lần."
+            "description": "Verify OTP code and receive a single-use reset_token."
           }
         },
         {
-          "name": "3.3 Đặt lại Mật khẩu mới (Reset Password)",
+          "name": "3.3 Reset Password via Token",
           "request": {
             "method": "POST",
             "header": [
@@ -324,16 +324,16 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "reset-password"]
             },
-            "description": "Đặt lại mật khẩu bằng reset_token hợp lệ."
+            "description": "Set a new password using the validated reset_token."
           }
         }
       ]
     },
     {
-      "name": "4. Quản trị & Cấp phát Tài khoản Nội bộ (UC-ADM-01)",
+      "name": "4. Internal Account Administration (UC-ADM-01)",
       "item": [
         {
-          "name": "4.1 Cấp phát Tài khoản Cán bộ / BTC (Chỉ Admin)",
+          "name": "4.1 Provision Internal Organizer/Staff Account (Admin Only)",
           "request": {
             "method": "POST",
             "header": [
@@ -348,18 +348,18 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"ho_ten\": \"Nguyễn Văn B (BTC Khoa HTTT)\",\n  \"email\": \"btchttt@uit.edu.vn\",\n  \"mat_khau\": \"InitialPass@123\",\n  \"loai_tai_khoan\": \"ToChuc\",\n  \"ma_don_vi_to_chuc\": 1,\n  \"so_dien_thoai\": \"0909112233\"\n}"
+              "raw": "{\n  \"ho_ten\": \"Nguyen Van B (IS Faculty Organizer)\",\n  \"email\": \"btchttt@uit.edu.vn\",\n  \"mat_khau\": \"InitialPass@123\",\n  \"loai_tai_khoan\": \"ToChuc\",\n  \"ma_don_vi_to_chuc\": 1,\n  \"so_dien_thoai\": \"0909112233\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/admin/users/create-internal",
               "host": ["{{base_url}}"],
               "path": ["admin", "users", "create-internal"]
             },
-            "description": "Admin tạo tài khoản BTC nội bộ, tự động bật buoc_doi_mat_khau = 1 và ghi nhật ký GRANT_ORGANIZER."
+            "description": "Administrator provisions internal staff/organizer account. Automatically enforces initial password change flag and records audit log."
           }
         },
         {
-          "name": "4.2 Danh sách Người dùng (Chỉ Admin)",
+          "name": "4.2 List System Users (Admin Only)",
           "request": {
             "method": "GET",
             "header": [
@@ -373,7 +373,7 @@
               "host": ["{{base_url}}"],
               "path": ["admin", "users"]
             },
-            "description": "Lấy danh sách người dùng phân trang."
+            "description": "Retrieve paginated list of accounts with organization hierarchy information."
           }
         }
       ]
