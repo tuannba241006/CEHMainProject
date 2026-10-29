@@ -147,3 +147,4 @@ describe('AuthService', () => {
 - **Descriptive test names**
 - **Arrange-Act-Assert pattern**
 - **Mock external dependencies**
+

@@ -195,6 +195,29 @@
       ],
       "version": "1.0.0"
     },
+    "package-qa-auditor": {
+      "model": "inherit",
+      "path": "agent/package-qa-auditor.md",
+      "requires": {
+        "skills": {
+          "clean-code": "^2.0.0",
+          "code-review-checklist": "^1.0.0",
+          "lint-and-validate": "^1.0.0",
+          "package-qa-qc": "^1.0.0",
+          "testing-patterns": "^1.0.0",
+          "verify-changes": "^1.0.0"
+        }
+      },
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash",
+        "Edit",
+        "Write"
+      ],
+      "version": "1.0.0"
+    },
     "performance-optimizer": {
       "model": "inherit",
       "path": "agent/performance-optimizer.md",
@@ -470,6 +493,12 @@
       "scripts": [],
       "version": "1.0.0"
     },
+    "brainstorm": {
+      "allowedTools": [],
+      "path": "skills/brainstorm/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
     "brainstorming": {
       "allowedTools": [
         "Read",
@@ -510,6 +539,12 @@
       "scripts": [],
       "version": "1.0.0"
     },
+    "coordinate": {
+      "allowedTools": [],
+      "path": "skills/coordinate/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
     "coordinator-mode": {
       "allowedTools": [
         "Read",
@@ -521,6 +556,12 @@
         "Agent"
       ],
       "path": "skills/coordinator-mode/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
+    "create": {
+      "allowedTools": [],
+      "path": "skills/create/SKILL.md",
       "scripts": [],
       "version": "1.0.0"
     },
@@ -536,6 +577,18 @@
       "scripts": [
         "skills/database-design/scripts/schema_validator.py"
       ],
+      "version": "1.0.0"
+    },
+    "debug": {
+      "allowedTools": [],
+      "path": "skills/debug/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
+    "deploy": {
+      "allowedTools": [],
+      "path": "skills/deploy/SKILL.md",
+      "scripts": [],
       "version": "1.0.0"
     },
     "design-spec": {
@@ -557,6 +610,12 @@
         "Grep"
       ],
       "path": "skills/documentation-templates/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
+    "enhance": {
+      "allowedTools": [],
+      "path": "skills/enhance/SKILL.md",
       "scripts": [],
       "version": "1.0.0"
     },
@@ -648,6 +707,25 @@
       "scripts": [],
       "version": "1.0.0"
     },
+    "orchestrate": {
+      "allowedTools": [],
+      "path": "skills/orchestrate/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
+    "package-qa-qc": {
+      "allowedTools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash",
+        "Edit",
+        "Write"
+      ],
+      "path": "skills/package-qa-qc/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
     "parallel-agents": {
       "allowedTools": [
         "Read",
@@ -670,6 +748,12 @@
         "skills/performance-profiling/scripts/bundle_analyzer.py",
         "skills/performance-profiling/scripts/lighthouse_audit.py"
       ],
+      "version": "1.0.0"
+    },
+    "plan": {
+      "allowedTools": [],
+      "path": "skills/plan/SKILL.md",
+      "scripts": [],
       "version": "1.0.0"
     },
     "plan-writing": {
@@ -695,6 +779,33 @@
       "scripts": [],
       "version": "1.0.0"
     },
+    "preview": {
+      "allowedTools": [],
+      "path": "skills/preview/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
+    "project-planner": {
+      "allowedTools": [],
+      "path": "skills/project-planner/SKILL.md",
+      "scripts": [
+        "skills/project-planner/scripts/generate_project_docs.py",
+        "skills/project-planner/scripts/validate_documents.py"
+      ],
+      "version": ""
+    },
+    "qa-package": {
+      "allowedTools": [],
+      "path": "skills/qa-package/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
+    "remember": {
+      "allowedTools": [],
+      "path": "skills/remember/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
     "simplify-code": {
       "allowedTools": [
         "Read",
@@ -715,6 +826,12 @@
         "Grep"
       ],
       "path": "skills/skillify/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
+    "status": {
+      "allowedTools": [],
+      "path": "skills/status/SKILL.md",
       "scripts": [],
       "version": "1.0.0"
     },
@@ -753,6 +870,12 @@
       "scripts": [],
       "version": "1.0.0"
     },
+    "test": {
+      "allowedTools": [],
+      "path": "skills/test/SKILL.md",
+      "scripts": [],
+      "version": "1.0.0"
+    },
     "testing-patterns": {
       "allowedTools": [
         "Read",
@@ -766,6 +889,12 @@
       "scripts": [
         "skills/testing-patterns/scripts/test_runner.py"
       ],
+      "version": "1.0.0"
+    },
+    "verify": {
+      "allowedTools": [],
+      "path": "skills/verify/SKILL.md",
+      "scripts": [],
       "version": "1.0.0"
     },
     "verify-changes": {
@@ -817,226 +946,5 @@
     "portableFormat": true,
     "primary": "Google Antigravity"
   },
-  "workflows": {
-    "brainstorm": {
-      "artifactOutputs": [
-        "discovery-notes",
-        "decision-summary"
-      ],
-      "path": "workflows/brainstorm.md",
-      "requires": {
-        "agents": [
-          "project-planner"
-        ],
-        "skills": [
-          "brainstorming"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "coordinate": {
-      "artifactOutputs": [
-        "coordination-plan",
-        "phase-status"
-      ],
-      "path": "workflows/coordinate.md",
-      "requires": {
-        "agents": [
-          "orchestrator"
-        ],
-        "skills": [
-          "coordinator-mode",
-          "parallel-agents"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "create": {
-      "artifactOutputs": [
-        "implementation-plan",
-        "changed-files",
-        "verification-report"
-      ],
-      "path": "workflows/create.md",
-      "requires": {
-        "agents": [
-          "orchestrator",
-          "project-planner"
-        ],
-        "skills": [
-          "app-builder",
-          "design-spec",
-          "verify-changes"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "debug": {
-      "artifactOutputs": [
-        "root-cause",
-        "fix-summary",
-        "verification-report"
-      ],
-      "path": "workflows/debug.md",
-      "requires": {
-        "agents": [
-          "debugger"
-        ],
-        "skills": [
-          "systematic-debugging",
-          "verify-changes"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "deploy": {
-      "artifactOutputs": [
-        "deployment-plan",
-        "deployment-report",
-        "rollback-plan"
-      ],
-      "path": "workflows/deploy.md",
-      "requires": {
-        "agents": [
-          "devops-engineer"
-        ],
-        "skills": [
-          "verify-changes"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "enhance": {
-      "artifactOutputs": [
-        "change-plan",
-        "changed-files",
-        "verification-report"
-      ],
-      "path": "workflows/enhance.md",
-      "requires": {
-        "agents": [
-          "code-archaeologist"
-        ],
-        "skills": [
-          "simplify-code",
-          "clean-code",
-          "verify-changes"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "orchestrate": {
-      "artifactOutputs": [
-        "task-graph",
-        "coordination-status",
-        "final-synthesis"
-      ],
-      "path": "workflows/orchestrate.md",
-      "requires": {
-        "agents": [
-          "orchestrator"
-        ],
-        "skills": [
-          "parallel-agents",
-          "coordinator-mode"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "plan": {
-      "artifactOutputs": [
-        "implementation-plan"
-      ],
-      "path": "workflows/plan.md",
-      "requires": {
-        "agents": [
-          "project-planner"
-        ],
-        "skills": [
-          "plan-writing",
-          "architecture"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "preview": {
-      "artifactOutputs": [
-        "preview-status",
-        "runtime-findings"
-      ],
-      "path": "workflows/preview.md",
-      "requires": {
-        "agents": [
-          "frontend-specialist"
-        ],
-        "skills": [
-          "verify-changes"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "remember": {
-      "artifactOutputs": [
-        "memory-entry"
-      ],
-      "path": "workflows/remember.md",
-      "requires": {
-        "agents": [
-          "orchestrator"
-        ],
-        "skills": [
-          "memory-system"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "status": {
-      "artifactOutputs": [
-        "status-report"
-      ],
-      "path": "workflows/status.md",
-      "requires": {
-        "agents": [
-          "orchestrator"
-        ],
-        "skills": [
-          "context-compression",
-          "memory-system"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "test": {
-      "artifactOutputs": [
-        "test-report"
-      ],
-      "path": "workflows/test.md",
-      "requires": {
-        "agents": [
-          "test-engineer"
-        ],
-        "skills": [
-          "testing-patterns",
-          "verify-changes"
-        ]
-      },
-      "version": "1.0.0"
-    },
-    "verify": {
-      "artifactOutputs": [
-        "verification-report"
-      ],
-      "path": "workflows/verify.md",
-      "requires": {
-        "agents": [
-          "test-engineer"
-        ],
-        "skills": [
-          "verify-changes",
-          "lint-and-validate"
-        ]
-      },
-      "version": "1.0.0"
-    }
-  }
+  "workflows": {}
 }

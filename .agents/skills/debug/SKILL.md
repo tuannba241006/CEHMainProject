@@ -106,3 +106,4 @@ When `/debug` is triggered:
 - **Test hypotheses** - don't guess randomly
 - **Explain why** - not just what to fix
 - **Prevent recurrence** - add tests, validation
+

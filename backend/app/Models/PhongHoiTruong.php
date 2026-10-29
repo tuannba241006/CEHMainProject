@@ -23,7 +23,7 @@ class PhongHoiTruong extends Model
 
     protected static function booted(): void
     {
-        static::addGlobalScope(new ChuaXoaScope());
+        static::addGlobalScope(new ChuaXoaScope);
     }
 
     protected function casts(): array
