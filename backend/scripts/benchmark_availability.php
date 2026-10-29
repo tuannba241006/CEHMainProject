@@ -176,6 +176,7 @@ if (!empty($createdEventIds)) {
     DB::table('su_kien')->whereIn('ma_su_kien', $createdEventIds)->delete();
 }
 $room->delete();
+\App\Models\DonViToChuc::where('ma_dinh_danh', 'BENCHMARK_UNIT')->delete();
 echo "Cleanup finished.\n";
 
 if ($p95 < 50.0) {

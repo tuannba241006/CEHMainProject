@@ -46,7 +46,7 @@ class RoomScheduleService
             })
             ->where('thoi_gian_bat_dau', '<', $denNgay)
             ->where('thoi_gian_ket_thuc', '>', $tuNgay)
-            ->with('suKien:ma_su_kien,ten_su_kien')
+            ->with(['suKien.donViHost'])
             ->orderBy('thoi_gian_bat_dau')
             ->get();
 
@@ -55,8 +55,10 @@ class RoomScheduleService
                 'ma_dat_phong' => (int) $b->ma_dat_phong,
                 'ma_su_kien' => (int) $b->ma_su_kien,
                 'ten_su_kien' => (string) ($b->suKien?->ten_su_kien ?? ''),
+                'ten_don_vi_host' => $b->suKien?->donViHost?->ten_don_vi,
                 'thoi_gian_bat_dau' => $b->thoi_gian_bat_dau ? $b->thoi_gian_bat_dau->format('Y-m-d H:i:s') : null,
                 'thoi_gian_ket_thuc' => $b->thoi_gian_ket_thuc ? $b->thoi_gian_ket_thuc->format('Y-m-d H:i:s') : null,
+                'han_giu_cho_tam' => $b->han_giu_cho_tam ? $b->han_giu_cho_tam->format('Y-m-d H:i:s') : null,
                 'trang_thai' => (string) $b->trang_thai,
             ];
         })->values()->all();
