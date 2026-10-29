@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tra cứu Lịch & Khả dụng Phòng — Campus Event Hub</title>
+    <link rel="stylesheet" href="/css/rooms.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header-bar">
+            <div>
+                <h1>Campus Event Hub</h1>
+                <p style="color: var(--text-muted); font-size: 0.875rem;">Tra cứu Lịch Hội trường & Kiểm tra Xung đột Thời gian thực</p>
+            </div>
+            <nav class="nav-links">
+                <a href="/admin/rooms.html">Danh sách Hội trường</a>
+                <a href="/admin/room-schedule.html" class="active">Lịch & Khả dụng</a>
+            </nav>
+        </header>
+
+        <!-- Khối 1: Tra cứu lịch phòng theo khoảng ngày (tối đa 31 ngày) -->
+        <section class="card">
+            <h2 style="font-size: 1.15rem; margin-bottom: 16px;">1. Tra cứu Lịch hoạt động & Bảo trì phòng</h2>
+            <form id="scheduleSearchForm" class="filter-bar">
+                <div class="form-group">
+                    <label for="schedRoomSelect">Chọn Hội trường *</label>
+                    <select id="schedRoomSelect" class="form-control" required>
+                        <option value="">-- Đang tải danh sách phòng... --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="schedTuNgay">Từ ngày *</label>
+                    <input type="date" id="schedTuNgay" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="schedDenNgay">Đến ngày * (tối đa 31 ngày)</label>
+                    <input type="date" id="schedDenNgay" class="form-control" required>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="submit" class="btn btn-primary">Xem lịch</button>
+                </div>
+            </form>
+
+            <div id="scheduleAlert" style="margin-top: 16px; display: none;"></div>
+
+            <!-- Kết quả Timeline lịch phòng -->
+            <div id="scheduleResultArea" style="margin-top: 24px; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 id="scheduleRoomTitle" style="font-size: 1rem; color: var(--primary);"></h3>
+                    <div style="display: flex; gap: 12px; font-size: 0.8rem;">
+                        <span style="display: flex; align-items: center; gap: 4px;"><span class="badge badge-success">●</span> Đã duyệt (CONFIRMED)</span>
+                        <span style="display: flex; align-items: center; gap: 4px;"><span class="badge badge-warning">●</span> Tạm giữ (PENDING)</span>
+                        <span style="display: flex; align-items: center; gap: 4px;"><span class="badge badge-danger">●</span> Bảo trì (BaoTri)</span>
+                    </div>
+                </div>
+                <div id="scheduleTimeline"></div>
+            </div>
+        </section>
+
+        <!-- Khối 2: RoomAvailabilityChecker (Component kiểm tra khả dụng thời gian thực) -->
+        <section class="card">
+            <h2 style="font-size: 1.15rem; margin-bottom: 16px;">2. Công cụ Kiểm tra Khả dụng Phòng (Đệm 15 phút)</h2>
+            <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 16px;">
+                Thuật toán tự động tính toán đệm 15 phút giãn cách trước và sau mỗi sự kiện theo quy chế tổ chức UIT.
+            </p>
+            <form id="checkerForm" class="filter-bar">
+                <div class="form-group">
+                    <label for="chkRoomSelect">Hội trường *</label>
+                    <select id="chkRoomSelect" class="form-control" required>
+                        <option value="">-- Chọn phòng --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="chkStart">Bắt đầu sự kiện *</label>
+                    <input type="datetime-local" id="chkStart" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="chkEnd">Kết thúc sự kiện *</label>
+                    <input type="datetime-local" id="chkEnd" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="chkExcludeEvent">Mã sự kiện loại trừ (nếu sửa đề xuất)</label>
+                    <input type="number" id="chkExcludeEvent" class="form-control" placeholder="Mã sự kiện (tùy chọn)">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="submit" class="btn btn-primary">Kiểm tra ngay</button>
+                </div>
+            </form>
+
+            <div id="checkerResult" style="margin-top: 20px; display: none;"></div>
+        </section>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script type="module" src="/js/schedule.js"></script>
+</body>
+</html>
