@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\RoomScheduleController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -46,12 +48,32 @@ $adminRoutes = function () {
     });
 };
 
+// PKG-01: Room management & schedule routes definition
+$roomRoutes = function () {
+    // Admin only CRUD (CEH-P2-ROOM-01)
+    Route::middleware(['auth:sanctum,web', 'role:Admin'])->group(function () {
+        Route::get('/', [RoomController::class, 'index'])->name('rooms.index');
+        Route::post('/', [RoomController::class, 'store'])->name('rooms.store');
+        Route::get('/{id}', [RoomController::class, 'show'])->name('rooms.show');
+        Route::put('/{id}', [RoomController::class, 'update'])->name('rooms.update');
+        Route::delete('/{id}', [RoomController::class, 'destroy'])->name('rooms.destroy');
+    });
+
+    // Admin & ToChuc: Schedule & Availability (CEH-P2-ROOM-02)
+    Route::middleware(['auth:sanctum,web', 'role:Admin,ToChuc'])->group(function () {
+        Route::get('/{id}/schedule', [RoomScheduleController::class, 'schedule'])->name('rooms.schedule');
+        Route::post('/{id}/availability', [RoomScheduleController::class, 'availability'])->name('rooms.availability');
+    });
+};
+
 // Version 1 API routes (/api/v1/...)
-Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes) {
+Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes) {
     Route::prefix('auth')->group($authRoutes);
     Route::prefix('admin')->group($adminRoutes);
+    Route::prefix('rooms')->group($roomRoutes);
 });
 
 // Root API alias routes (/api/...)
 Route::prefix('auth')->group($authRoutes);
 Route::prefix('admin')->group($adminRoutes);
+Route::prefix('rooms')->group($roomRoutes);

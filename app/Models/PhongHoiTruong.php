@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\ChuaXoaScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,6 +20,11 @@ class PhongHoiTruong extends Model
     const UPDATED_AT = 'thoi_gian_cap_nhat';
 
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new ChuaXoaScope());
+    }
 
     protected function casts(): array
     {
