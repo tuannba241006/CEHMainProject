@@ -51,6 +51,11 @@ class SuKien extends Model
         return $this->belongsTo(DonViToChuc::class, 'ma_don_vi_to_chuc', 'ma_don_vi_to_chuc');
     }
 
+    public function donViHost(): BelongsTo
+    {
+        return $this->belongsTo(DonViToChuc::class, 'ma_don_vi_to_chuc', 'ma_don_vi_to_chuc');
+    }
+
     public function chuyenDe(): BelongsTo
     {
         return $this->belongsTo(ChuyenDe::class, 'ma_chuyen_de', 'ma_chuyen_de');

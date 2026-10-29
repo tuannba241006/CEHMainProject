@@ -16,8 +16,17 @@ class UpdateRoomRequest extends FormRequest
 
     public function rules(): array
     {
+        $roomId = $this->route('room')?->ma_phong ?? $this->route('id') ?? $this->route('room');
+
         return [
-            'ten_phong' => ['sometimes', 'string', 'max:255'],
+            'ten_phong' => [
+                'sometimes',
+                'string',
+                'max:100',
+                Rule::unique('phong_hoi_truong', 'ten_phong')
+                    ->where(fn ($query) => $this->filled('co_so') ? $query->where('co_so', $this->input('co_so')) : $query)
+                    ->ignore($roomId, 'ma_phong'),
+            ],
             'co_so' => ['sometimes', Rule::enum(Campus::class)],
             'suc_chua_toi_da' => ['sometimes', 'integer', 'min:10'],
             'trang_thiet_bi' => ['sometimes', 'array'],

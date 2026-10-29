@@ -17,7 +17,13 @@ class StoreRoomRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'ten_phong' => ['required', 'string', 'max:255'],
+            'ten_phong' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('phong_hoi_truong', 'ten_phong')
+                    ->where('co_so', $this->input('co_so')),
+            ],
             'co_so' => ['required', Rule::enum(Campus::class)],
             'suc_chua_toi_da' => ['required', 'integer', 'min:10'],
             'trang_thiet_bi' => ['required', 'array'],

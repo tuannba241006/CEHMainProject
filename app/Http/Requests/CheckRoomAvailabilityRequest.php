@@ -13,6 +13,11 @@ class CheckRoomAvailabilityRequest extends FormRequest
         return $user && ($user->isAdmin() || $user->isToChuc());
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge(array_merge($this->query(), $this->all()));
+    }
+
     public function rules(): array
     {
         return [

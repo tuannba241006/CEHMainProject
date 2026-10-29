@@ -50,11 +50,15 @@ $adminRoutes = function () {
 
 // PKG-01: Room management & schedule routes definition
 $roomRoutes = function () {
-    // Admin only CRUD (CEH-P2-ROOM-01)
-    Route::middleware(['auth:sanctum,web', 'role:Admin'])->group(function () {
+    // GET cho cả Admin và ToChuc (OpenAPI: x-roles: [ToChuc, Admin])
+    Route::middleware(['auth:sanctum,web', 'role:Admin,ToChuc'])->group(function () {
         Route::get('/', [RoomController::class, 'index'])->name('rooms.index');
-        Route::post('/', [RoomController::class, 'store'])->name('rooms.store');
         Route::get('/{id}', [RoomController::class, 'show'])->name('rooms.show');
+    });
+
+    // Ghi (POST/PUT/DELETE) chỉ Admin
+    Route::middleware(['auth:sanctum,web', 'role:Admin'])->group(function () {
+        Route::post('/', [RoomController::class, 'store'])->name('rooms.store');
         Route::put('/{id}', [RoomController::class, 'update'])->name('rooms.update');
         Route::delete('/{id}', [RoomController::class, 'destroy'])->name('rooms.destroy');
     });
@@ -62,7 +66,7 @@ $roomRoutes = function () {
     // Admin & ToChuc: Schedule & Availability (CEH-P2-ROOM-02)
     Route::middleware(['auth:sanctum,web', 'role:Admin,ToChuc'])->group(function () {
         Route::get('/{id}/schedule', [RoomScheduleController::class, 'schedule'])->name('rooms.schedule');
-        Route::post('/{id}/availability', [RoomScheduleController::class, 'availability'])->name('rooms.availability');
+        Route::match(['get', 'post'], '/{id}/availability', [RoomScheduleController::class, 'availability'])->name('rooms.availability');
     });
 };
 

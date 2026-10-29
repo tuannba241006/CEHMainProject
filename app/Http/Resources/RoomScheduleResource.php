@@ -12,33 +12,38 @@ class RoomScheduleResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
-            'room' => [
-                'ma_phong' => (int) $this['room']['ma_phong'],
-                'ten_phong' => (string) $this['room']['ten_phong'],
-                'co_so' => (string) $this['room']['co_so'],
-            ],
-            'range' => [
-                'tu_ngay' => (string) $this['range']['tu_ngay'],
-                'den_ngay' => (string) $this['range']['den_ngay'],
-            ],
-            'maintenance' => array_map(function ($m) {
-                return [
-                    'bat_dau_bao_tri' => $m['bat_dau_bao_tri'],
-                    'ket_thuc_bao_tri' => $m['ket_thuc_bao_tri'],
-                    'ly_do_bao_tri' => $m['ly_do_bao_tri'] ?? null,
-                ];
-            }, $this['maintenance'] ?? []),
-            'bookings' => array_map(function ($b) {
-                return [
-                    'ma_dat_phong' => (int) $b['ma_dat_phong'],
-                    'ma_su_kien' => (int) $b['ma_su_kien'],
-                    'ten_su_kien' => (string) ($b['ten_su_kien'] ?? ''),
-                    'thoi_gian_bat_dau' => (string) $b['thoi_gian_bat_dau'],
-                    'thoi_gian_ket_thuc' => (string) $b['thoi_gian_ket_thuc'],
-                    'trang_thai' => (string) $b['trang_thai'],
-                ];
-            }, $this['bookings'] ?? []),
-        ];
+        $blocks = collect();
+
+        // 1. Bookings
+        $bookings = $this['bookings'] ?? [];
+        foreach ($bookings as $b) {
+            $loaiKhoang = ($b['trang_thai'] ?? '') === 'Pending' ? 'PENDING_HOLD' : 'CONFIRMED';
+            $blocks->push([
+                'loai_khoang' => $loaiKhoang,
+                'ma_su_kien' => isset($b['ma_su_kien']) ? (int) $b['ma_su_kien'] : null,
+                'tieu_de' => $b['ten_su_kien'] ?? '',
+                'ten_don_vi_host' => $b['ten_don_vi_host'] ?? null,
+                'thoi_gian_bat_dau' => $b['thoi_gian_bat_dau'] ?? null,
+                'thoi_gian_ket_thuc' => $b['thoi_gian_ket_thuc'] ?? null,
+                'han_giu_cho_tam' => $b['han_giu_cho_tam'] ?? null,
+            ]);
+        }
+
+        // 2. Bảo trì
+        $maintenance = $this['maintenance'] ?? [];
+        foreach ($maintenance as $m) {
+            $blocks->push([
+                'loai_khoang' => 'BAO_TRI',
+                'ma_su_kien' => null,
+                'tieu_de' => $m['ly_do_bao_tri'] ?? 'Bảo trì phòng',
+                'ten_don_vi_host' => null,
+                'thoi_gian_bat_dau' => $m['bat_dau_bao_tri'] ?? null,
+                'thoi_gian_ket_thuc' => $m['ket_thuc_bao_tri'] ?? null,
+                'han_giu_cho_tam' => null,
+            ]);
+        }
+
+        // Sắp xếp theo thời gian bắt đầu
+        return $blocks->sortBy('thoi_gian_bat_dau')->values()->all();
     }
 }
