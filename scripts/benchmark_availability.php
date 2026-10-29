@@ -5,22 +5,21 @@
  * Cách chạy: php scripts/benchmark_availability.php --records=1000 --iterations=100
  */
 
-require __DIR__ . '/../vendor/autoload.php';
-$app = require_once __DIR__ . '/../bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+require __DIR__.'/../vendor/autoload.php';
+$app = require_once __DIR__.'/../bootstrap/app.php';
+$kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
 use App\Enums\BookingStatus;
 use App\Enums\Campus;
 use App\Enums\RoomStatus;
 use App\Models\ChuyenDe;
-use App\Models\DatPhong;
 use App\Models\DonViToChuc;
 use App\Models\PhongHoiTruong;
-use App\Models\SuKien;
 use App\Models\User;
 use App\Services\RoomScheduleService;
 use Carbon\Carbon;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 
 // Đọc arguments CLI
@@ -51,7 +50,7 @@ $admin = User::firstOrCreate(
 );
 
 $room = PhongHoiTruong::create([
-    'ten_phong' => 'Hội trường Benchmark ' . uniqid(),
+    'ten_phong' => 'Hội trường Benchmark '.uniqid(),
     'co_so' => Campus::CoSo1->value,
     'suc_chua_toi_da' => 500,
     'trang_thiet_bi' => ['loa' => true],
@@ -172,17 +171,17 @@ echo "-------------------------\n";
 // Dọn dẹp dữ liệu benchmark
 echo "Cleaning up benchmark records...\n";
 DB::table('dat_phong')->where('ma_phong', $room->ma_phong)->delete();
-if (!empty($createdEventIds)) {
+if (! empty($createdEventIds)) {
     DB::table('su_kien')->whereIn('ma_su_kien', $createdEventIds)->delete();
 }
 $room->delete();
-\App\Models\DonViToChuc::where('ma_dinh_danh', 'BENCHMARK_UNIT')->delete();
+DonViToChuc::where('ma_dinh_danh', 'BENCHMARK_UNIT')->delete();
 echo "Cleanup finished.\n";
 
 if ($p95 < 50.0) {
-    echo " RESULT: PASS (p95 = " . number_format($p95, 2) . " ms < 50 ms)\n";
+    echo ' RESULT: PASS (p95 = '.number_format($p95, 2)." ms < 50 ms)\n";
     exit(0);
 } else {
-    echo " RESULT: FAIL (p95 = " . number_format($p95, 2) . " ms >= 50 ms)\n";
+    echo ' RESULT: FAIL (p95 = '.number_format($p95, 2)." ms >= 50 ms)\n";
     exit(1);
 }

@@ -22,8 +22,13 @@ class RoomController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['co_so', 'suc_chua_min', 'trang_thai']);
-        $paginator = $this->roomService->getRooms($filters, 15);
+        $filters = $request->only(['co_so', 'suc_chua_min', 'suc_chua_toi_thieu', 'trang_thai']);
+        if (isset($filters['suc_chua_toi_thieu']) && ! isset($filters['suc_chua_min'])) {
+            $filters['suc_chua_min'] = $filters['suc_chua_toi_thieu'];
+        }
+
+        $perPage = (int) $request->input('limit', 15);
+        $paginator = $this->roomService->getRooms($filters, $perPage);
 
         return response()->json([
             'success' => true,
@@ -123,7 +128,7 @@ class RoomController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => null,
+            'data' => isset($result['room']) ? new RoomResource($result['room']) : null,
             'message' => 'Xóa phòng thành công.',
         ]);
     }

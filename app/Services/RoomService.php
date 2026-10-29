@@ -129,6 +129,7 @@ class RoomService
 
         return [
             'success' => true,
+            'room' => $room->fresh(),
         ];
     }
 }
