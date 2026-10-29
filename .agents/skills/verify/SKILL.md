@@ -75,3 +75,4 @@ RULES:
 /verify build passes after refactoring
 /verify the new component renders correctly
 ```
+

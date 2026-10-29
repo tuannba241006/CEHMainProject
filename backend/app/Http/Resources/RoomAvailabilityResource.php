@@ -14,13 +14,13 @@ class RoomAvailabilityResource extends JsonResource
     {
         $isAvailable = (bool) $this['available'];
         $conflicts = $this['conflicts'] ?? [];
-        $firstConflict = !empty($conflicts) ? $conflicts[0] : null;
+        $firstConflict = ! empty($conflicts) ? $conflicts[0] : null;
         $maintenanceConflict = $this['maintenance_conflict'] ?? null;
 
         $lyDoXungDot = null;
         $khoangXungDot = null;
 
-        if (!$isAvailable) {
+        if (! $isAvailable) {
             if ($maintenanceConflict) {
                 $lyDoXungDot = 'ROOM_MAINTENANCE_CONFLICT';
                 $khoangXungDot = [

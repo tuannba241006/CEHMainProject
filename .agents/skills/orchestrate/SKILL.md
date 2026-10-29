@@ -244,3 +244,4 @@ Before completing orchestration, verify:
 ---
 
 **Begin orchestration now. Select 3+ agents, execute sequentially, run verification scripts, synthesize results.**
+
