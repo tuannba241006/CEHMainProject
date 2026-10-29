@@ -59,38 +59,59 @@ $room = PhongHoiTruong::create([
     'da_xoa' => 0,
 ]);
 
-// Tạo 1 sự kiện chung cho 1,000 bookings để tối ưu tốc độ seed
+// Batch tạo sự kiện và đặt phòng tương ứng
 $baseEventStart = Carbon::now()->addDays(1)->setTime(8, 0, 0);
-$event = SuKien::create([
-    'ma_don_vi_to_chuc' => $donVi->ma_don_vi_to_chuc,
-    'ma_chuyen_de' => $chuyenDe->ma_chuyen_de,
-    'ma_phong' => $room->ma_phong,
-    'ten_su_kien' => 'Sự kiện Benchmark',
-    'mo_ta' => 'Sự kiện dùng để benchmark dat_phong',
-    'ngay_cong_bo' => Carbon::now(),
-    'thoi_gian_bat_dau' => $baseEventStart,
-    'thoi_gian_ket_thuc' => $baseEventStart->copy()->addMonths(6),
-    'khong_gioi_han_slot' => 1,
-    'trang_thai' => 'APPROVED',
-]);
-
-// Batch insert 1,000 DatPhong
 $batchSize = 250;
 $now = Carbon::now();
 $recordsInserted = 0;
+$createdEventIds = [];
 
 for ($i = 0; $i < $numRecords; $i += $batchSize) {
-    $rows = [];
     $currentChunk = min($batchSize, $numRecords - $i);
+    $eventRows = [];
+    $startTimes = [];
+
     for ($j = 0; $j < $currentChunk; $j++) {
         $idx = $i + $j;
-        // Rải rác booking cách nhau 3 giờ qua các ngày
         $bStart = $baseEventStart->copy()->addHours($idx * 3);
         $bEnd = $bStart->copy()->addHours(2);
+        $startTimes[] = [$bStart, $bEnd];
 
-        $rows[] = [
+        $eventRows[] = [
+            'ma_don_vi_to_chuc' => $donVi->ma_don_vi_to_chuc,
+            'ma_chuyen_de' => $chuyenDe->ma_chuyen_de,
             'ma_phong' => $room->ma_phong,
-            'ma_su_kien' => $event->ma_su_kien,
+            'ten_su_kien' => "Sự kiện Benchmark {$idx}",
+            'mo_ta' => 'Sự kiện dùng để benchmark dat_phong',
+            'ngay_cong_bo' => $now->format('Y-m-d H:i:s'),
+            'thoi_gian_bat_dau' => $bStart->format('Y-m-d H:i:s'),
+            'thoi_gian_ket_thuc' => $bEnd->format('Y-m-d H:i:s'),
+            'khong_gioi_han_slot' => 1,
+            'trang_thai' => 'APPROVED',
+            'thoi_gian_tao' => $now->format('Y-m-d H:i:s'),
+            'thoi_gian_cap_nhat' => $now->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    DB::table('su_kien')->insert($eventRows);
+
+    // Lấy ID các sự kiện vừa tạo
+    $latestEvents = DB::table('su_kien')
+        ->where('ma_don_vi_to_chuc', $donVi->ma_don_vi_to_chuc)
+        ->where('ma_phong', $room->ma_phong)
+        ->orderBy('ma_su_kien', 'desc')
+        ->limit($currentChunk)
+        ->pluck('ma_su_kien')
+        ->reverse()
+        ->values();
+
+    $bookingRows = [];
+    foreach ($latestEvents as $k => $eId) {
+        $createdEventIds[] = $eId;
+        [$bStart, $bEnd] = $startTimes[$k];
+        $bookingRows[] = [
+            'ma_phong' => $room->ma_phong,
+            'ma_su_kien' => $eId,
             'thoi_gian_bat_dau' => $bStart->format('Y-m-d H:i:s'),
             'thoi_gian_ket_thuc' => $bEnd->format('Y-m-d H:i:s'),
             'trang_thai' => BookingStatus::Confirmed->value,
@@ -99,7 +120,8 @@ for ($i = 0; $i < $numRecords; $i += $batchSize) {
             'thoi_gian_cap_nhat' => $now->format('Y-m-d H:i:s'),
         ];
     }
-    DB::table('dat_phong')->insert($rows);
+
+    DB::table('dat_phong')->insert($bookingRows);
     $recordsInserted += $currentChunk;
 }
 
@@ -150,7 +172,9 @@ echo "-------------------------\n";
 // Dọn dẹp dữ liệu benchmark
 echo "Cleaning up benchmark records...\n";
 DB::table('dat_phong')->where('ma_phong', $room->ma_phong)->delete();
-$event->delete();
+if (!empty($createdEventIds)) {
+    DB::table('su_kien')->whereIn('ma_su_kien', $createdEventIds)->delete();
+}
 $room->delete();
 echo "Cleanup finished.\n";
 

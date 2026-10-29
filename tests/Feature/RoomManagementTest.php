@@ -117,9 +117,15 @@ class RoomManagementTest extends TestCase
 
     protected function createEventHelper(PhongHoiTruong $room, array $attributes = []): SuKien
     {
-        $start = $attributes['thoi_gian_bat_dau'] ?? now()->addDays(5)->setTime(8, 0, 0);
-        $end = $attributes['thoi_gian_ket_thuc'] ?? (clone $start)->addHours(2);
-        $publish = (clone $start)->subDays(2);
+        $start = isset($attributes['thoi_gian_bat_dau'])
+            ? \Illuminate\Support\Carbon::parse($attributes['thoi_gian_bat_dau'])
+            : now()->addDays(5)->setTime(8, 0, 0);
+
+        $end = isset($attributes['thoi_gian_ket_thuc'])
+            ? \Illuminate\Support\Carbon::parse($attributes['thoi_gian_ket_thuc'])
+            : $start->copy()->addHours(2);
+
+        $publish = $start->copy()->subDays(2);
 
         return SuKien::create(array_merge([
             'ma_don_vi_to_chuc' => $this->donViA->ma_don_vi_to_chuc,
