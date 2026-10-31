@@ -3067,31 +3067,23 @@ paths:
         content:
           application/json:
             schema:
-              oneOf:
-              - type: object
-                title: AcceptCohostRequest
-                required:
-                - trang_thai_xac_nhan
-                properties:
-                  trang_thai_xac_nhan:
-                    type: string
-                    enum:
-                    - DONG_Y
-              - type: object
-                title: RejectCohostRequest
-                required:
-                - trang_thai_xac_nhan
-                - ghi_chu_tu_choi
-                properties:
-                  trang_thai_xac_nhan:
-                    type: string
-                    enum:
-                    - TU_CHOI
-                  ghi_chu_tu_choi:
-                    type: string
-                    minLength: 5
-                    maxLength: 1000
-                    example: Trùng lịch hoạt động trọng điểm của CLB trong tuần đó
+              type: object
+              required:
+              - trang_thai_xac_nhan
+              properties:
+                trang_thai_xac_nhan:
+                  type: string
+                  enum:
+                  - DONG_Y
+                  - TU_CHOI
+                  example: DONG_Y
+                ghi_chu_tu_choi:
+                  type: string
+                  minLength: 5
+                  maxLength: 1000
+                  nullable: true
+                  description: 'Lý do từ chối đồng tổ chức (Bắt buộc khi `trang_thai_xac_nhan = TU_CHOI`, tối thiểu 5 ký tự; bỏ trống hoặc null khi `DONG_Y`).'
+                  example: Trùng lịch hoạt động trọng điểm của CLB trong tuần đó
       responses:
         '200':
           description: Đã ghi nhận phản hồi đồng tổ chức
