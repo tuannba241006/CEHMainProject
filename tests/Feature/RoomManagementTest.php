@@ -106,7 +106,7 @@ class RoomManagementTest extends TestCase
     protected function createRoomHelper(array $attributes = []): PhongHoiTruong
     {
         return PhongHoiTruong::create(array_merge([
-            'ten_phong' => 'Hội trường Test ' . uniqid(),
+            'ten_phong' => 'Hội trường Test '.uniqid(),
             'co_so' => Campus::CoSo1->value,
             'suc_chua_toi_da' => 150,
             'trang_thiet_bi' => ['may_chieu' => true, 'am_thanh' => true],
@@ -131,7 +131,7 @@ class RoomManagementTest extends TestCase
             'ma_don_vi_to_chuc' => $this->donViA->ma_don_vi_to_chuc,
             'ma_chuyen_de' => $this->chuyenDe->ma_chuyen_de,
             'ma_phong' => $room->ma_phong,
-            'ten_su_kien' => 'Sự kiện Test ' . uniqid(),
+            'ten_su_kien' => 'Sự kiện Test '.uniqid(),
             'mo_ta' => 'Mô tả sự kiện test hội trường',
             'ngay_cong_bo' => $publish,
             'thoi_gian_bat_dau' => $start,
@@ -162,7 +162,7 @@ class RoomManagementTest extends TestCase
         $this->actingAs($this->adminUser);
 
         $payload = [
-            'ten_phong' => 'Hội trường A ' . uniqid(),
+            'ten_phong' => 'Hội trường A '.uniqid(),
             'co_so' => 'CoSo1',
             'suc_chua_toi_da' => 100,
             'trang_thiet_bi' => ['may_chieu' => true, 'micro' => 2],
