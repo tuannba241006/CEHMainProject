@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ReviewEventRequest;
 use App\Http\Resources\EventManageDetailResource;
+use App\Http\Resources\ReviewQueueResource;
 use App\Services\EventApprovalService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class EventReviewController extends Controller
 {
@@ -17,100 +19,74 @@ class EventReviewController extends Controller
     ) {}
 
     /**
-     * POST /api/events/{id}/approve-faculty
+     * GET /api/v1/events/review-queue
      *
-     * Host B duyệt sự kiện cấp Khoa:
-     * PENDING_FACULTY -> PENDING_ADMIN.
+     * Hàng đợi sự kiện chờ phê duyệt dành cho Cấp Khoa & P.CTSV (UC-EVT-03 Bước 1-2).
      */
-    public function approveFaculty(int $id): JsonResponse
+    public function reviewQueue(Request $request): JsonResponse
     {
-        $event = $this->eventApprovalService->approveFaculty(
-            request()->user(),
+        $paginator = $this->eventApprovalService->getReviewQueue(
+            $request->user(),
+            $request->all()
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => ReviewQueueResource::collection($paginator->items()),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ], 200);
+    }
+
+    /**
+     * POST /api/v1/events/{id}/review
+     *
+     * Thẩm định phê duyệt sự kiện Đa cấp (Khoa duyệt, P.CTSV duyệt, Admin duyệt thay, từ chối, yêu cầu chỉnh sửa).
+     */
+    public function review(ReviewEventRequest $request, int $id): JsonResponse
+    {
+        $event = $this->eventApprovalService->review(
+            $request->user(),
+            $id,
+            $request->validated()
+        );
+
+        $action = $request->input('hanh_dong');
+        $message = match ($action) {
+            'APPROVE_FACULTY' => 'Khoa đã duyệt sự kiện. Sự kiện đang chờ P.CTSV duyệt cuối.',
+            'APPROVE_ADMIN' => 'P.CTSV đã phê duyệt sự kiện và xác nhận đặt phòng.',
+            'APPROVE_FACULTY_BY_ADMIN' => 'Admin P.CTSV đã duyệt thay cấp Khoa thành công.',
+            'REJECT_FACULTY' => 'Khoa đã từ chối đề xuất sự kiện.',
+            'REJECT_ADMIN' => 'P.CTSV đã từ chối đề xuất sự kiện.',
+            'REQUEST_EDIT' => 'Đã gửi yêu cầu chỉnh sửa nội dung sự kiện về Bản nháp (DRAFT).',
+            default => 'Đã xử lý thẩm định sự kiện thành công.',
+        };
+
+        return $this->successResponse(
+            data: new EventManageDetailResource($event),
+            message: $message
+        );
+    }
+
+    /**
+     * POST /api/v1/events/{id}/reopen
+     *
+     * Tái mở sự kiện bị từ chối (REJECTED / COHOST_REJECTED) quay về DRAFT để chỉnh sửa.
+     */
+    public function reopen(Request $request, int $id): JsonResponse
+    {
+        $event = $this->eventApprovalService->reopen(
+            $request->user(),
             $id
         );
 
         return $this->successResponse(
             data: new EventManageDetailResource($event),
-            message: 'Khoa đã duyệt sự kiện. Sự kiện đang chờ P.CTSV duyệt cuối.'
-        );
-    }
-
-    /**
-     * POST /api/events/{id}/admin-override
-     *
-     * Admin duyệt thay Host B:
-     * PENDING_FACULTY -> PENDING_ADMIN.
-     */
-    public function adminOverride(ReviewEventRequest $request, int $id): JsonResponse
-    {
-        $event = $this->eventApprovalService->adminOverride(
-            $request->user(),
-            $id,
-            $request->validated()
-        );
-
-        return $this->successResponse(
-            data: new EventManageDetailResource($event),
-            message: 'Admin đã duyệt thay cấp Khoa. Sự kiện đang chờ P.CTSV duyệt cuối.'
-        );
-    }
-
-    /**
-     * POST /api/events/{id}/approve-admin
-     *
-     * Admin P.CTSV duyệt cuối:
-     * PENDING_ADMIN -> APPROVED.
-     */
-    public function approveAdmin(int $id): JsonResponse
-    {
-        $event = $this->eventApprovalService->approveAdmin(
-            request()->user(),
-            $id
-        );
-
-        return $this->successResponse(
-            data: new EventManageDetailResource($event),
-            message: 'P.CTSV đã phê duyệt sự kiện.'
-        );
-    }
-
-    /**
-     * POST /api/events/{id}/reject-faculty
-     *
-     * Host B từ chối:
-     * PENDING_FACULTY -> REJECTED_FACULTY.
-     */
-    public function rejectFaculty(ReviewEventRequest $request, int $id): JsonResponse
-    {
-        $event = $this->eventApprovalService->rejectFaculty(
-            $request->user(),
-            $id,
-            $request->validated()
-        );
-
-        return $this->successResponse(
-            data: new EventManageDetailResource($event),
-            message: 'Khoa đã từ chối đề xuất sự kiện.'
-        );
-    }
-
-    /**
-     * POST /api/events/{id}/reject-admin
-     *
-     * Admin P.CTSV từ chối:
-     * PENDING_ADMIN -> REJECTED_ADMIN.
-     */
-    public function rejectAdmin(ReviewEventRequest $request, int $id): JsonResponse
-    {
-        $event = $this->eventApprovalService->rejectAdmin(
-            $request->user(),
-            $id,
-            $request->validated()
-        );
-
-        return $this->successResponse(
-            data: new EventManageDetailResource($event),
-            message: 'P.CTSV đã từ chối đề xuất sự kiện.'
+            message: 'Đã chuyển sự kiện về trạng thái Bản nháp (DRAFT)'
         );
     }
 }
