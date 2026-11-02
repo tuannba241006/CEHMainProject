@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\BusinessException;
+use App\Mail\EventEmergencyMailable;
 use App\Models\DangKy;
 use App\Models\DatPhong;
 use App\Models\HangDoiWaitlist;
@@ -11,6 +12,7 @@ use App\Models\SuKien;
 use App\Models\ThongBao;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class EventEmergencyService
 {
@@ -32,7 +34,9 @@ class EventEmergencyService
             );
         }
 
-        return DB::transaction(function () use ($actor, $eventId, $reason) {
+        $emailRecipients = [];
+
+        $eventResult = DB::transaction(function () use ($actor, $eventId, $reason, &$emailRecipients) {
             $lockedActor = $this->lockActor($actor);
 
             $eventSnapshot = SuKien::query()->find($eventId);
@@ -41,7 +45,7 @@ class EventEmergencyService
             }
 
             // Kiểm tra trạng thái sự kiện hợp lệ trước khi khóa
-            $validStatuses = ['APPROVED', 'PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED'];
+            $validStatuses = ['APPROVED', 'PUBLISHED'];
             if (! in_array($eventSnapshot->trang_thai, $validStatuses, true)) {
                 throw new BusinessException(
                     'INVALID_STATE_TRANSITION',
@@ -105,6 +109,9 @@ class EventEmergencyService
 
             $previousStatus = $event->trang_thai;
 
+            $registrationRecipientIds = $registrations->where('trang_thai', 'DaDangKy')->pluck('ma_tai_khoan')->all();
+            $waitlistRecipientIds = $waitlists->whereIn('trang_thai', ['WAITING', 'OFFERED'])->pluck('ma_tai_khoan')->all();
+
             // 1. Cập nhật sự kiện sang CANCELLED
             $event->update([
                 'trang_thai' => 'CANCELLED',
@@ -151,9 +158,14 @@ class EventEmergencyService
             );
 
             // 6. Phát thông báo HUY_SU_KIEN cho toàn bộ người giữ vé và waitlist
-            $regUserIds = $registrations->pluck('ma_tai_khoan')->all();
-            $waitlistUserIds = $waitlists->pluck('ma_tai_khoan')->all();
+            $regUserIds = $registrationRecipientIds;
+            $waitlistUserIds = $waitlistRecipientIds;
             $affectedUserIds = array_unique(array_merge($regUserIds, $waitlistUserIds));
+            $emailRecipients = User::query()
+                ->whereIn('ma_tai_khoan', $affectedUserIds)
+                ->whereNotNull('email')
+                ->where('email', '<>', '')
+                ->get(['email', 'ho_ten']);
 
             foreach ($affectedUserIds as $uid) {
                 ThongBao::create([
@@ -183,6 +195,14 @@ class EventEmergencyService
 
             return $event->fresh();
         });
+
+        $this->queueEmergencyEmails(
+            $emailRecipients,
+            "[Campus Event Hub] Hủy sự kiện: {$eventResult->ten_su_kien}",
+            "Sự kiện {$eventResult->ten_su_kien} đã bị hủy khẩn cấp. Lý do: {$reason}"
+        );
+
+        return $eventResult;
     }
 
     /**
@@ -203,7 +223,10 @@ class EventEmergencyService
             );
         }
 
-        return DB::transaction(function () use ($actor, $eventId, $newRoomId, $reason) {
+        $emailRecipients = [];
+        $emailRoomChange = '';
+
+        $eventResult = DB::transaction(function () use ($actor, $eventId, $newRoomId, $reason, &$emailRecipients, &$emailRoomChange) {
             $lockedActor = $this->lockActor($actor);
 
             if (! $lockedActor->isAdmin()) {
@@ -220,7 +243,7 @@ class EventEmergencyService
                 throw new BusinessException('EVENT_NOT_FOUND', 'Không tìm thấy sự kiện.', null, 404);
             }
 
-            $validStatuses = ['APPROVED', 'PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED'];
+            $validStatuses = ['APPROVED', 'PUBLISHED'];
             if (! in_array($eventSnapshot->trang_thai, $validStatuses, true)) {
                 throw new BusinessException(
                     'INVALID_STATE_TRANSITION',
@@ -366,6 +389,7 @@ class EventEmergencyService
 
             // 5. Cập nhật phòng cho sự kiện và đặt phòng
             $oldRoomName = $oldRoom ? $oldRoom->ten_phong : "Phòng ID {$event->ma_phong}";
+            $emailRoomChange = "Sự kiện {$event->ten_su_kien} đã được chuyển từ phòng {$oldRoomName} sang {$newRoom->ten_phong}. Lý do: {$reason}";
 
             $event->update([
                 'ma_phong' => $newRoomId,
@@ -400,6 +424,11 @@ class EventEmergencyService
                 ->all();
 
             $affectedUserIds = array_unique(array_merge($regUserIds, $waitlistUserIds));
+            $emailRecipients = User::query()
+                ->whereIn('ma_tai_khoan', $affectedUserIds)
+                ->whereNotNull('email')
+                ->where('email', '<>', '')
+                ->get(['email', 'ho_ten']);
 
             foreach ($affectedUserIds as $uid) {
                 ThongBao::create([
@@ -429,6 +458,25 @@ class EventEmergencyService
 
             return $event->fresh();
         });
+
+        $this->queueEmergencyEmails(
+            $emailRecipients,
+            "[Campus Event Hub] Thông báo đổi phòng: {$eventResult->ten_su_kien}",
+            $emailRoomChange
+        );
+
+        return $eventResult;
+    }
+
+    private function queueEmergencyEmails(iterable $recipients, string $subject, string $message): void
+    {
+        foreach ($recipients as $recipient) {
+            Mail::to($recipient->email)->queue(new EventEmergencyMailable(
+                (string) $recipient->ho_ten,
+                $subject,
+                $message
+            ));
+        }
     }
 
     private function lockActor(User $actor): User

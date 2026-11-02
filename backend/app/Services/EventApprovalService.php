@@ -14,8 +14,6 @@ use Illuminate\Support\Facades\DB;
 
 class EventApprovalService
 {
-    private const DEFAULT_PCTSV_UNIT_ID = 7;
-
     /**
      * Lấy ID của đơn vị P.CTSV (tra cứu động theo mã định danh hoặc config).
      */
@@ -30,7 +28,16 @@ class EventApprovalService
             ->where('ma_dinh_danh', 'PCTSV')
             ->value('ma_don_vi_to_chuc');
 
-        return (int) ($unitId ?? self::DEFAULT_PCTSV_UNIT_ID);
+        if ($unitId === null) {
+            throw new BusinessException(
+                'PCTSV_UNIT_NOT_CONFIGURED',
+                'Đơn vị P.CTSV chưa được cấu hình.',
+                null,
+                500
+            );
+        }
+
+        return (int) $unitId;
     }
 
     /**

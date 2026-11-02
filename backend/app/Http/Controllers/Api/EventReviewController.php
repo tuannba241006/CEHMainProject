@@ -25,9 +25,16 @@ class EventReviewController extends Controller
      */
     public function reviewQueue(Request $request): JsonResponse
     {
+        $filters = $request->validate([
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'limit' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'trang_thai' => ['sometimes', 'in:PENDING_FACULTY,PENDING_ADMIN'],
+            'ma_don_vi_to_chuc' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
         $paginator = $this->eventApprovalService->getReviewQueue(
             $request->user(),
-            $request->all()
+            $filters
         );
 
         return response()->json([
