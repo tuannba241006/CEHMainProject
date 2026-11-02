@@ -59,19 +59,6 @@ class User extends Authenticatable
         return $this->loai_tai_khoan === 'SinhVien';
     }
 
-    // Permission helper
-    public function hasPermission(string $permission): bool
-    {
-        if (! $this->hoat_dong) {
-            return false;
-        }
-
-        return $this->quyenBoSungs()
-            ->where('quyen', $permission)
-            ->whereNull('thoi_gian_thu_hoi')
-            ->exists();
-    }
-
     // Relationships
     public function donViToChuc(): BelongsTo
     {
@@ -123,15 +110,6 @@ class User extends Authenticatable
         return $this->hasMany(
             NhatKyKiemDuyet::class,
             'nguoi_thuc_hien',
-            'ma_tai_khoan'
-        );
-    }
-
-    public function quyenBoSungs(): HasMany
-    {
-        return $this->hasMany(
-            TaiKhoanQuyen::class,
-            'ma_tai_khoan',
             'ma_tai_khoan'
         );
     }
