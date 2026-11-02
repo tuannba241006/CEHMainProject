@@ -66,6 +66,22 @@ const response = await ai.generate({
 });
 ```
 
+## ⚔️ Adversarial Review Inquiries (Breaking AI-Generated Code)
+
+Reviewers MUST independently challenge implementation assumptions and search for failure scenarios instead of merely verifying happy-path acceptance criteria:
+
+1. **Counter-Examples & Boundary Breakages:**
+   - What core assumptions in this implementation could be invalid?
+   - Does empty input (`""`), empty array (`[]`), negative values, overflow strings, or timezone discrepancies (UTC vs Asia/Ho_Chi_Minh) cause uncaught exceptions?
+2. **Concurrency & Race Collisions:**
+   - If two concurrent requests arrive at the exact same millisecond, does the transaction prevent phantom bookings / seat over-allocation without deadlocking the database?
+   - Is lock acquisition strictly ordered per the project invariant: `tai_khoan -> phong_hoi_truong -> dat_phong -> su_kien -> dang_ky -> hang_doi_waitlist`?
+3. **Silent Failures & Swallowed Exceptions:**
+   - Are there empty `try/catch` blocks or default fallbacks that mask database errors and falsely report success to the client?
+   - Do `update` / `delete` operations verify affected row counts before proceeding?
+4. **Tautological Tests (Mirroring Tests):**
+   - Do tests genuinely assert business invariants, or do they merely mock all dependencies and mirror internal implementation details?
+
 ## Anti-Patterns to Flag
 
 ```typescript
