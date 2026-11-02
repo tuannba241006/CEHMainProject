@@ -1,9 +1,12 @@
+
 <?php
 
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EventCoHostController;
+use App\Http\Controllers\Api\EventEmergencyController;
 use App\Http\Controllers\Api\EventOrganizerController;
+use App\Http\Controllers\Api\EventReviewController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomScheduleController;
 use Illuminate\Support\Facades\DB;
@@ -75,11 +78,25 @@ $roomRoutes = function () {
 // PKG-02: Event Lifecycle & Approval routes definition
 $eventRoutes = function () {
     Route::middleware(['auth:sanctum,web', 'role:ToChuc,Admin', 'password.changed'])->group(function () {
+        // Event lifecycle - Host A
         Route::post('/', [EventOrganizerController::class, 'store'])->name('events.store');
         Route::put('/{id}', [EventOrganizerController::class, 'update'])->name('events.update');
+
+        // Co-host workflow
         Route::post('/{id}/submit-approval', [EventCoHostController::class, 'submitApproval'])->name('events.submit-approval');
         Route::post('/{id}/co-host-respond', [EventCoHostController::class, 'respondInvitation'])->name('events.co-host-respond');
         Route::post('/{id}/withdraw', [EventCoHostController::class, 'withdrawProposal'])->name('events.withdraw');
+
+        // Review queue (GET /events/review-queue)
+        Route::get('/review-queue', [EventReviewController::class, 'reviewQueue'])->name('events.review-queue');
+
+        // Multi-level event approval workflow (CEH-P2-EVT-03)
+        Route::post('/{id}/review', [EventReviewController::class, 'review'])->name('events.review');
+        Route::post('/{id}/reopen', [EventReviewController::class, 'reopen'])->name('events.reopen');
+
+        // Emergency cancellation & room change (CEH-P2-EVT-04)
+        Route::post('/{id}/emergency-cancel', [EventEmergencyController::class, 'emergencyCancel'])->name('events.emergency-cancel');
+        Route::post('/{id}/change-room', [EventEmergencyController::class, 'changeRoom'])->name('events.change-room');
     });
 };
 

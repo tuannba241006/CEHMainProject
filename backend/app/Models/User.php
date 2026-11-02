@@ -62,31 +62,55 @@ class User extends Authenticatable
     // Relationships
     public function donViToChuc(): BelongsTo
     {
-        return $this->belongsTo(DonViToChuc::class, 'ma_don_vi_to_chuc', 'ma_don_vi_to_chuc');
+        return $this->belongsTo(
+            DonViToChuc::class,
+            'ma_don_vi_to_chuc',
+            'ma_don_vi_to_chuc'
+        );
     }
 
     public function donViKhoa(): BelongsTo
     {
-        return $this->belongsTo(DonViToChuc::class, 'ma_khoa', 'ma_don_vi_to_chuc');
+        return $this->belongsTo(
+            DonViToChuc::class,
+            'ma_khoa',
+            'ma_don_vi_to_chuc'
+        );
     }
 
     public function dangKys(): HasMany
     {
-        return $this->hasMany(DangKy::class, 'ma_tai_khoan', 'ma_tai_khoan');
+        return $this->hasMany(
+            DangKy::class,
+            'ma_tai_khoan',
+            'ma_tai_khoan'
+        );
     }
 
     public function waitlists(): HasMany
     {
-        return $this->hasMany(HangDoiWaitlist::class, 'ma_tai_khoan', 'ma_tai_khoan');
+        return $this->hasMany(
+            HangDoiWaitlist::class,
+            'ma_tai_khoan',
+            'ma_tai_khoan'
+        );
     }
 
     public function thongBaos(): HasMany
     {
-        return $this->hasMany(ThongBao::class, 'ma_tai_khoan', 'ma_tai_khoan');
+        return $this->hasMany(
+            ThongBao::class,
+            'ma_tai_khoan',
+            'ma_tai_khoan'
+        );
     }
 
     public function nhatKyKiemDuyetThucHien(): HasMany
     {
-        return $this->hasMany(NhatKyKiemDuyet::class, 'nguoi_thuc_hien', 'ma_tai_khoan');
+        return $this->hasMany(
+            NhatKyKiemDuyet::class,
+            'nguoi_thuc_hien',
+            'ma_tai_khoan'
+        );
     }
 }

@@ -169,6 +169,7 @@ class EventProposalService
             }
 
             $eventLocked->trang_thai = $nextStatus;
+
             $eventLocked->save();
 
             // Ghi nhật ký kiểm toán bất biến
@@ -333,6 +334,7 @@ class EventProposalService
                     }
 
                     $event->trang_thai = $nextStatus;
+
                     $event->save();
                 }
             }
@@ -406,6 +408,7 @@ class EventProposalService
 
             // Chuyển sự kiện về DRAFT
             $event->trang_thai = 'DRAFT';
+
             $event->save();
 
             // Ghi nhật ký kiểm toán
