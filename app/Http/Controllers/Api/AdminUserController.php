@@ -7,7 +7,6 @@ use App\Http\Requests\Admin\CreateInternalUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\AuditLogService;
-use App\Services\EmergencyOverrideService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -18,8 +17,7 @@ class AdminUserController extends Controller
     use ApiResponseTrait;
 
     public function __construct(
-        protected AuditLogService $auditLogService,
-        protected EmergencyOverrideService $emergencyOverrideService
+        protected AuditLogService $auditLogService
     ) {}
 
     /**
@@ -119,65 +117,4 @@ class AdminUserController extends Controller
             201
         );
     }
-
-        /**
-     * Grant emergency approval permission to an Admin account.
-     * POST /api/v1/admin/users/{id}/permissions/emergency-override
-     */
-    public function grantEmergencyOverride(Request $request, int $id): JsonResponse
-    {
-        $validated = $request->validate([
-            'ly_do' => ['required', 'string', 'min:10', 'max:1000'],
-        ]);
-
-        $permission = $this->emergencyOverrideService->grantEmergencyOverride(
-            $request->user(),
-            $id,
-            $validated['ly_do']
-        );
-
-        return $this->successResponse(
-            [
-                'id' => $permission->id,
-                'ma_tai_khoan' => $permission->ma_tai_khoan,
-                'quyen' => $permission->quyen,
-                'nguoi_cap' => $permission->nguoi_cap,
-                'ly_do_cap' => $permission->ly_do_cap,
-                'thoi_gian_cap' => $permission->thoi_gian_cap,
-            ],
-            'Cấp quyền duyệt khẩn cấp thành công.',
-            201
-        );
-    }
-
-    /**
-     * Revoke emergency approval permission from an Admin account.
-     * DELETE /api/v1/admin/users/{id}/permissions/emergency-override
-     */
-    public function revokeEmergencyOverride(Request $request, int $id): JsonResponse
-    {
-        $validated = $request->validate([
-            'ly_do' => ['required', 'string', 'min:10', 'max:1000'],
-        ]);
-
-        $permission = $this->emergencyOverrideService->revokeEmergencyOverride(
-            $request->user(),
-            $id,
-            $validated['ly_do']
-        );
-
-        return $this->successResponse(
-            [
-                'id' => $permission->id,
-                'ma_tai_khoan' => $permission->ma_tai_khoan,
-                'quyen' => $permission->quyen,
-                'nguoi_thu_hoi' => $permission->nguoi_thu_hoi,
-                'ly_do_thu_hoi' => $permission->ly_do_thu_hoi,
-                'thoi_gian_thu_hoi' => $permission->thoi_gian_thu_hoi,
-            ],
-            'Thu hồi quyền duyệt khẩn cấp thành công.',
-            200
-        );
-    }
-
 }

@@ -7,7 +7,6 @@ use App\Models\DatPhong;
 use App\Models\DonViToChuc;
 use App\Models\PhongHoiTruong;
 use App\Models\SuKien;
-use App\Models\TaiKhoanQuyen;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -19,51 +18,45 @@ class EventApprovalTest extends TestCase
     use DatabaseTransactions;
 
     protected User $hostUserA;
+
     protected User $facultyUser;
+
     protected User $wrongFacultyUser;
+
     protected User $pctsvAdmin;
-    protected User $pctsvGrantor;
+
     protected User $otherAdmin;
 
+    protected User $studentUser;
+
     protected DonViToChuc $faculty;
+
     protected DonViToChuc $hostClub;
+
     protected DonViToChuc $otherFaculty;
+
     protected DonViToChuc $pctsv;
 
     protected ChuyenDe $topic;
+
     protected PhongHoiTruong $room;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        /*
-         * 1. P.CTSV phải có ID cố định = 7
-         * Không ghi đè nếu ID 7 đang thuộc đơn vị khác.
-         */
-        $existingPctsv = DonViToChuc::find(7);
-
-        if ($existingPctsv) {
-            $this->assertSame(
-                'PCTSV',
-                $existingPctsv->ma_dinh_danh,
-                'ID 7 đã bị một đơn vị khác chiếm trong database test.'
-            );
-
-            $this->pctsv = $existingPctsv;
-        } else {
-            $this->pctsv = DonViToChuc::create([
+        // 1. P.CTSV unit
+        $this->pctsv = DonViToChuc::firstOrCreate(
+            ['ma_dinh_danh' => 'PCTSV'],
+            [
                 'ma_don_vi_to_chuc' => 7,
-                'ma_dinh_danh' => 'PCTSV',
                 'ten_don_vi' => 'Phòng Công tác Sinh viên Test',
                 'loai_don_vi' => 'PhongBan',
                 'hoat_dong' => 1,
-            ]);
-        }
+            ]
+        );
 
-        /*
-         * 2. Tạo Khoa và CLB chủ trì trực thuộc Khoa.
-         */
+        // 2. Faculty and Host Club
         $this->faculty = DonViToChuc::firstOrCreate(
             ['ma_dinh_danh' => 'KHOA_APPROVAL_TEST'],
             [
@@ -92,606 +85,481 @@ class EventApprovalTest extends TestCase
             ]
         );
 
-        /*
-         * 3. Chuyên đề và phòng.
-         */
+        // 3. Topic and Room
         $this->topic = ChuyenDe::firstOrCreate(
             ['ten_chuyen_de' => 'Chuyên đề Event Approval Test'],
             ['mo_ta' => 'Chuyên đề kiểm thử duyệt sự kiện']
         );
 
         $this->room = PhongHoiTruong::firstOrCreate(
+            ['ma_phong' => 991],
             [
-                'ten_phong' => 'Hội trường Event Approval Test',
+                'ten_phong' => 'Hội trường Test 991',
                 'co_so' => 'CoSo1',
-            ],
-            [
-                'suc_chua_toi_da' => 100,
-                'trang_thiet_bi' => ['micro' => 2, 'may_chieu' => 1],
+                'suc_chua_toi_da' => 200,
                 'trang_thai' => 'KhaDung',
+                'da_xoa' => 0,
             ]
         );
 
-        /*
-         * 4. Tạo tài khoản.
-         */
-        $this->hostUserA = $this->createUser(
-            'host_approval_test@uit.edu.vn',
-            'ToChuc',
-            $this->hostClub->ma_don_vi_to_chuc
-        );
-
-        $this->facultyUser = $this->createUser(
-            'faculty_approval_test@uit.edu.vn',
-            'ToChuc',
-            $this->faculty->ma_don_vi_to_chuc
-        );
-
-        $this->wrongFacultyUser = $this->createUser(
-            'wrong_faculty_approval_test@uit.edu.vn',
-            'ToChuc',
-            $this->otherFaculty->ma_don_vi_to_chuc
-        );
-
-        $this->pctsvAdmin = $this->createUser(
-            'pctsv_admin_approval_test@uit.edu.vn',
-            'Admin',
-            7
-        );
-
-        $this->pctsvGrantor = $this->createUser(
-            'pctsv_grantor_approval_test@uit.edu.vn',
-            'Admin',
-            7
-        );
-
-        $this->otherAdmin = $this->createUser(
-            'other_admin_approval_test@uit.edu.vn',
-            'Admin',
-            $this->otherFaculty->ma_don_vi_to_chuc
-        );
-    }
-
-    protected function createUser(
-        string $email,
-        string $type,
-        int $unitId
-    ): User {
-        return User::firstOrCreate(
-            ['email' => $email],
+        // 4. Test Users
+        $this->hostUserA = User::firstOrCreate(
+            ['email' => 'host.approval.test@uit.edu.vn'],
             [
-                'ho_ten' => 'Approval Test User',
-                'mat_khau' => Hash::make('Password@123', ['rounds' => 12]),
-                'loai_tai_khoan' => $type,
-                'ma_don_vi_to_chuc' => $unitId,
-                'buoc_doi_mat_khau' => 0,
+                'ho_ten' => 'Host Club Leader',
+                'mat_khau' => Hash::make('Password@123'),
+                'loai_tai_khoan' => 'ToChuc',
+                'ma_don_vi_to_chuc' => $this->hostClub->ma_don_vi_to_chuc,
                 'hoat_dong' => 1,
                 'dong_y_nghi_dinh_13' => 1,
+                'buoc_doi_mat_khau' => 0,
+            ]
+        );
+
+        $this->facultyUser = User::firstOrCreate(
+            ['email' => 'faculty.approval.test@uit.edu.vn'],
+            [
+                'ho_ten' => 'Faculty Representative',
+                'mat_khau' => Hash::make('Password@123'),
+                'loai_tai_khoan' => 'ToChuc',
+                'ma_don_vi_to_chuc' => $this->faculty->ma_don_vi_to_chuc,
+                'hoat_dong' => 1,
+                'dong_y_nghi_dinh_13' => 1,
+                'buoc_doi_mat_khau' => 0,
+            ]
+        );
+
+        $this->wrongFacultyUser = User::firstOrCreate(
+            ['email' => 'wrong.faculty.approval.test@uit.edu.vn'],
+            [
+                'ho_ten' => 'Other Faculty Representative',
+                'mat_khau' => Hash::make('Password@123'),
+                'loai_tai_khoan' => 'ToChuc',
+                'ma_don_vi_to_chuc' => $this->otherFaculty->ma_don_vi_to_chuc,
+                'hoat_dong' => 1,
+                'dong_y_nghi_dinh_13' => 1,
+                'buoc_doi_mat_khau' => 0,
+            ]
+        );
+
+        $this->pctsvAdmin = User::firstOrCreate(
+            ['email' => 'pctsv.admin.approval.test@uit.edu.vn'],
+            [
+                'ho_ten' => 'P.CTSV Admin Official',
+                'mat_khau' => Hash::make('Password@123'),
+                'loai_tai_khoan' => 'Admin',
+                'ma_don_vi_to_chuc' => $this->pctsv->ma_don_vi_to_chuc,
+                'hoat_dong' => 1,
+                'dong_y_nghi_dinh_13' => 1,
+                'buoc_doi_mat_khau' => 0,
+            ]
+        );
+
+        $this->otherAdmin = User::firstOrCreate(
+            ['email' => 'other.admin.approval.test@uit.edu.vn'],
+            [
+                'ho_ten' => 'Other Unit Admin',
+                'mat_khau' => Hash::make('Password@123'),
+                'loai_tai_khoan' => 'Admin',
+                'ma_don_vi_to_chuc' => $this->faculty->ma_don_vi_to_chuc,
+                'hoat_dong' => 1,
+                'dong_y_nghi_dinh_13' => 1,
+                'buoc_doi_mat_khau' => 0,
+            ]
+        );
+
+        $this->studentUser = User::firstOrCreate(
+            ['email' => 'student.test@gm.uit.edu.vn'],
+            [
+                'ho_ten' => 'Test Student',
+                'mssv' => '99887766',
+                'mat_khau' => Hash::make('Password@123'),
+                'loai_tai_khoan' => 'SinhVien',
+                'hoat_dong' => 1,
+                'dong_y_nghi_dinh_13' => 1,
+                'buoc_doi_mat_khau' => 0,
             ]
         );
     }
 
-    protected function validEventPayload(array $overrides = []): array
+    protected function createTestEvent(string $status = 'PENDING_FACULTY', int $offsetHours = 48): SuKien
     {
-        $start = Carbon::now()->addDays(5)->setTime(8, 0, 0);
-        $end = $start->copy()->addHours(3);
-        $published = Carbon::now()->addDays(2)->setTime(8, 0, 0);
+        $startTime = Carbon::now()->addDays(5);
+        $endTime = $startTime->copy()->addHours(3);
 
-        return array_merge([
-            'ten_su_kien' => 'Sự kiện kiểm thử duyệt nhiều cấp',
-            'mo_ta' => 'Mô tả sự kiện phục vụ kiểm thử quy trình phê duyệt',
-            'ma_chuyen_de' => $this->topic->ma_chuyen_de,
+        $event = SuKien::create([
+            'ten_su_kien' => 'Sự kiện Test Duyệt Đa Cấp '.uniqid(),
+            'mo_ta' => 'Mô tả sự kiện phục vụ bài kiểm thử tích hợp',
             'ma_phong' => $this->room->ma_phong,
-            'ngay_cong_bo' => $published->toIso8601String(),
-            'thoi_gian_bat_dau' => $start->toIso8601String(),
-            'thoi_gian_ket_thuc' => $end->toIso8601String(),
-            'khong_gioi_han_slot' => false,
-            'so_luong_toi_da' => 80,
-            'dieu_khoan_drl' => 'Dieu3',
-            'diem_drl_du_kien' => 5,
-            'gio_tinh_nguyen' => 0.0,
-            'danh_sach_co_host_ids' => [],
-        ], $overrides);
-    }
-
-    protected function createSubmittedEvent(): int
-    {
-        $response = $this->actingAs($this->hostUserA)
-            ->postJson('/api/events', $this->validEventPayload());
-
-        $response->assertStatus(201);
-
-        $eventId = (int) $response->json('data.ma_su_kien');
-
-        $this->actingAs($this->hostUserA)
-            ->postJson("/api/events/{$eventId}/submit-approval")
-            ->assertOk()
-            ->assertJsonPath('data.trang_thai', 'PENDING_FACULTY');
-
-        return $eventId;
-    }
-
-    protected function createPendingAdminEvent(): int
-    {
-        $eventId = $this->createSubmittedEvent();
-
-        $this->actingAs($this->facultyUser)
-            ->postJson("/api/events/{$eventId}/approve-faculty")
-            ->assertOk()
-            ->assertJsonPath('data.trang_thai', 'PENDING_ADMIN');
-
-        return $eventId;
-    }
-
-    protected function grantEmergencyPermission(): void
-    {
-        TaiKhoanQuyen::create([
-            'ma_tai_khoan' => $this->pctsvAdmin->ma_tai_khoan,
-            'quyen' => 'emergency_override',
-            'nguoi_cap' => $this->pctsvGrantor->ma_tai_khoan,
-            'ly_do_cap' => 'Cấp quyền phục vụ kiểm thử duyệt khẩn cấp',
-            'thoi_gian_cap' => now(),
+            'ma_don_vi_to_chuc' => $this->hostClub->ma_don_vi_to_chuc,
+            'ma_chuyen_de' => $this->topic->ma_chuyen_de,
+            'ngay_cong_bo' => Carbon::now()->addHour(),
+            'thoi_gian_bat_dau' => $startTime,
+            'thoi_gian_ket_thuc' => $endTime,
+            'khong_gioi_han_slot' => 0,
+            'so_luong_toi_da' => 100,
+            'so_ve_con_lai' => 100,
+            'trang_thai' => $status,
+            'thoi_gian_gui_khoa' => Carbon::now()->subHours($offsetHours),
         ]);
-    }
 
-    protected function assertAudit(
-        int $eventId,
-        string $action,
-        string $previousStatus,
-        string $nextStatus,
-        int $actorId,
-        ?string $reason = null
-    ): void {
-        $this->assertDatabaseHas('nhat_ky_kiem_duyet', [
-            'ma_su_kien' => $eventId,
-            'hanh_dong' => $action,
-            'trang_thai_truoc' => $previousStatus,
-            'trang_thai_sau' => $nextStatus,
-            'nguoi_thuc_hien' => $actorId,
-            'ly_do' => $reason,
+        DatPhong::create([
+            'ma_phong' => $this->room->ma_phong,
+            'ma_su_kien' => $event->ma_su_kien,
+            'thoi_gian_bat_dau' => $startTime,
+            'thoi_gian_ket_thuc' => $endTime,
+            'trang_thai' => $status === 'APPROVED' ? 'CONFIRMED' : 'PENDING',
         ]);
+
+        return $event;
     }
 
     /**
-     * Host B duyệt:
-     * PENDING_FACULTY -> PENDING_ADMIN.
+     * Test GET /api/v1/events/review-queue
      */
-    public function test_faculty_can_approve_event_to_pending_admin(): void
+    public function test_faculty_can_access_review_queue_for_own_clubs(): void
     {
-        $eventId = $this->createSubmittedEvent();
+        $event = $this->createTestEvent('PENDING_FACULTY');
 
-        $this->actingAs($this->facultyUser)
-            ->postJson("/api/events/{$eventId}/approve-faculty")
-            ->assertOk()
-            ->assertJsonPath('data.trang_thai', 'PENDING_ADMIN');
+        $response = $this->actingAs($this->facultyUser)
+            ->getJson('/api/v1/events/review-queue');
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ])
+            ->assertJsonStructure([
+                'success',
+                'data',
+                'meta' => ['current_page', 'last_page', 'per_page', 'total'],
+            ]);
+
+        $eventIds = collect($response->json('data'))->pluck('ma_su_kien')->all();
+        $this->assertContains($event->ma_su_kien, $eventIds);
+    }
+
+    public function test_pctsv_admin_can_access_review_queue(): void
+    {
+        $event = $this->createTestEvent('PENDING_ADMIN');
+
+        $response = $this->actingAs($this->pctsvAdmin)
+            ->getJson('/api/v1/events/review-queue?trang_thai=PENDING_ADMIN');
+
+        $response->assertStatus(200)
+            ->assertJson(['success' => true]);
+
+        $eventIds = collect($response->json('data'))->pluck('ma_su_kien')->all();
+        $this->assertContains($event->ma_su_kien, $eventIds);
+    }
+
+    public function test_student_cannot_access_review_queue(): void
+    {
+        $response = $this->actingAs($this->studentUser)
+            ->getJson('/api/v1/events/review-queue');
+
+        $response->assertStatus(403);
+    }
+
+    /**
+     * Test POST /api/v1/events/{id}/review - APPROVE_FACULTY
+     */
+    public function test_faculty_can_approve_event_via_review_endpoint(): void
+    {
+        $event = $this->createTestEvent('PENDING_FACULTY');
+
+        $response = $this->actingAs($this->facultyUser)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'APPROVE_FACULTY',
+                'ly_do' => 'Khoa đồng ý thông qua kế hoạch tổ chức',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'ma_su_kien' => $event->ma_su_kien,
+                    'trang_thai' => 'PENDING_ADMIN',
+                ],
+            ]);
 
         $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
+            'ma_su_kien' => $event->ma_su_kien,
             'trang_thai' => 'PENDING_ADMIN',
         ]);
 
-        $this->assertDatabaseHas('dat_phong', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'PENDING',
+        $this->assertDatabaseHas('nhat_ky_kiem_duyet', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'hanh_dong' => 'APPROVE_FACULTY',
+            'trang_thai_truoc' => 'PENDING_FACULTY',
+            'trang_thai_sau' => 'PENDING_ADMIN',
+            'nguoi_thuc_hien' => $this->facultyUser->ma_tai_khoan,
         ]);
-
-        $this->assertAudit(
-            $eventId,
-            'APPROVE_FACULTY',
-            'PENDING_FACULTY',
-            'PENDING_ADMIN',
-            $this->facultyUser->ma_tai_khoan
-        );
     }
 
-    /**
-     * Host B từ chối:
-     * PENDING_FACULTY -> REJECTED_FACULTY.
-     */
-    public function test_faculty_can_reject_event_and_cancel_booking(): void
-    {
-        $eventId = $this->createSubmittedEvent();
-        $reason = 'Không phù hợp kế hoạch hoạt động của Khoa';
-
-        $this->actingAs($this->facultyUser)
-            ->postJson("/api/events/{$eventId}/reject-faculty", [
-                'ly_do' => $reason,
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.trang_thai', 'REJECTED_FACULTY');
-
-        $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'REJECTED_FACULTY',
-        ]);
-
-        $this->assertDatabaseHas('dat_phong', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'CANCELLED',
-        ]);
-
-        $this->assertAudit(
-            $eventId,
-            'REJECT_FACULTY',
-            'PENDING_FACULTY',
-            'REJECTED_FACULTY',
-            $this->facultyUser->ma_tai_khoan,
-            $reason
-        );
-    }
-
-    /**
-     * Tài khoản thuộc Khoa khác không được duyệt.
-     */
     public function test_wrong_faculty_cannot_approve_event(): void
     {
-        $eventId = $this->createSubmittedEvent();
+        $event = $this->createTestEvent('PENDING_FACULTY');
 
-        $this->actingAs($this->wrongFacultyUser)
-            ->postJson("/api/events/{$eventId}/approve-faculty")
-            ->assertStatus(403)
-            ->assertJsonPath('error', 'FACULTY_MISMATCH');
+        $response = $this->actingAs($this->wrongFacultyUser)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'APPROVE_FACULTY',
+                'ly_do' => 'Khoa khác cố tình duyệt sự kiện',
+            ]);
 
-        $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'PENDING_FACULTY',
-        ]);
+        $response->assertStatus(403);
+    }
+
+    public function test_faculty_cannot_execute_approve_admin_action(): void
+    {
+        $event = $this->createTestEvent('PENDING_ADMIN');
+
+        $response = $this->actingAs($this->facultyUser)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'APPROVE_ADMIN',
+            ]);
+
+        $response->assertStatus(403);
     }
 
     /**
-     * Admin override trước 48 giờ, không phải emergency -> 409.
+     * Test POST /api/v1/events/{id}/review - APPROVE_FACULTY_BY_ADMIN
      */
-    public function test_admin_override_before_48_hours_requires_emergency_permission(): void
+    public function test_pctsv_admin_can_override_faculty_approval(): void
     {
-        $eventId = $this->createSubmittedEvent();
+        $event = $this->createTestEvent('PENDING_FACULTY');
 
-        $this->actingAs($this->pctsvAdmin)
-            ->postJson("/api/events/{$eventId}/admin-override", [
-                'ly_do' => 'Khoa chưa xử lý đề xuất này',
-            ])
-            ->assertStatus(409)
-            ->assertJsonPath('error', 'OVERRIDE_WAIT_PERIOD_NOT_PASSED');
+        $response = $this->actingAs($this->pctsvAdmin)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'APPROVE_FACULTY_BY_ADMIN',
+                'ly_do' => 'P.CTSV duyệt thay do đại diện Khoa đi công tác đột xuất',
+                'duyet_luon_cap_phong' => false,
+            ]);
 
-        $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'PENDING_FACULTY',
-        ]);
-    }
-
-    /**
-     * Đánh dấu emergency nhưng không có permission -> 403.
-     */
-    public function test_emergency_override_without_permission_is_forbidden(): void
-    {
-        $eventId = $this->createSubmittedEvent();
-
-        $this->actingAs($this->pctsvAdmin)
-            ->postJson("/api/events/{$eventId}/admin-override", [
-                'ly_do' => 'Cần duyệt khẩn cấp do sự kiện sắp diễn ra',
-                'duyet_khan_cap' => true,
-            ])
-            ->assertStatus(403)
-            ->assertJsonPath('error', 'EMERGENCY_OVERRIDE_PERMISSION_REQUIRED');
-
-        $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'PENDING_FACULTY',
-        ]);
-    }
-
-    /**
-     * Emergency có permission:
-     * PENDING_FACULTY -> PENDING_ADMIN.
-     */
-    public function test_emergency_override_with_permission_succeeds_and_logs_reason(): void
-    {
-        $eventId = $this->createSubmittedEvent();
-        $this->grantEmergencyPermission();
-
-        $reason = 'Cần duyệt khẩn cấp do thời hạn tổ chức sắp đến';
-
-        $this->actingAs($this->pctsvAdmin)
-            ->postJson("/api/events/{$eventId}/admin-override", [
-                'ly_do' => $reason,
-                'duyet_khan_cap' => true,
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.trang_thai', 'PENDING_ADMIN');
-
-        $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'PENDING_ADMIN',
-        ]);
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'ma_su_kien' => $event->ma_su_kien,
+                    'trang_thai' => 'PENDING_ADMIN',
+                ],
+            ]);
 
         $this->assertDatabaseHas('nhat_ky_kiem_duyet', [
-            'ma_su_kien' => $eventId,
+            'ma_su_kien' => $event->ma_su_kien,
             'hanh_dong' => 'APPROVE_FACULTY_BY_ADMIN',
             'trang_thai_truoc' => 'PENDING_FACULTY',
             'trang_thai_sau' => 'PENDING_ADMIN',
             'nguoi_thuc_hien' => $this->pctsvAdmin->ma_tai_khoan,
-            'ly_do' => '[DUYỆT KHẨN CẤP] ' . $reason,
+        ]);
+    }
+
+    public function test_pctsv_admin_can_override_faculty_and_approve_final_in_one_step(): void
+    {
+        $event = $this->createTestEvent('PENDING_FACULTY');
+
+        $response = $this->actingAs($this->pctsvAdmin)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'APPROVE_FACULTY_BY_ADMIN',
+                'ly_do' => 'P.CTSV duyệt thay cấp Khoa và cấp phòng trực tiếp',
+                'duyet_luon_cap_phong' => true,
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'ma_su_kien' => $event->ma_su_kien,
+                    'trang_thai' => 'APPROVED',
+                ],
+            ]);
+
+        $this->assertDatabaseHas('dat_phong', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'trang_thai' => 'CONFIRMED',
         ]);
     }
 
     /**
-     * Đủ 48 giờ:
-     * Admin được override mà không cần emergency permission.
-     */
-    public function test_admin_can_override_after_48_hours_without_emergency_permission(): void
-    {
-        $submittedAt = Carbon::parse('2026-11-01 08:00:00', 'Asia/Ho_Chi_Minh');
-        Carbon::setTestNow($submittedAt);
-
-        try {
-            $eventId = $this->createSubmittedEvent();
-
-            Carbon::setTestNow($submittedAt->copy()->addHours(48));
-
-            $reason = 'Khoa chưa phản hồi sau thời gian chờ';
-
-            $this->actingAs($this->pctsvAdmin)
-                ->postJson("/api/events/{$eventId}/admin-override", [
-                    'ly_do' => $reason,
-                ])
-                ->assertOk()
-                ->assertJsonPath('data.trang_thai', 'PENDING_ADMIN');
-
-            $this->assertDatabaseHas('nhat_ky_kiem_duyet', [
-                'ma_su_kien' => $eventId,
-                'hanh_dong' => 'APPROVE_FACULTY_BY_ADMIN',
-                'trang_thai_truoc' => 'PENDING_FACULTY',
-                'trang_thai_sau' => 'PENDING_ADMIN',
-                'nguoi_thuc_hien' => $this->pctsvAdmin->ma_tai_khoan,
-                'ly_do' => $reason,
-            ]);
-        } finally {
-            Carbon::setTestNow();
-        }
-    }
-
-    /**
-     * Admin PCTSV duyệt cuối:
-     * PENDING_ADMIN -> APPROVED.
-     * Booking PENDING -> CONFIRMED.
+     * Test POST /api/v1/events/{id}/review - APPROVE_ADMIN
      */
     public function test_pctsv_admin_can_approve_final_and_confirm_booking(): void
     {
-        $eventId = $this->createPendingAdminEvent();
+        $event = $this->createTestEvent('PENDING_ADMIN');
 
-        $this->actingAs($this->pctsvAdmin)
-            ->postJson("/api/events/{$eventId}/approve-admin")
-            ->assertOk()
-            ->assertJsonPath('data.trang_thai', 'APPROVED');
+        $response = $this->actingAs($this->pctsvAdmin)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'APPROVE_ADMIN',
+                'ly_do' => 'P.CTSV duyệt kế hoạch và phân bổ hội trường',
+            ]);
 
-        $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'APPROVED',
-        ]);
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'ma_su_kien' => $event->ma_su_kien,
+                    'trang_thai' => 'APPROVED',
+                ],
+            ]);
 
         $this->assertDatabaseHas('dat_phong', [
-            'ma_su_kien' => $eventId,
+            'ma_su_kien' => $event->ma_su_kien,
             'trang_thai' => 'CONFIRMED',
-            'han_giu_cho_tam' => null,
         ]);
 
-        $this->assertAudit(
-            $eventId,
-            'APPROVE_ADMIN',
-            'PENDING_ADMIN',
-            'APPROVED',
-            $this->pctsvAdmin->ma_tai_khoan
-        );
+        $this->assertDatabaseHas('nhat_ky_kiem_duyet', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'hanh_dong' => 'APPROVE_ADMIN',
+            'trang_thai_truoc' => 'PENDING_ADMIN',
+            'trang_thai_sau' => 'APPROVED',
+        ]);
     }
 
-    /**
-     * Admin PCTSV từ chối cấp cuối:
-     * PENDING_ADMIN -> REJECTED_ADMIN.
-     */
-    public function test_pctsv_admin_can_reject_and_cancel_booking(): void
-    {
-        $eventId = $this->createPendingAdminEvent();
-        $reason = 'Không đáp ứng yêu cầu tổ chức cấp trường';
-
-        $this->actingAs($this->pctsvAdmin)
-            ->postJson("/api/events/{$eventId}/reject-admin", [
-                'ly_do' => $reason,
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.trang_thai', 'REJECTED_ADMIN');
-
-        $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'REJECTED_ADMIN',
-        ]);
-
-        $this->assertDatabaseHas('dat_phong', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'CANCELLED',
-            'han_giu_cho_tam' => null,
-        ]);
-
-        $this->assertAudit(
-            $eventId,
-            'REJECT_ADMIN',
-            'PENDING_ADMIN',
-            'REJECTED_ADMIN',
-            $this->pctsvAdmin->ma_tai_khoan,
-            $reason
-        );
-    }
-
-    /**
-     * Admin không thuộc P.CTSV không được duyệt cuối.
-     */
     public function test_admin_outside_pctsv_cannot_approve_final(): void
     {
-        $eventId = $this->createPendingAdminEvent();
+        $event = $this->createTestEvent('PENDING_ADMIN');
 
-        $this->actingAs($this->otherAdmin)
-            ->postJson("/api/events/{$eventId}/approve-admin")
-            ->assertStatus(403)
-            ->assertJsonPath('error', 'FORBIDDEN');
+        $response = $this->actingAs($this->otherAdmin)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'APPROVE_ADMIN',
+            ]);
 
+        $response->assertStatus(403);
+    }
+
+    /**
+     * Test POST /api/v1/events/{id}/review - REJECT_FACULTY & REJECT_ADMIN
+     */
+    public function test_faculty_can_reject_event_with_valid_reason(): void
+    {
+        $event = $this->createTestEvent('PENDING_FACULTY');
+
+        $response = $this->actingAs($this->facultyUser)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'REJECT_FACULTY',
+                'ly_do' => 'Nội dung chương trình chưa đáp ứng định hướng học thuật của Khoa',
+            ]);
+
+        $response->assertStatus(200);
+
+        // In SSOT, status MUST be REJECTED (not REJECTED_FACULTY)
         $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'PENDING_ADMIN',
+            'ma_su_kien' => $event->ma_su_kien,
+            'trang_thai' => 'REJECTED',
         ]);
 
         $this->assertDatabaseHas('dat_phong', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'PENDING',
+            'ma_su_kien' => $event->ma_su_kien,
+            'trang_thai' => 'CANCELLED',
+        ]);
+
+        $this->assertDatabaseHas('nhat_ky_kiem_duyet', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'hanh_dong' => 'REJECT_FACULTY',
+            'trang_thai_sau' => 'REJECTED',
         ]);
     }
 
-/**
- * Không có Faculty Reviewer đang hoạt động:
- * Admin PCTSV được override ngay, không cần emergency permission.
- */
-public function test_admin_can_override_immediately_when_faculty_has_no_active_reviewer(): void
-{
-    $eventId = $this->createSubmittedEvent();
+    public function test_reject_requires_at_least_10_characters(): void
+    {
+        $event = $this->createTestEvent('PENDING_FACULTY');
 
-    $this->facultyUser->update(['hoat_dong' => 0]);
+        $response = $this->actingAs($this->facultyUser)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'REJECT_FACULTY',
+                'ly_do' => 'Quá ngắn',
+            ]);
 
-    $reason = 'Khoa hiện không có người duyệt sự kiện hoạt động';
+        $response->assertStatus(422);
+    }
 
-    $this->actingAs($this->pctsvAdmin)
-        ->postJson("/api/events/{$eventId}/admin-override", [
-            'ly_do' => $reason,
-        ])
-        ->assertOk()
-        ->assertJsonPath('data.trang_thai', 'PENDING_ADMIN');
+    public function test_pctsv_admin_can_reject_event(): void
+    {
+        $event = $this->createTestEvent('PENDING_ADMIN');
 
-    $this->assertAudit(
-        $eventId,
-        'APPROVE_FACULTY_BY_ADMIN',
-        'PENDING_FACULTY',
-        'PENDING_ADMIN',
-        $this->pctsvAdmin->ma_tai_khoan,
-        $reason
-    );
-}
+        $response = $this->actingAs($this->pctsvAdmin)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'REJECT_ADMIN',
+                'ly_do' => 'Không đủ điều kiện tổ chức theo quy định của Nhà trường',
+            ]);
 
-/**
- * Tài khoản ToChuc thuộc CLB con không phải Faculty Reviewer.
- * Khi không có Faculty Reviewer thuộc Khoa gốc, Admin được override ngay.
- */
-public function test_child_club_account_does_not_count_as_faculty_reviewer(): void
-{
-    $eventId = $this->createSubmittedEvent();
-
-    $this->facultyUser->update(['hoat_dong' => 0]);
-
-    // Host A thuộc CLB con vẫn hoạt động.
-    $this->assertDatabaseHas('tai_khoan', [
-        'ma_tai_khoan' => $this->hostUserA->ma_tai_khoan,
-        'hoat_dong' => 1,
-    ]);
-
-    $reason = 'Khoa không có Faculty Reviewer đang hoạt động';
-
-    $this->actingAs($this->pctsvAdmin)
-        ->postJson("/api/events/{$eventId}/admin-override", [
-            'ly_do' => $reason,
-        ])
-        ->assertOk()
-        ->assertJsonPath('data.trang_thai', 'PENDING_ADMIN');
-}
-
-/**
- * Đã đủ 48 giờ nhưng vẫn đánh dấu emergency:
- * Vẫn phải có emergency_override.
- */
-public function test_emergency_override_after_48_hours_still_requires_permission(): void
-{
-    $submittedAt = Carbon::parse('2026-11-01 08:00:00', 'Asia/Ho_Chi_Minh');
-    Carbon::setTestNow($submittedAt);
-
-    try {
-        $eventId = $this->createSubmittedEvent();
-
-        Carbon::setTestNow($submittedAt->copy()->addHours(48));
-
-        $this->actingAs($this->pctsvAdmin)
-            ->postJson("/api/events/{$eventId}/admin-override", [
-                'ly_do' => 'Cần duyệt khẩn cấp dù đã đủ thời gian chờ',
-                'duyet_khan_cap' => true,
-            ])
-            ->assertStatus(403)
-            ->assertJsonPath(
-                'error',
-                'EMERGENCY_OVERRIDE_PERMISSION_REQUIRED'
-            );
+        $response->assertStatus(200);
 
         $this->assertDatabaseHas('su_kien', [
-            'ma_su_kien' => $eventId,
-            'trang_thai' => 'PENDING_FACULTY',
+            'ma_su_kien' => $event->ma_su_kien,
+            'trang_thai' => 'REJECTED',
         ]);
-    } finally {
-        Carbon::setTestNow();
+
+        $this->assertDatabaseHas('dat_phong', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'trang_thai' => 'CANCELLED',
+        ]);
     }
-}
 
-/**
- * Quyền emergency_override đã bị thu hồi:
- * Không thể sử dụng quyền đó để duyệt khẩn cấp.
- */
-public function test_revoked_emergency_permission_cannot_be_used(): void
-{
-    $eventId = $this->createSubmittedEvent();
+    /**
+     * Test POST /api/v1/events/{id}/review - REQUEST_EDIT
+     */
+    public function test_reviewer_can_request_edit_returning_event_to_draft(): void
+    {
+        $event = $this->createTestEvent('PENDING_FACULTY');
 
-    $permission = TaiKhoanQuyen::create([
-        'ma_tai_khoan' => $this->pctsvAdmin->ma_tai_khoan,
-        'quyen' => 'emergency_override',
-        'nguoi_cap' => $this->pctsvGrantor->ma_tai_khoan,
-        'ly_do_cap' => 'Cấp quyền phục vụ kiểm thử',
-        'thoi_gian_cap' => now(),
-    ]);
+        $response = $this->actingAs($this->facultyUser)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/review", [
+                'hanh_dong' => 'REQUEST_EDIT',
+                'ly_do' => 'Vui lòng bổ sung kế hoạch chi tiết',
+            ]);
 
-    $permission->update([
-        'nguoi_thu_hoi' => $this->pctsvGrantor->ma_tai_khoan,
-        'ly_do_thu_hoi' => 'Thu hồi quyền sau kiểm thử',
-        'thoi_gian_thu_hoi' => now(),
-    ]);
+        $response->assertStatus(200);
 
-    $this->assertFalse(
-        $this->pctsvAdmin->fresh()->hasPermission('emergency_override')
-    );
+        $this->assertDatabaseHas('su_kien', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'trang_thai' => 'DRAFT',
+        ]);
 
-    $this->actingAs($this->pctsvAdmin)
-        ->postJson("/api/events/{$eventId}/admin-override", [
-            'ly_do' => 'Cần duyệt khẩn cấp do thời hạn tổ chức sắp đến',
-            'duyet_khan_cap' => true,
-        ])
-        ->assertStatus(403)
-        ->assertJsonPath(
-            'error',
-            'EMERGENCY_OVERRIDE_PERMISSION_REQUIRED'
-        );
-}
+        $this->assertDatabaseHas('dat_phong', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'trang_thai' => 'CANCELLED',
+        ]);
 
-/**
- * Admin không hoạt động:
- * Không thể sử dụng emergency_override dù bản ghi quyền còn hiệu lực.
- */
-public function test_inactive_admin_cannot_use_emergency_permission(): void
-{
-    $eventId = $this->createSubmittedEvent();
+        $this->assertDatabaseHas('nhat_ky_kiem_duyet', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'hanh_dong' => 'REQUEST_EDIT',
+            'trang_thai_truoc' => 'PENDING_FACULTY',
+            'trang_thai_sau' => 'DRAFT',
+        ]);
+    }
 
-    $this->grantEmergencyPermission();
+    /**
+     * Test POST /api/v1/events/{id}/reopen
+     */
+    public function test_host_can_reopen_rejected_event_to_draft(): void
+    {
+        $event = $this->createTestEvent('REJECTED');
 
-    $this->pctsvAdmin->update(['hoat_dong' => 0]);
+        $response = $this->actingAs($this->hostUserA)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/reopen");
 
-    $this->assertFalse(
-        $this->pctsvAdmin->fresh()->hasPermission('emergency_override')
-    );
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'ma_su_kien' => $event->ma_su_kien,
+                    'trang_thai' => 'DRAFT',
+                ],
+            ]);
 
-    $this->actingAs($this->pctsvAdmin)
-        ->postJson("/api/events/{$eventId}/admin-override", [
-            'ly_do' => 'Cần duyệt khẩn cấp do thời hạn tổ chức sắp đến',
-            'duyet_khan_cap' => true,
-        ])
-        ->assertForbidden();
-}
+        $this->assertDatabaseHas('su_kien', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'trang_thai' => 'DRAFT',
+        ]);
+    }
 
+    public function test_cannot_reopen_event_in_non_rejected_state(): void
+    {
+        $event = $this->createTestEvent('PENDING_FACULTY');
+
+        $response = $this->actingAs($this->hostUserA)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/reopen");
+
+        $response->assertStatus(409);
+    }
 }
