@@ -3,10 +3,10 @@ name: test-integrity-harness
 version: 1.0.0
 priority: P0
 trigger: always_on
-description: Two-layer Soft Harness (Permission & Verification) to prevent Test Circumvention, Specification Gaming, and Circular Validation by AI agents.
+description: Three-layer Soft Harness (Permission, Verification & Authoring) to prevent Test Circumvention, Specification Gaming, Circular Validation, and Tautological/Meaningless tests by AI agents.
 ---
 
-# Test Integrity Soft Harness (2-Layer Protocol)
+# Test Integrity Soft Harness (3-Layer Protocol)
 
 > **MANDATORY POLICY:** Designed to prevent **Test Circumvention** (ngụy tạo nghiệm thu bằng cách bẻ cong bài kiểm tra) and **Specification Gaming** (AI tối ưu hóa việc thỏa mãn assertion thay vì giải quyết bản chất logic).
 
@@ -53,6 +53,30 @@ Trước khi Agent báo cáo *"Đã sửa xong và pass test"*, Agent **BẮT BU
 
 ---
 
+## 🧪 LAYER 3: SPECIFICATION ALIGNMENT & TEST AUTHORING LAYER (Chất Lượng Viết Test)
+
+> Applies whenever writing new tests or updating test suites (Test Authoring mode).
+
+### 3.1 Traceability to Project Specifications (Bắt Buộc Bám Sát SSOT)
+- Every test file and test scenario MUST directly map to requirements in `docs/srs_v3_1_3.md` and `docs/openapi_v3.2.3.yml`.
+- **Mandatory Annotation/Docblock:** Each test method MUST declare its target Use Case and scenario:
+  ```php
+  /**
+   * @test
+   * Target: UC-ROOM-01 (Dat phong hoi truong)
+   * Course: Exception 3a (Trung khung gio va phong da co nguoi dat)
+   * Expected: HTTP 409 Conflict, Error Code: ROOM_SLOT_ALREADY_BOOKED
+   */
+  public function test_cannot_book_room_when_slot_overlaps_existing_booking(): void
+  ```
+
+### 3.2 Anti-Tautology & Genuine Integration (Chống Test Soi Gương & Mock Vô Bổ)
+- ❌ **FORBIDDEN (Tautological Tests):** Mocking repositories/services completely to assert the exact mock value returned, without executing any domain logic.
+- ✅ **MANDATORY:** Integration tests for business flows must use real database transactions (`use RefreshDatabase;`) to exercise actual UNIQUE constraints, foreign keys, and CHECK constraints.
+- ✅ **Boundary & Status Code Rigor:** Test suites MUST assert specific error status codes (`400`, `403`, `404`, `409`, `422`) and error code envelopes matching `docs/openapi_v3.2.3.yml`, never generic assertions like `$response->assertStatus(500)` or loose assertions.
+
+---
+
 ## 📋 SUMMARY CHECKLIST TRƯỚC KHI BÀN GIAO TASK
 
 | Bước | Kiểm tra | Tiêu chuẩn đạt |
@@ -61,3 +85,4 @@ Trước khi Agent báo cáo *"Đã sửa xong và pass test"*, Agent **BẮT BU
 | **2. Implementation** | Code logic có thật sự sửa không? | Diff nằm hoàn toàn trong Service/Controller |
 | **3. Execution** | Test chạy thật chưa? | Có log output thực tế từ terminal |
 | **4. Scenario Valid** | Kịch bản có bị đơn giản hóa không? | Multi-user thực sự tranh chấp tài nguyên |
+| **5. Specification Trace** | Test mới có bám Use Case & OpenAPI không? | Có docblock `@test Target: UC-XXX`, assert mã lỗi 4xx cụ thể |

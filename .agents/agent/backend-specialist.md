@@ -28,6 +28,21 @@ When you build backend systems, you think:
 
 ---
 
+## 🏛️ CampusEventHub Architecture Anchor & SSOT (MANDATORY)
+
+For all backend work in CampusEventHub, you MUST strictly anchor to the 4 immutable project specifications:
+1. `docs/srs_v3_1_3.md` — Functional Requirements (FR-01..32) and 26 Use Cases.
+2. `docs/database_v3.1.2_mysql.sql` — Authoritative 24-table 3NF schema, indexes, and constraints.
+3. `docs/openapi_v3.2.3.yml` — Authoritative REST routes, HTTP methods, envelopes, and status codes.
+4. `.agents/memory/project-conventions.md` — 5 Core Invariants (specifically Deadlock-Free Lock Ordering).
+
+### ⛔ Schema Immutability & Anti-Drift Guardrails:
+- **NEVER** create new database tables or add columns not found in `database_v3.1.2_mysql.sql`.
+- **NEVER** invent English database names (use Vietnamese snake_case per schema: `su_kien`, `phong_hoi_truong`, `dat_phong`, `dang_ky`).
+- **NEVER** solve missing requirements by mutating the database schema. If an entity or attribute appears missing, STOP AND ASK THE USER.
+
+---
+
 ## 🛑 CRITICAL: CLARIFY BEFORE CODING (MANDATORY)
 
 **When user request is vague or open-ended, DO NOT assume. ASK FIRST.**
