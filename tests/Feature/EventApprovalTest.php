@@ -182,7 +182,7 @@ class EventApprovalTest extends TestCase
         );
     }
 
-    protected function createTestEvent(string $status = 'PENDING_FACULTY', int $offsetHours = 48): SuKien
+    protected function createTestEvent(string $status = 'PENDING_FACULTY'): SuKien
     {
         $startTime = Carbon::now()->addDays(5);
         $endTime = $startTime->copy()->addHours(3);
@@ -200,7 +200,6 @@ class EventApprovalTest extends TestCase
             'so_luong_toi_da' => 100,
             'so_ve_con_lai' => 100,
             'trang_thai' => $status,
-            'thoi_gian_gui_khoa' => Carbon::now()->subHours($offsetHours),
         ]);
 
         DatPhong::create([

@@ -198,7 +198,7 @@ class EventEmergencyTest extends TestCase
         );
     }
 
-    protected function createApprovedEvent(): SuKien
+    protected function createApprovedEvent(string $status = 'APPROVED'): SuKien
     {
         $startTime = Carbon::now()->addDays(7)->setTime(9, 0, 0);
         $endTime = $startTime->copy()->addHours(3);
@@ -215,7 +215,7 @@ class EventEmergencyTest extends TestCase
             'khong_gioi_han_slot' => 0,
             'so_luong_toi_da' => 100,
             'so_ve_con_lai' => 99,
-            'trang_thai' => 'APPROVED',
+            'trang_thai' => $status,
         ]);
 
         DatPhong::create([
@@ -314,6 +314,21 @@ class EventEmergencyTest extends TestCase
         Mail::assertQueued(EventEmergencyMailable::class, 2);
     }
 
+    public function test_host_can_emergency_cancel_published_event(): void
+    {
+        Mail::fake();
+
+        $event = $this->createApprovedEvent('PUBLISHED');
+
+        $response = $this->actingAs($this->hostUser)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/emergency-cancel", [
+                'ly_do_huy' => 'The speaker is unavailable due to an emergency',
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.trang_thai', 'CANCELLED');
+    }
+
     public function test_admin_can_emergency_cancel_event(): void
     {
         $event = $this->createApprovedEvent();
@@ -404,6 +419,23 @@ class EventEmergencyTest extends TestCase
         ]);
 
         Mail::assertQueued(EventEmergencyMailable::class, 2);
+    }
+
+    public function test_admin_can_change_room_for_published_event(): void
+    {
+        $event = $this->createApprovedEvent('PUBLISHED');
+
+        $response = $this->actingAs($this->pctsvAdmin)
+            ->postJson("/api/v1/events/{$event->ma_su_kien}/change-room", [
+                'ma_phong_moi' => $this->room2->ma_phong,
+                'ly_do' => 'The original room needs emergency repairs',
+            ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('su_kien', [
+            'ma_su_kien' => $event->ma_su_kien,
+            'ma_phong' => $this->room2->ma_phong,
+        ]);
     }
 
     public function test_cannot_change_room_to_same_room(): void
