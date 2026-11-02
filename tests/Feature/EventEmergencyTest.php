@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\EventEmergencyMailable;
 use App\Models\ChuyenDe;
 use App\Models\DangKy;
 use App\Models\DatPhong;
@@ -13,6 +14,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -251,6 +253,8 @@ class EventEmergencyTest extends TestCase
      */
     public function test_host_can_emergency_cancel_approved_event(): void
     {
+        Mail::fake();
+
         $event = $this->createApprovedEvent();
 
         $response = $this->actingAs($this->hostUser)
@@ -306,6 +310,8 @@ class EventEmergencyTest extends TestCase
             'ma_tai_khoan' => $this->studentUser1->ma_tai_khoan,
             'loai_thong_bao' => 'HUY_SU_KIEN',
         ]);
+
+        Mail::assertQueued(EventEmergencyMailable::class, 2);
     }
 
     public function test_admin_can_emergency_cancel_event(): void
@@ -355,6 +361,8 @@ class EventEmergencyTest extends TestCase
      */
     public function test_admin_can_change_room_successfully(): void
     {
+        Mail::fake();
+
         $event = $this->createApprovedEvent();
 
         $response = $this->actingAs($this->pctsvAdmin)
@@ -394,6 +402,8 @@ class EventEmergencyTest extends TestCase
             'ma_tai_khoan' => $this->studentUser1->ma_tai_khoan,
             'loai_thong_bao' => 'DOI_PHONG_KHAN_CAP',
         ]);
+
+        Mail::assertQueued(EventEmergencyMailable::class, 2);
     }
 
     public function test_cannot_change_room_to_same_room(): void

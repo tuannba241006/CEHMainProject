@@ -217,6 +217,14 @@ class EventApprovalTest extends TestCase
     /**
      * Test GET /api/v1/events/review-queue
      */
+    public function test_review_queue_rejects_status_outside_openapi_enum(): void
+    {
+        $response = $this->actingAs($this->pctsvAdmin)
+            ->getJson('/api/v1/events/review-queue?trang_thai=DRAFT');
+
+        $response->assertStatus(422);
+    }
+
     public function test_faculty_can_access_review_queue_for_own_clubs(): void
     {
         $event = $this->createTestEvent('PENDING_FACULTY');
