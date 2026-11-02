@@ -27,6 +27,8 @@ class AuditLogService
         'REVOKE_CERTIFICATE',
         'UNLOCK_DRL',
         'LOCK_ACCOUNT',
+        'GRANT_EMERGENCY_OVERRIDE',
+        'REVOKE_EMERGENCY_OVERRIDE',
     ];
 
     /**

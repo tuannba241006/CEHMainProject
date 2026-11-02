@@ -24,6 +24,7 @@ class SuKien extends Model
     protected function casts(): array
     {
         return [
+            'thoi_gian_gui_khoa' => 'datetime',
             'lo_trinh' => 'array',
             'ngay_cong_bo' => 'datetime',
             'thoi_gian_bat_dau' => 'datetime',
