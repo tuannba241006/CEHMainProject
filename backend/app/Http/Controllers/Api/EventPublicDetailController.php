@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Services\EventSmartActionService;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventPublicDetailResource;
 use App\Models\SuKien;
+use App\Services\EventSmartActionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class EventPublicDetailController extends Controller
 {

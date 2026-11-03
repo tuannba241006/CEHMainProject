@@ -12,7 +12,7 @@ class EventPublicDetailResource extends JsonResource
         $tz = 'Asia/Ho_Chi_Minh';
 
         $organization = function ($unit): ?array {
-            if (!$unit) {
+            if (! $unit) {
                 return null;
             }
 

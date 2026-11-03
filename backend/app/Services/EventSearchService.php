@@ -32,7 +32,7 @@ class EventSearchService
         ]);
 
         // Mặc định chỉ hiển thị sự kiện PUBLISHED/HAPPENING.
-        if (!empty($filters['trang_thai'])) {
+        if (! empty($filters['trang_thai'])) {
             $query->where('trang_thai', $filters['trang_thai']);
         } else {
             $query->whereIn('trang_thai', [
@@ -41,9 +41,8 @@ class EventSearchService
             ]);
         }
 
-
         // Tim kiem theo ten, mo ta va dien gia.
-        if (!empty($filters['q'])) {
+        if (! empty($filters['q'])) {
             $keyword = trim((string) $filters['q']);
 
             // Loai bo ky tu dac biet, giu chu cai Unicode.
@@ -62,10 +61,10 @@ class EventSearchService
 
                     // Tu khoa ngan: dung LIKE vi MySQL
                     // Full-text co the khong index tu duoi 3 ky tu.
-                    $like = '%' . addcslashes(
+                    $like = '%'.addcslashes(
                         $keyword,
                         '%_\\'
-                    ) . '%';
+                    ).'%';
 
                     $query->where(function ($q) use ($like) {
                         $q->where('ten_su_kien', 'LIKE', $like)
@@ -84,7 +83,6 @@ class EventSearchService
                 }
             }
         }
-
 
         // Chuyên đề.
         if (isset($filters['ma_chuyen_de'])) {
@@ -108,7 +106,7 @@ class EventSearchService
         }
 
         // Điều khoản điểm rèn luyện.
-        if (!empty($filters['dieu_khoan_drl'])) {
+        if (! empty($filters['dieu_khoan_drl'])) {
             $query->where(
                 'dieu_khoan_drl',
                 $filters['dieu_khoan_drl']
@@ -124,7 +122,7 @@ class EventSearchService
         }
 
         // Lọc theo ngày bắt đầu.
-        if (!empty($filters['tu_ngay'])) {
+        if (! empty($filters['tu_ngay'])) {
             $query->whereDate(
                 'thoi_gian_bat_dau',
                 '>=',
@@ -132,7 +130,7 @@ class EventSearchService
             );
         }
 
-        if (!empty($filters['den_ngay'])) {
+        if (! empty($filters['den_ngay'])) {
             $query->whereDate(
                 'thoi_gian_bat_dau',
                 '<=',
@@ -141,7 +139,7 @@ class EventSearchService
         }
 
         // Chỉ lấy sự kiện còn mở đăng ký.
-        if (!empty($filters['con_cho'])) {
+        if (! empty($filters['con_cho'])) {
             $deadline = $now->copy()->addHours(2);
 
             $query->whereIn('trang_thai', [
@@ -157,11 +155,11 @@ class EventSearchService
                 })
 
                 // Sự kiện giới hạn vé: còn vé và chưa tới T-2h.
-                ->orWhere(function ($sub) use ($deadline) {
-                    $sub->where('khong_gioi_han_slot', false)
-                        ->where('so_ve_con_lai', '>', 0)
-                        ->where('thoi_gian_bat_dau', '>=', $deadline);
-                });
+                    ->orWhere(function ($sub) use ($deadline) {
+                        $sub->where('khong_gioi_han_slot', false)
+                            ->where('so_ve_con_lai', '>', 0)
+                            ->where('thoi_gian_bat_dau', '>=', $deadline);
+                    });
             });
         }
 
