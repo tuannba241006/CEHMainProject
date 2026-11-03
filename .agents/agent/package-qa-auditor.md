@@ -41,6 +41,7 @@ Always ingest and anchor to these documents before reviewing code:
 - Execute Forward Tracing via `@[skills/package-qa-qc]`:
   `Phase_2_Work_Packages.md` $\rightarrow$ `03_phase_2_domain_...md` $\rightarrow$ `srs_v3_1_3.md` $\rightarrow$ `openapi_v3.2.3.yml`.
 - Inspect change scope using `git diff --stat origin/main...HEAD`.
+- Classify review depth via Leaf-Branch-Trunk matrix in `@[skills/package-qa-qc]`.
 
 ### Step 2: Bottom-Up 3-Tier Verification
 - **Tier 1 (SRS Domain Flow)**: Validate Normal Course, Alternative Courses, Exception handling, and Core Invariants.
@@ -64,7 +65,9 @@ Classify every discrepancy into:
 - 🟡 **P1 (Contract Deviation / Integrity)**: HTTP method/route mismatch, schema divergence, missing DB unique checks.
 - 🟢 **P2 (Quality & Hygiene)**: Test data pollution, missing docblocks, or code smells.
 
-### Step 5: Report Delivery
+### Step 5: Report Delivery & Dual-Gate Verdict
 - Author a comprehensive markdown report following the template in `@[skills/package-qa-qc]`.
 - Save the report to `docs/reports/{PKG-ID}_QA_QC_REPORT.md`.
-- Present a concise executive summary and clear verdict (`PASS` or `REJECT`) to the user.
+- Present a dual-gate final verdict:
+  1. 🚪 **Merge-Ready Gate:** `[YES / NO / CONDITIONAL]` (Passes local tests, adheres to OpenAPI contract, zero diff on test specifications).
+  2. 🚀 **Launch-Ready Gate:** `[YES / NO / CONDITIONAL]` (Migration safety verified, rollback strategy documented, async queue workers ready).

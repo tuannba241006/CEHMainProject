@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EventCoHostController;
+use App\Http\Controllers\Api\EventEmergencyController;
 use App\Http\Controllers\Api\EventOrganizerController;
 use App\Http\Controllers\Api\EventReviewController;
 use App\Http\Controllers\Api\RoomController;
@@ -48,17 +49,6 @@ $adminRoutes = function () {
         Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users.index');
         Route::post('/users', [AdminUserController::class, 'createInternal'])->name('admin.users.create');
         Route::post('/users/create-internal', [AdminUserController::class, 'createInternal'])->name('admin.users.create-internal');
-
-        // Emergency override permission management
-        Route::post(
-            '/users/{id}/permissions/emergency-override',
-            [AdminUserController::class, 'grantEmergencyOverride']
-        )->name('admin.users.permissions.emergency-override.grant');
-
-        Route::delete(
-            '/users/{id}/permissions/emergency-override',
-            [AdminUserController::class, 'revokeEmergencyOverride']
-        )->name('admin.users.permissions.emergency-override.revoke');
     });
 };
 
@@ -96,37 +86,16 @@ $eventRoutes = function () {
         Route::post('/{id}/co-host-respond', [EventCoHostController::class, 'respondInvitation'])->name('events.co-host-respond');
         Route::post('/{id}/withdraw', [EventCoHostController::class, 'withdrawProposal'])->name('events.withdraw');
 
+        // Review queue (GET /events/review-queue)
+        Route::get('/review-queue', [EventReviewController::class, 'reviewQueue'])->name('events.review-queue');
+
         // Multi-level event approval workflow (CEH-P2-EVT-03)
+        Route::post('/{id}/review', [EventReviewController::class, 'review'])->name('events.review');
+        Route::post('/{id}/reopen', [EventReviewController::class, 'reopen'])->name('events.reopen');
 
-        // Host B: Faculty approval
-        Route::post(
-            '/{id}/approve-faculty',
-            [EventReviewController::class, 'approveFaculty']
-        )->name('events.approve-faculty');
-
-        // Admin: Override Host B approval
-        Route::post(
-            '/{id}/admin-override',
-            [EventReviewController::class, 'adminOverride']
-        )->name('events.admin-override');
-
-        // Admin: Final approval
-        Route::post(
-            '/{id}/approve-admin',
-            [EventReviewController::class, 'approveAdmin']
-        )->name('events.approve-admin');
-
-        // Host B: Reject event
-        Route::post(
-            '/{id}/reject-faculty',
-            [EventReviewController::class, 'rejectFaculty']
-        )->name('events.reject-faculty');
-
-        // Admin: Reject event
-        Route::post(
-            '/{id}/reject-admin',
-            [EventReviewController::class, 'rejectAdmin']
-        )->name('events.reject-admin');
+        // Emergency cancellation & room change (CEH-P2-EVT-04)
+        Route::post('/{id}/emergency-cancel', [EventEmergencyController::class, 'emergencyCancel'])->name('events.emergency-cancel');
+        Route::post('/{id}/change-room', [EventEmergencyController::class, 'changeRoom'])->name('events.change-room');
     });
 };
 

@@ -75,6 +75,34 @@ Search `docs/openapi_v3.2.3.yml` & `docs/database_v3.1.2_mysql.sql`
 
 ---
 
+## 2.5 Risk & Blast Radius Matrix (Leaf - Branch - Trunk)
+
+Determine review depth deterministically using structural heuristics, dependency fan-in, and invariant criticality:
+
+### 1. Directory & Architectural Role Mapping
+- 🔴 **TRUNK (High Risk - Mandatory Full Audit + Concurrency Test + Backward Compatibility):**
+  - Paths: `database/migrations/**`, `app/Models/**`, `app/Http/Middleware/**`, `config/**`, `routes/api.php`.
+  - Scope: Database schema changes, core models, global middleware, auth pipelines, and concurrency lock ordering.
+- 🟡 **BRANCH (Medium Risk - Integration Tests + Boundary & Invariant Verification):**
+  - Paths: `app/Services/**`, `app/Http/Controllers/**`, `app/Jobs/**`, `app/Events/**`, `app/Listeners/**`.
+  - Scope: Domain business workflows, multi-table transactions, asynchronous dispatching, and controller endpoints.
+- 🟢 **LEAF (Low Risk - Static Analysis + Local Unit Tests):**
+  - Paths: `app/Http/Requests/**`, `app/Http/Resources/**`, `resources/js/components/**`, `app/Helpers/**`.
+  - Scope: Input validation rules, response transformation DTOs, presentational UI components, pure helpers.
+
+### 2. Forced Escalation Triggers
+Regardless of directory location, automatically escalate review depth to **TRUNK** if `git diff` touches:
+- Transactions & Locks: `DB::transaction`, `lockForUpdate()`, `sharedLock()`.
+- Database Schema & Alterations: `Schema::`, `dropColumn`, `change()`, raw SQL modifications.
+- Authorization & Permissions: `Auth::`, `can()`, `Gate::`, Sanctum token abilities.
+- High Fan-In: The modified class or function is imported/called by $\ge 3$ distinct modules (verifiable via `grep`).
+
+### 3. Fail-Safe Rules
+- **Max Priority:** For multi-file changes, the overall review level equals the highest-tier file in the diff.
+- **Fail-Safe Default:** When uncertain between Leaf and Branch $\rightarrow$ select **Branch**. When uncertain between Branch and Trunk $\rightarrow$ select **Trunk**.
+
+---
+
 ## 3. Phase 2: Bottom-Up 3-Tier Verification Matrix (QA/QC Inspection)
 
 Do NOT inspect code top-down. Inspect bottom-up from domain essence to package sign-off:
@@ -166,8 +194,32 @@ Every audit must produce a structured report saved to `docs/reports/{PKG-ID}_QA_
 ### 🟢 P2 - Quality Improvements & Test Hygiene
 
 ## IV. EMPIRICAL VERIFICATION EVIDENCE
+
+### 1. Verification Matrix
+Every check layer MUST use one of the standard statuses: `PASS`, `FAIL`, `NOT RUN`, or `NOT APPLICABLE (N/A)`.
+
+| Check Layer | Command / Method | Environment | Result | Evidence / Reason if NOT RUN |
+| :--- | :--- | :--- | :--- | :--- |
+| **Static / Lint** | `vendor/bin/phpstan` / `npm run lint` | Docker | `PASS` | 0 errors |
+| **Unit / Logic** | `php artisan test tests/Unit/...` | Docker | `PASS` | All unit tests passed |
+| **Integration** | `php artisan test tests/Feature/...` | Docker | `PASS` | Feature suite passed |
+| **Concurrency / NFR** | `php scripts/benchmark_...` | Docker | `NOT RUN` | Reason if not executed |
+
+### 2. Execution Logs
 [Terminal logs of passing test suite and benchmark runs]
 
-## V. VERDICT & ACTION CHECKLIST
+## V. DUAL-GATE VERDICT & ACTION CHECKLIST
+
+### 1. Merge-Ready Gate: [PASS / REJECT / CONDITIONAL]
+- [ ] Code cleanliness and documentation standards met
+- [ ] 100% relevant Unit and Feature tests pass
+- [ ] Conforms 100% to OpenAPI v3.2.3 contracts and unified API envelopes
+- [ ] `git diff --stat -- tests/` = 0 lines (Strict test immutability preserved)
+
+### 2. Launch-Ready Gate (Operational Readiness): [PASS / REJECT / CONDITIONAL]
+- [ ] **Migration Safety:** No destructive schema drops or long-locking ALTER operations without fallback
+- [ ] **Rollback Plan:** Documented database rollback steps and code revert procedure
+- [ ] **Queue / Async Readiness:** Listeners and workers configured for asynchronous jobs (mail, ticket generation)
+- [ ] **Data Safety:** Seeders and migrations verified against staging/production data pollution
 [PASS or REJECT with actionable checkboxes for author]
 ```
