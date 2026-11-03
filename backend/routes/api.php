@@ -3,10 +3,13 @@
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\EventCatalogController;
 use App\Http\Controllers\Api\EventCoHostController;
 use App\Http\Controllers\Api\EventEmergencyController;
 use App\Http\Controllers\Api\EventOrganizerController;
+use App\Http\Controllers\Api\EventPublicDetailController;
 use App\Http\Controllers\Api\EventReviewController;
+use App\Http\Controllers\Api\EventShareController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomScheduleController;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +27,22 @@ Route::get('/health', function () {
     ]);
 });
 
+// PKG-04: Public Event Discovery (UC-DISC-01)
+// API versioned: /api/v1/...
+Route::get('/v1/events', [EventCatalogController::class, 'index'])->name('v1.events.public.index');
+
+Route::get('/v1/topics', [EventCatalogController::class, 'topics'])->name('v1.topics.public.index');
+
+// Root API aliases: /api/...
+Route::get('/events', [EventCatalogController::class, 'index'])->name('events.public.index');
+
+Route::get('/topics', [EventCatalogController::class, 'topics'])->name('topics.public.index');
+Route::get('/v1/events/{id}', [EventPublicDetailController::class, 'show'])->whereNumber('id')->name('v1.events.public.show');
+
+Route::get('/events/{id}', [EventPublicDetailController::class, 'show'])->whereNumber('id')->name('events.public.show');
+Route::get('/v1/events/{id}/share', [EventShareController::class, 'show'])->whereNumber('id')->name('v1.events.public.share');
+
+Route::get('/events/{id}/share', [EventShareController::class, 'show'])->whereNumber('id')->name('events.public.share');
 // Authentication & Account routes definition
 $authRoutes = function () {
     // Public auth routes (UC-AUTH-01, 02, 04)
