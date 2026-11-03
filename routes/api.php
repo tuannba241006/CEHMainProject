@@ -3,6 +3,7 @@
 
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\EventCoHostController;
 use App\Http\Controllers\Api\EventEmergencyController;
 use App\Http\Controllers\Api\EventOrganizerController;
@@ -97,6 +98,11 @@ $eventRoutes = function () {
         // Emergency cancellation & room change (CEH-P2-EVT-04)
         Route::post('/{id}/emergency-cancel', [EventEmergencyController::class, 'emergencyCancel'])->name('events.emergency-cancel');
         Route::post('/{id}/change-room', [EventEmergencyController::class, 'changeRoom'])->name('events.change-room');
+    });
+
+    // PKG-05: Concurrency ticket booking (UC-BOOK-01, FR-14)
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
+        Route::post('/{id}/book', [BookingController::class, 'bookTicket'])->name('events.book');
     });
 };
 
