@@ -117,11 +117,31 @@ class TaiKhoanSeeder extends Seeder
                 'thoi_gian_tao' => $now,
                 'thoi_gian_cap_nhat' => $now,
             ],
+            [
+                'ma_tai_khoan' => 7,
+                'mssv' => '22521999',
+                'email' => '22521999@gm.uit.edu.vn',
+                'ho_ten' => 'Trần Minh Phúc (CTV Soát vé)',
+                'mat_khau' => Hash::make('Checkin@123', $passwordCost),
+                'so_dien_thoai' => '0909888777',
+                'ma_khoa' => 1,
+                'khoa' => 'Khoa Hệ thống Thông tin',
+                'lop_sinh_hoat' => 'HTTT2022',
+                'avatar_url' => null,
+                'loai_tai_khoan' => 'SinhVien',
+                'ma_don_vi_to_chuc' => null,
+                'dong_y_nghi_dinh_13' => 1,
+                'thoi_gian_dong_y_nd13' => $now,
+                'buoc_doi_mat_khau' => 0,
+                'hoat_dong' => 1,
+                'thoi_gian_tao' => $now,
+                'thoi_gian_cap_nhat' => $now,
+            ],
         ];
 
         foreach ($taiKhoanList as $tk) {
             DB::table('tai_khoan')->updateOrInsert(
-                ['ma_tai_khoan' => $tk['ma_tai_khoan']],
+                ['email' => $tk['email']],
                 $tk
             );
         }
