@@ -2,8 +2,8 @@
 
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\EventCatalogController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\EventCatalogController;
 use App\Http\Controllers\Api\EventCoHostController;
 use App\Http\Controllers\Api\EventEmergencyController;
 use App\Http\Controllers\Api\EventOrganizerController;
