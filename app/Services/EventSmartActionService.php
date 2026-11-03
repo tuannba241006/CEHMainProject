@@ -128,7 +128,7 @@ class EventSmartActionService
         /*
          * 2. Khach chua dang nhap.
          */
-        if (!$user) {
+        if (! $user) {
             return $this->action(
                 'CHUA_DANG_NHAP',
                 'Đăng nhập để tham gia',
@@ -139,7 +139,7 @@ class EventSmartActionService
         /*
          * 3. Tai khoan khong phai sinh vien.
          */
-        if (!$user->isSinhVien()) {
+        if (! $user->isSinhVien()) {
             return $this->action(
                 'DANG_KY',
                 'Chỉ tài khoản sinh viên được đăng ký',
@@ -155,7 +155,7 @@ class EventSmartActionService
             if (
                 $event->trang_thai === 'HAPPENING'
                 && $event->cong_check_in_mo
-                && !$ticket->da_check_in
+                && ! $ticket->da_check_in
             ) {
                 return $this->action(
                     'VAO_DIEM_DANH',
@@ -185,7 +185,7 @@ class EventSmartActionService
             $waitlist
             && $waitlist->trang_thai === 'OFFERED'
             && (
-                !$waitlist->han_chot_xac_nhan
+                ! $waitlist->han_chot_xac_nhan
                 || $now->gte($waitlist->han_chot_xac_nhan)
             )
         ) {

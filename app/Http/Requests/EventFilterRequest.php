@@ -37,15 +37,15 @@ class EventFilterRequest extends FormRequest
     {
         return [
             'q' => [
-                'sometimes', 'nullable', 'string', 'max:200'
+                'sometimes', 'nullable', 'string', 'max:200',
             ],
 
             'ma_chuyen_de' => [
-                'sometimes', 'integer', 'min:1'
+                'sometimes', 'integer', 'min:1',
             ],
 
             'ma_don_vi_to_chuc' => [
-                'sometimes', 'integer', 'min:1'
+                'sometimes', 'integer', 'min:1',
             ],
 
             'trang_thai' => [
@@ -53,25 +53,25 @@ class EventFilterRequest extends FormRequest
                 Rule::in([
                     'PUBLISHED',
                     'HAPPENING',
-                    'COMPLETED'
-                ])
+                    'COMPLETED',
+                ]),
             ],
 
             'dieu_khoan_drl' => [
                 'sometimes',
-                Rule::in(['KhongCo', 'Dieu3', 'Dieu4'])
+                Rule::in(['KhongCo', 'Dieu3', 'Dieu4']),
             ],
 
             'khong_gioi_han_slot' => [
-                'sometimes', 'boolean'
+                'sometimes', 'boolean',
             ],
 
             'con_cho' => [
-                'sometimes', 'boolean'
+                'sometimes', 'boolean',
             ],
 
             'tu_ngay' => [
-                'sometimes', 'date_format:Y-m-d'
+                'sometimes', 'date_format:Y-m-d',
             ],
 
             'den_ngay' => array_merge(
@@ -86,18 +86,18 @@ class EventFilterRequest extends FormRequest
                 Rule::in([
                     'bat_dau_asc',
                     'bat_dau_desc',
-                    'moi_cong_bo'
-                ])
+                    'moi_cong_bo',
+                ]),
             ],
 
             'page' => [
-                'sometimes', 'integer', 'min:1'
+                'sometimes', 'integer', 'min:1',
             ],
 
             'limit' => [
                 'sometimes', 'integer',
-                'min:1', 'max:100'
-            ]
+                'min:1', 'max:100',
+            ],
         ];
     }
 }

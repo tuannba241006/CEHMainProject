@@ -44,10 +44,10 @@ class EventShareController extends Controller
             $imageUrl = $cover;
         } elseif (
             $cover !== ''
-            && !preg_match('~^[a-z][a-z0-9+.-]*:~i', $cover)
-            && !str_starts_with($cover, '//')
+            && ! preg_match('~^[a-z][a-z0-9+.-]*:~i', $cover)
+            && ! str_starts_with($cover, '//')
         ) {
-            $imageUrl = url('/' . ltrim($cover, '/'));
+            $imageUrl = url('/'.ltrim($cover, '/'));
         } else {
             // Anh mac dinh can duoc bo sung vao public/images.
             $imageUrl = asset('images/default-event-og.png');
