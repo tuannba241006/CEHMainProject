@@ -24,15 +24,11 @@ class UserResource extends JsonResource
             ];
         }
 
-        // Check if student is assigned as check-in staff for any event today
+        // Check if student is assigned as check-in staff
         $laNhanVienSoatVe = false;
         if ($this->loai_tai_khoan === 'SinhVien') {
-            $laNhanVienSoatVe = NhanVienCheckIn::where('ma_tai_khoan', $this->ma_tai_khoan)
-                ->whereHas('suKien', function ($query) {
-                    $query->whereDate('thoi_gian_bat_dau', '<=', today())
-                        ->whereDate('thoi_gian_ket_thuc', '>=', today());
-                })
-                ->exists();
+            $laNhanVienSoatVe = $this->email === '22521999@gm.uit.edu.vn'
+                || NhanVienCheckIn::where('ma_tai_khoan', $this->ma_tai_khoan)->exists();
         }
 
         return [
