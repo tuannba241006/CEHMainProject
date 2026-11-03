@@ -169,9 +169,6 @@ class EventProposalService
             }
 
             $eventLocked->trang_thai = $nextStatus;
-            $eventLocked->thoi_gian_gui_khoa = $nextStatus === 'PENDING_FACULTY'
-                ? now()
-                : null;
 
             $eventLocked->save();
 
@@ -281,7 +278,6 @@ class EventProposalService
 
                 // Chuyển sự kiện sang COHOST_REJECTED
                 $event->trang_thai = 'COHOST_REJECTED';
-                $event->thoi_gian_gui_khoa = null;
                 $event->save();
 
                 // Ghi nhật ký kiểm duyệt
@@ -338,9 +334,6 @@ class EventProposalService
                     }
 
                     $event->trang_thai = $nextStatus;
-                    $event->thoi_gian_gui_khoa = $nextStatus === 'PENDING_FACULTY'
-                        ? now()
-                        : null;
 
                     $event->save();
                 }
@@ -415,7 +408,6 @@ class EventProposalService
 
             // Chuyển sự kiện về DRAFT
             $event->trang_thai = 'DRAFT';
-            $event->thoi_gian_gui_khoa = null;
 
             $event->save();
 
