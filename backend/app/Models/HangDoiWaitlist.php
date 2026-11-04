@@ -21,8 +21,8 @@ class HangDoiWaitlist extends Model
         return [
             'so_thu_tu' => 'integer',
             'thoi_gian_dang_ky' => 'datetime',
-            'thoi_gian_chuyen_trang_thai' => 'datetime',
             'han_chot_xac_nhan' => 'datetime',
+            'thoi_gian_phan_hoi' => 'datetime',
         ];
     }
 
