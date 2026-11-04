@@ -135,3 +135,22 @@ $$\mathbf{CEH\text{-}P[Phase]\text{-}[Module]\text{-}[Index]}$$
   - `TST`: Automated Tests & Postman Collections (Kiểm thử tự động).
 * **Số thứ tự**: `01`, `02`, `03`...
 
+---
+
+## 7. 🧱 Foundation-First & Anti-Service-Abandonment Policy
+
+All developers and AI Agents implementing features MUST strictly adhere to the **"Leverage Existing Foundations Before Building Anew"** principle:
+
+### A. Mandatory Discovery First
+- **Client Tier (Frontend)**:
+  - Survey the entire `frontend/src/api/services/` layer before authoring any new network interactions.
+  - Rely on designated API contracts (`docs/openapi_v3.2.3.yml`) and project mock servers to obtain authentic HTTP responses.
+  - FORBIDDEN: Isolating business state within ad-hoc, in-memory client arrays as a substitute for standard network calls, which breaks data hydration and causes state loss across page reloads.
+- **Server Tier (Backend)**:
+  - Audit existing domain services (`backend/app/Services/`) before writing new raw database queries or duplicating business routines.
+  - Do not duplicate established cross-cutting infrastructure (e.g., pessimistic locking order, signature verification, audit logging).
+
+### B. Extension over Duplication
+- When an existing service lacks an endpoint or business method, developers/Agents MUST extend the service directly.
+- FORBIDDEN: Abandoning existing services to write ad-hoc, fragmented network calls inside UI view components.
+- FORBIDDEN: Scattering environment or mock branching logic across UI view components. All data interactions and source routing must be encapsulated through standard Service, Adapter, or Hook abstractions.

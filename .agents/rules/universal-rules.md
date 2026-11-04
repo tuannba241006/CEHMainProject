@@ -1,6 +1,6 @@
 ---
 name: universal-rules
-version: 1.0.0
+version: 1.1.0
 priority: P0
 trigger: always_on
 ---
@@ -55,5 +55,26 @@ When user's prompt is NOT in English:
 - **Permission Layer**: Test specifications are FROZEN and READ-ONLY during bug fixes. Never alter test assertions or simplify test scenarios (e.g. multi-user concurrency must never be reduced to single-user spam).
 - **Verification Layer**: Must verify zero diff on test files (`git diff --stat -- tests/`) and produce empirical runtime log evidence before declaring any task complete.
 - **Authoring Layer**: When writing new tests, every test MUST trace back to Use Cases in `docs/srs_v3_1_3.md` and error codes in `docs/openapi_v3.2.3.yml`. Tautological / fake mock tests are strictly forbidden.
+
+---
+
+## 🧱 Foundation-First & Anti-Bypass Principle (Respect & Reuse Existing Infrastructure)
+
+**MANDATORY: Developers & AI Agents MUST discover, respect, and reuse existing architecture, services, clients, and dev tooling before authoring new implementations.**
+
+### 1. Discovery Before Implementation
+- Before creating or modifying any component, screen, controller, or handler, it is **MANDATORY** to survey:
+  - **Service & Abstraction Layers**: Pre-existing domain services (`backend/app/Services/`), client service modules (`frontend/src/api/services/`), and shared utility classes.
+  - **Communication Contracts**: OpenAPI / API contract specifications (`docs/openapi_v3.2.3.yml`) and shared contract types (`frontend/src/data/contract.ts`).
+  - **Dev & Mock Tooling**: Project mock servers, database seeders, test harnesses, and fixtures.
+
+### 2. Anti-Abandonment Guardrails
+- ❌ **FORBIDDEN (Ad-hoc Network Bypasses):** Writing standalone, un-abstracted `fetch`/`axios` calls or inventing ad-hoc endpoint URLs inside view components when established service clients exist.
+- ❌ **FORBIDDEN (Isolated In-Memory State as Network Substitute):** Bypassing designated API clients or mock servers by hardcoding volatile in-memory state arrays inside components, which breaks data hydration lifecycles and creates state loss on page reload.
+- ❌ **FORBIDDEN (Duplication over Extension):** Creating duplicate utility classes, services, or helper routines when an existing module should be extended.
+
+### 3. Service-First & Lifecycle Mandate
+- Components presenting business domain entities MUST consume data through the established service/hook layer, enforcing explicit lifecycles with all three states: `{ data, loading, error }`.
+- View components MUST remain decoupled from data-source mechanics or environment-switching flags.
 
 ---
