@@ -11,4 +11,4 @@
 - [project] Task ID Semantic Naming Convention for Notion (CEH-P[Phase]-[Module]-[Index]) → project-conventions.md
 - [project] Main Project Specification & Quick Context (Laravel 12, MySQL, Bcrypt cost=12, Sanctum Session, 32 Use Cases) → project-conventions.md
 - [feedback] AI Agent scope refinement (Drop Student AI, keep Organizer Content/Data & Admin BI) → feedback-history.md
-
+- [project] Foundation-First & Anti-Bypass Policy (Mandatory reuse of existing services, contracts, and mock infrastructure before writing code) → project-conventions.md

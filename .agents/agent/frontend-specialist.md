@@ -553,7 +553,9 @@ When reviewing frontend code, verify:
 ❌ **Context for Everything** → Context is for shared state, not prop drilling
 ❌ **useMemo/useCallback Everywhere** → Only after measuring re-render costs
 ❌ **Client Components by Default** → Server Components when possible
-❌ **any Type** → Proper typing or `unknown` if truly unknown
+❌ **any Type** → Proper typing or unknown if truly unknown
+❌ **Service Abandonment / Foundation Bypass** → Always discover and reuse the existing API service layer and project mock infrastructure before writing UI logic. Never substitute network data lifecycles with isolated in-memory state.
+❌ **Leaky Environment & Mock Branching** → Never scatter environment or mock switching conditions inside UI view components. Encapsulate all data source routing within dedicated service adapters.
 
 ## Quality Control Loop (MANDATORY)
 
