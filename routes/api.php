@@ -10,8 +10,11 @@ use App\Http\Controllers\Api\EventOrganizerController;
 use App\Http\Controllers\Api\EventPublicDetailController;
 use App\Http\Controllers\Api\EventReviewController;
 use App\Http\Controllers\Api\EventShareController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomScheduleController;
+use App\Http\Controllers\Api\TicketCancelController;
+use App\Http\Controllers\Api\TicketController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -132,13 +135,40 @@ $organizerRoutes = function () {
     });
 };
 
+// PKG-06: Ticket wallet & cancellation routes definition (UC-TCK-01, UC-TCK-02)
+$ticketRoutes = function () {
+    Route::middleware(['auth:sanctum,web', 'password.changed'])->group(function () {
+        // SinhVien: ví vé cá nhân & hủy vé
+        Route::middleware('role:SinhVien')->group(function () {
+            Route::get('/my-tickets', [TicketController::class, 'myTickets'])->name('my-tickets');
+            Route::post('/{id}/cancel', [TicketCancelController::class, 'cancel'])->whereNumber('id')->name('cancel');
+        });
+
+        // SinhVien (chủ vé) & Admin: xem chi tiết vé
+        Route::middleware('role:SinhVien,Admin')->group(function () {
+            Route::get('/{id}', [TicketController::class, 'show'])->whereNumber('id')->name('show');
+        });
+    });
+};
+
+// PKG-06: In-app Notification center routes definition (UC-NOTIF-01)
+$notificationRoutes = function () {
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien,ToChuc,Admin', 'password.changed'])->group(function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::put('/read-all', [NotificationController::class, 'markAllAsRead'])->name('read-all');
+        Route::put('/{id}/read', [NotificationController::class, 'markAsRead'])->whereNumber('id')->name('read');
+    });
+};
+
 // Version 1 API routes (/api/v1/...)
-Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes) {
+Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes) {
     Route::prefix('auth')->group($authRoutes);
     Route::prefix('admin')->group($adminRoutes);
     Route::prefix('rooms')->group($roomRoutes);
     Route::prefix('events')->name('v1.')->group($eventRoutes);
     Route::prefix('organizer')->name('v1.')->group($organizerRoutes);
+    Route::prefix('tickets')->name('v1.tickets.')->group($ticketRoutes);
+    Route::prefix('notifications')->name('v1.notifications.')->group($notificationRoutes);
 });
 
 // Root API alias routes (/api/...)
@@ -147,3 +177,5 @@ Route::prefix('admin')->group($adminRoutes);
 Route::prefix('rooms')->group($roomRoutes);
 Route::prefix('events')->group($eventRoutes);
 Route::prefix('organizer')->group($organizerRoutes);
+Route::prefix('tickets')->name('tickets.')->group($ticketRoutes);
+Route::prefix('notifications')->name('notifications.')->group($notificationRoutes);
