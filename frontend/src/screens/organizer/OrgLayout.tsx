@@ -101,6 +101,18 @@ const NAV_ITEMS = [
 
 export function OrgLayout({ children, current, onNavigate, onLogout }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const { user, role } = useUser()
+  const displayName = user.ho_ten || "Ban Tổ Chức"
+  const unitName = user.don_vi?.ten_don_vi || "CLB / Đoàn - Hội / Khoa"
+  const userInitials = (user.initials || displayName.slice(0, 2)).toUpperCase()
+  const roleLabel =
+    role === "admin"
+      ? "Quản trị viên Hệ thống"
+      : role === "student_affairs"
+        ? "Cán bộ P.CTSV"
+        : role === "faculty_manager"
+          ? "Ban Quản lý Khoa"
+          : "Ban tổ chức · CLB / Khoa"
 
   return (
     <div className="flex min-h-screen" style={{ background: "#f4f5f9" }}>
@@ -189,7 +201,7 @@ export function OrgLayout({ children, current, onNavigate, onLogout }: Props) {
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
             style={{ background: "#0891b2" }}
           >
-            BT
+            {userInitials}
           </div>
         </header>
 
@@ -221,18 +233,18 @@ export function OrgLayout({ children, current, onNavigate, onLogout }: Props) {
 
           <div className="flex items-center gap-3">
             <div className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-200">
-              Ban tổ chức · CLB / Khoa
+              {roleLabel}
             </div>
             <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
               <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
-                BT
+                {userInitials}
               </div>
               <div className="text-left">
                 <p className="text-xs font-bold text-slate-900 leading-none">
-                  Ban Tổ Chức
+                  {displayName}
                 </p>
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  Đại diện CLB / Đoàn - Hội / Khoa
+                  {unitName}
                 </p>
               </div>
             </div>
