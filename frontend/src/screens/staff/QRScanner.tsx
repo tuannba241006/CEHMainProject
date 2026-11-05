@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { BrowserQRCodeReader } from "@zxing/browser"
+import type { IScannerControls } from "@zxing/browser"
 import { useApp, type CheckInResult } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
 import { isApiMode } from "../../api/config"
@@ -28,14 +30,14 @@ export default function QRScanner({ onLogout, onBack }: Props) {
     getStudentPermissions,
   } = useApp()
   const { user, role } = useUser()
+  const apiMode = isApiMode()
   const assignedIds = getStudentPermissions(user.studentId).map(
     (permission) => permission.eventId,
   )
   const userAssignedEvents = events.filter((event) =>
     assignedIds.includes(event.id),
   )
-  // If user is ticket staff or no specific assigned IDs, allow selecting any active event
-  const assignedEvents =
+  const demoEvents =
     userAssignedEvents.length > 0
       ? userAssignedEvents
       : events.filter((e) => !e.isCancelled)
@@ -44,54 +46,162 @@ export default function QRScanner({ onLogout, onBack }: Props) {
   const [manualCode, setManualCode] = useState("")
   const [flashOn, setFlashOn] = useState(false)
   const [selectedEventId, setSelectedEventId] = useState(
-    assignedEvents[0]?.id ?? "",
+    apiMode ? "" : (demoEvents[0]?.id ?? ""),
   )
   const [result, setResult] = useState<CheckInResult | null>(null)
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [scanLine, setScanLine] = useState(0)
   const [scanMode, setScanMode] = useState<"checkin" | "checkout">("checkin")
+  const [apiEvents, setApiEvents] = useState<
+    { id: string; title: string; ma_su_kien: number }[]
+  >([])
+  const [eventLoadError, setEventLoadError] = useState("")
+  const [cameraActive, setCameraActive] = useState(false)
+  const [cameraError, setCameraError] = useState("")
+  const [scanPending, setScanPending] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const readerRef = useRef<BrowserQRCodeReader | null>(null)
+  const controlsRef = useRef<IScannerControls | null>(null)
+  const scanPendingRef = useRef(false)
+  const lastScanRef = useRef({ code: "", at: 0 })
+  const scanHandlerRef = useRef<(code: string) => void>(() => {})
+
+  const assignedEvents = apiMode
+    ? apiEvents
+    : demoEvents.map((e) => ({
+        id: e.id,
+        title: e.title,
+        ma_su_kien: e.ma_su_kien,
+      }))
 
   useEffect(() => {
     const id = setInterval(() => setScanLine((v) => (v + 1.5) % 100), 16)
     return () => clearInterval(id)
   }, [])
 
-  const selectedEvent = events.find((e) => e.id === selectedEventId)
-  const checkedInCount = selectedEventId
+  useEffect(() => {
+    if (!apiMode) return
+    let active = true
+    attendanceService
+      .myStaffEvents()
+      .then(({ data }) => {
+        if (!active) return
+        const available = data.map((event) => ({
+          id: String(event.ma_su_kien),
+          title: event.ten_su_kien,
+          ma_su_kien: event.ma_su_kien,
+        }))
+        setApiEvents(available)
+        setSelectedEventId((current) =>
+          available.some((event) => event.id === current)
+            ? current
+            : (available[0]?.id ?? ""),
+        )
+        setEventLoadError("")
+      })
+      .catch((error: unknown) => {
+        if (active) setEventLoadError(getApiErrorMessage(error))
+      })
+    return () => {
+      active = false
+    }
+  }, [apiMode])
+
+  useEffect(
+    () => () => {
+      controlsRef.current?.stop()
+    },
+    [],
+  )
+
+  const selectedEvent = assignedEvents.find((e) => e.id === selectedEventId)
+  const checkedInCount = !apiMode && selectedEventId
     ? getCheckedInCount(selectedEventId)
     : 0
-  const totalActive = selectedEventId
+  const totalActive = !apiMode && selectedEventId
     ? getActiveParticipants(selectedEventId).length
     : 0
 
   async function handleScan(code?: string) {
     const input = (code || manualCode).trim()
-    if (!input) return
+    if (!input || scanPendingRef.current) return
+    scanPendingRef.current = true
+    setScanPending(true)
 
-    const selectedEvt = events.find((e) => e.id === selectedEventId)
-    const eventIdNum = selectedEvt?.ma_su_kien || Number(selectedEventId) || 101
+    const selectedEvt = assignedEvents.find((e) => e.id === selectedEventId)
+    const eventIdNum = selectedEvt?.ma_su_kien
 
-    if (isApiMode()) {
+    if (!eventIdNum) {
+      setResult({
+        success: false,
+        type: "not_found",
+        message: "Chọn một sự kiện được phân công trước khi quét.",
+      })
+      scanPendingRef.current = false
+      setScanPending(false)
+      return
+    }
+
+    if (apiMode && !navigator.onLine) {
+      const message = "Mất kết nối mạng. Không ghi nhận điểm danh offline; vui lòng thử lại."
+      setResult({ success: false, type: "not_found", message })
+      setHistory((prev) => [
+        { name: "—", studentId: input, time: new Date().toLocaleTimeString("vi-VN"), status: "failed", message },
+        ...prev,
+      ])
+      setManualCode("")
+      scanPendingRef.current = false
+      setScanPending(false)
+      return
+    }
+
+    let res: CheckInResult
+    if (apiMode) {
       try {
-        await attendanceService.staffScan({
+        const response = await attendanceService.staffScan({
           ma_su_kien: eventIdNum,
           che_do_quet: scanMode === "checkin" ? "CHECK_IN" : "CHECK_OUT",
           chuoi_qr_ve: input,
         })
-      } catch (err) {
-        setResult({
+        const scan = response.data
+        res = {
+          success: true,
+          type: "success",
+          studentName: scan.sinh_vien.ho_ten,
+          studentId: scan.sinh_vien.mssv,
+          faculty: scan.sinh_vien.khoa,
+          time: new Date(scan.thoi_gian_quet).toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+          message: scan.canh_bao_doi_soat_the_sv
+            ? "HỢP LỆ — cần đối soát thẻ sinh viên tại bàn."
+            : "HỢP LỆ — điểm danh thành công.",
+        }
+      } catch (error) {
+        const message = getApiErrorMessage(error)
+        const failed: CheckInResult = {
           success: false,
           type: "not_found",
-          message: getApiErrorMessage(err),
-        })
+          message,
+        }
+        setResult(failed)
+        setHistory((prev) => [
+          { name: "—", studentId: input, time: new Date().toLocaleTimeString("vi-VN"), status: "failed", message },
+          ...prev,
+        ])
+        setManualCode("")
+        scanPendingRef.current = false
+        setScanPending(false)
         return
       }
+    } else {
+      res =
+        scanMode === "checkin"
+          ? checkIn(input, selectedEventId)
+          : checkOut(input, selectedEventId)
     }
-
-    const res =
-      scanMode === "checkin"
-        ? checkIn(input, selectedEventId)
-        : checkOut(input, selectedEventId)
     setResult(res)
 
     const entry: HistoryEntry = {
@@ -113,14 +223,45 @@ export default function QRScanner({ onLogout, onBack }: Props) {
       setTimeout(() => setResult(null), 3000)
     }
     setManualCode("")
+    scanPendingRef.current = false
+    setScanPending(false)
   }
 
-  function handleDemoScan() {
-    const demoQr =
-      selectedEventId === "EVT001"
-        ? "TKT-2026-001928|EVT001|22521088"
-        : "TKT-2026-003412|EVT005|22521001"
-    handleScan(demoQr)
+  scanHandlerRef.current = (code) => {
+    const now = Date.now()
+    const lastScan = lastScanRef.current
+    if (lastScan.code === code && now - lastScan.at < 2000) return
+    lastScanRef.current = { code, at: now }
+    void handleScan(code)
+  }
+
+  async function startCamera() {
+    if (!videoRef.current || controlsRef.current) return
+    setCameraError("")
+    lastScanRef.current = { code: "", at: 0 }
+    try {
+      const reader = new BrowserQRCodeReader()
+      readerRef.current = reader
+      controlsRef.current = await reader.decodeFromVideoDevice(
+        undefined,
+        videoRef.current,
+        (result) => {
+          if (result) scanHandlerRef.current(result.getText())
+        },
+      )
+      setCameraActive(true)
+    } catch (error) {
+      readerRef.current = null
+      controlsRef.current = null
+      setCameraError(getApiErrorMessage(error))
+    }
+  }
+
+  function stopCamera() {
+    controlsRef.current?.stop()
+    controlsRef.current = null
+    readerRef.current = null
+    setCameraActive(false)
   }
 
   return (
@@ -249,7 +390,12 @@ export default function QRScanner({ onLogout, onBack }: Props) {
                 </option>
               ))}
             </select>
-            {selectedEvent && (
+            {eventLoadError && (
+              <p role="alert" className="mt-2 text-xs text-rose-300">
+                Không tải được danh sách sự kiện được phân công: {eventLoadError}
+              </p>
+            )}
+            {!apiMode && selectedEvent && (
               <div className="flex gap-4 mt-2">
                 <p className="text-xs" style={{ color: "#334155" }}>
                   Đã điểm danh:{" "}
@@ -277,7 +423,16 @@ export default function QRScanner({ onLogout, onBack }: Props) {
               background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",
             }}
           >
-            <div className="absolute inset-0 flex items-center justify-center opacity-20">
+            <video
+              ref={videoRef}
+              className="absolute inset-0 h-full w-full object-cover"
+              autoPlay
+              muted
+              playsInline
+              aria-label="Camera quét mã QR"
+              style={{ opacity: cameraActive ? 1 : 0 }}
+            />
+            {!cameraActive && <div className="absolute inset-0 flex items-center justify-center opacity-20">
               <svg
                 className="w-20 h-20"
                 style={{ color: "#4f46e5" }}
@@ -293,7 +448,8 @@ export default function QRScanner({ onLogout, onBack }: Props) {
                 />
               </svg>
             </div>
-            <div className="absolute inset-0 flex items-center justify-center">
+            }
+            {!cameraActive && <div className="absolute inset-0 flex items-center justify-center">
               <div className="relative w-40 h-40">
                 {[
                   ["top", "left"],
@@ -347,10 +503,28 @@ export default function QRScanner({ onLogout, onBack }: Props) {
                   Đưa mã QR vào khung
                 </p>
               </div>
-            </div>
+            </div>}
             <div className="absolute bottom-4 right-4 flex gap-2">
               <button
-                onClick={() => setFlashOn((f) => !f)}
+                onClick={async () => {
+                  const next = !flashOn
+                  const switchTorch = controlsRef.current?.switchTorch
+                  if (!switchTorch) {
+                    setCameraError(
+                      "Đèn flash không được hỗ trợ trên camera hoặc trình duyệt này.",
+                    )
+                    return
+                  }
+                  try {
+                    await switchTorch(next)
+                    setFlashOn(next)
+                    setCameraError("")
+                  } catch (error) {
+                    setCameraError(getApiErrorMessage(error))
+                  }
+                }}
+                disabled={!cameraActive}
+                aria-label={flashOn ? "Tắt đèn flash" : "Bật đèn flash"}
                 className="w-10 h-10 rounded-full flex items-center justify-center transition-all"
                 style={{
                   background: flashOn ? "#f59e0b" : "rgba(255,255,255,0.12)",
@@ -374,6 +548,28 @@ export default function QRScanner({ onLogout, onBack }: Props) {
             </div>
           </div>
 
+          <div className="mx-4 mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void (cameraActive ? stopCamera() : startCamera())}
+              disabled={!selectedEventId || scanPending}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+              style={{ background: cameraActive ? "#7f1d1d" : "#4f46e5" }}
+            >
+              {cameraActive ? "Tắt camera" : "Bật camera quét QR"}
+            </button>
+            <span className="text-xs text-slate-400" role="status">
+              {cameraActive
+                ? "Đang quét QR; điểm danh chỉ được xác nhận sau khi máy chủ trả kết quả."
+                : "Cho phép truy cập camera hoặc nhập mã vé thủ công."}
+            </span>
+          </div>
+          {cameraError && (
+            <p role="alert" className="mx-4 mt-2 text-xs text-rose-300">
+              Camera: {cameraError}
+            </p>
+          )}
+
           {/* Manual input */}
           <div className="mx-4 mt-4">
             <p className="text-xs mb-2" style={{ color: "#475569" }}>
@@ -384,7 +580,12 @@ export default function QRScanner({ onLogout, onBack }: Props) {
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleScan()}
-                placeholder="VD: TKT-2026-003412"
+                placeholder={
+                  apiMode
+                    ? "CEH1.{uuid}.{ma_tai_khoan}.{ma_su_kien}.{hmac}"
+                    : "VD: TKT-2026-003412"
+                }
+                disabled={!selectedEventId || scanPending}
                 className="flex-1 px-4 py-3 rounded-2xl text-sm outline-none"
                 style={{
                   background: "rgba(255,255,255,0.07)",
@@ -395,16 +596,16 @@ export default function QRScanner({ onLogout, onBack }: Props) {
               />
               <button
                 onClick={() => handleScan()}
+                disabled={!selectedEventId || scanPending || !manualCode.trim()}
                 className="px-4 py-3 rounded-2xl text-sm font-semibold text-white flex-shrink-0"
-                style={{ background: "#4f46e5" }}
+                style={{ background: "#4f46e5", opacity: scanPending ? 0.6 : 1 }}
               >
-                Xác nhận
+                {scanPending ? "Đang kiểm tra..." : "Xác nhận"}
               </button>
             </div>
           </div>
 
-          {/* Demo scan: 2 student tickets */}
-          <div className="px-4 mt-3 space-y-2">
+          {!apiMode && <div className="px-4 mt-3 space-y-2">
             <p className="text-[11px] font-semibold text-slate-400">
               Mô phỏng quét mã vé sinh viên thường đến hội trường:
             </p>
@@ -422,7 +623,7 @@ export default function QRScanner({ onLogout, onBack }: Props) {
                 🎟️ Vé SV: Cao Duy Anh (22521001)
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Recent history preview */}
           {history.length > 0 && (

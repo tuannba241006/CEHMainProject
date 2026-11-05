@@ -7,6 +7,15 @@ import { isApiMode } from "../../api/config"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
 
+const simulatedTimeModes = [
+  { mode: "real", label: "Thời gian thực" },
+  { mode: "locked", label: "< T_end - 25m (Khóa Check-out)" },
+  { mode: "early", label: "T_end - 25m (Mở sớm: Cần CONFIRM)" },
+  { mode: "ended", label: ">= T_end (Mở bình thường / Fallback)" },
+] as const
+
+type SimulatedTimeMode = (typeof simulatedTimeModes)[number]["mode"]
+
 export default function KioskPortal() {
   const { role } = useUser()
   const { eventId = "" } = useParams()
@@ -14,7 +23,8 @@ export default function KioskPortal() {
   const { getEvent } = useApp()
   const event = getEvent(eventId) || getEvent(`EVT${eventId}`)
   const [seconds, setSeconds] = useState(30)
-  const [totp, setTotp] = useState("482913")
+  const [totp, setTotp] = useState("")
+  const [qrPayload, setQrPayload] = useState("")
   const [kioskToken, setKioskToken] = useState("")
   const [loading, setLoading] = useState(isApiMode())
   const [error, setError] = useState("")
@@ -23,8 +33,7 @@ export default function KioskPortal() {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmKeyword, setConfirmKeyword] = useState("")
   const [simulatedTimeMode, setSimulatedTimeMode] =
-    useState<"real" | "locked" | "early" | "ended">("real")
-  const [fallbackTriggered, setFallbackTriggered] = useState(false)
+    useState<SimulatedTimeMode>("real")
 
   // Calculate event timeline
   const now = new Date()
@@ -67,39 +76,50 @@ export default function KioskPortal() {
   const isEarlyCheckout = effectiveNow >= tEndMinus25m && effectiveNow < tEnd
   const isPastEndTime = effectiveNow >= tEnd
 
-  // UC-OPS-01.AC.1: Auto Fallback Check-out when touching T_end
-  useEffect(() => {
-    if (isPastEndTime && gate === "closed" && !fallbackTriggered) {
-      setFallbackTriggered(true)
-      setGate("checkout")
-      if (isApiMode()) {
-        attendanceService.openCheckout(eventId).catch(() => {})
-      }
-    }
-  }, [isPastEndTime, gate, fallbackTriggered, eventId])
-
   useEffect(() => {
     let active = true
     let activeKioskToken = ""
+    const makeDemoCode = () => {
+      const bytes = new Uint32Array(1)
+      crypto.getRandomValues(bytes)
+      return String(100000 + (bytes[0] % 900000))
+    }
+
     async function fetchKioskCode(token: string) {
       try {
         const response = await attendanceService.totpStream(token)
         if (!active) return
-        const data = (response.data ?? {}) as {
-          totp_code?: string
-          totp?: string
-          expires_in?: number
-        }
-        const code = data.totp_code || data.totp
-        if (!code || !/^\d{6}$/.test(code))
+        const data = response.data
+        if (
+          !/^\d{6}$/.test(data.totp_code) ||
+          data.qr_payload !== `CEH1K.${data.ma_su_kien}.${data.totp_code}`
+        ) {
           throw new Error("Backend chưa trả về TOTP hợp lệ.")
-        setTotp(code)
-        setSeconds(Math.max(1, data.expires_in || 30))
+        }
+        if (
+          !Number.isInteger(data.expires_in_seconds) ||
+          data.expires_in_seconds < 1 ||
+          data.expires_in_seconds > 30
+        ) {
+          throw new Error("Backend trả về thời hạn TOTP không hợp lệ.")
+        }
+        setTotp(data.totp_code)
+        setQrPayload(data.qr_payload)
+        setSeconds(data.expires_in_seconds)
+        setGate(
+          data.cong_check_out_mo
+            ? "checkout"
+            : data.cong_check_in_mo
+              ? "checkin"
+              : "closed",
+        )
         setError("")
       } catch (e) {
         if (active) {
           setError(getApiErrorMessage(e))
           setTotp("")
+          setQrPayload("")
+          setGate("closed")
         }
       }
     }
@@ -119,11 +139,16 @@ export default function KioskPortal() {
           if (active) {
             setError(getApiErrorMessage(e))
             setTotp("")
+            setQrPayload("")
           }
         })
         .finally(() => {
           if (active) setLoading(false)
         })
+    } else {
+      const code = makeDemoCode()
+      setTotp(code)
+      setQrPayload(`CEH1K.${event?.ma_su_kien || eventId}.${code}`)
     }
     const timer = window.setInterval(() => {
       if (!active) return
@@ -132,9 +157,9 @@ export default function KioskPortal() {
           if (isApiMode()) {
             if (activeKioskToken) void fetchKioskCode(activeKioskToken)
           } else {
-            const bytes = new Uint32Array(1)
-            crypto.getRandomValues(bytes)
-            setTotp(String(100000 + (bytes[0] % 900000)))
+            const code = makeDemoCode()
+            setTotp(code)
+            setQrPayload(`CEH1K.${event?.ma_su_kien || eventId}.${code}`)
           }
           return 30
         }
@@ -188,17 +213,17 @@ export default function KioskPortal() {
     void setGateMode("checkout", { confirm: confirmKeyword.trim() })
   }
 
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement
-        .requestFullscreen()
-        .then(() => setIsFullscreen(true))
-        .catch(() => {})
-    } else {
-      document
-        .exitFullscreen()
-        .then(() => setIsFullscreen(false))
-        .catch(() => {})
+  async function toggleFullscreen() {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen()
+        setIsFullscreen(true)
+      } else {
+        await document.exitFullscreen()
+        setIsFullscreen(false)
+      }
+    } catch (error) {
+      setError(getApiErrorMessage(error))
     }
   }
 
@@ -273,39 +298,20 @@ export default function KioskPortal() {
         </div>
       </header>
 
-      {/* Fallback & Contextual Banners */}
-      {fallbackTriggered && (
-        <div className="my-3 p-3.5 rounded-2xl bg-emerald-950/80 border border-emerald-500/50 flex items-center gap-3 text-emerald-200 text-xs sm:text-sm">
-          <span className="text-xl">⚡</span>
-          <div>
-            <strong>Cơ chế Tự động Kích hoạt:</strong>{" "}
-            Sự kiện đã chạm mốc giờ kết thúc kế hoạch (
-            {event?.endTime || "11:30"}). Hệ thống đã tự động bật cổng Check-out
-            để sinh viên quét mã ra về, chống rủi ro bị 0 Điểm Rèn Luyện.
-          </div>
-        </div>
-      )}
-
-      {/* Simulation Controls for testing time rules */}
-      <div className="my-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+      {/* Simulation Controls are intentionally unavailable against the API. */}
+      {!isApiMode() && <div className="my-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 text-slate-400">
           <span className="font-semibold text-slate-300">
-            ⏱️ Giả lập trạng thái thời gian:
+            ⏱️ DEMO — Giả lập trạng thái thời gian:
           </span>
         </div>
         <div className="flex flex-wrap gap-1">
-          {[
-            ["real", "Thời gian thực"],
-            ["locked", "< T_end - 25m (Khóa Check-out)"],
-            ["early", "T_end - 25m (Mở sớm: Cần CONFIRM)"],
-            ["ended", ">= T_end (Mở bình thường / Fallback)"],
-          ].map(([mode, label]) => (
+          {simulatedTimeModes.map(({ mode, label }) => (
             <button
               key={mode}
               onClick={() => {
-                setSimulatedTimeMode(mode as any)
+                setSimulatedTimeMode(mode)
                 if (mode === "ended" && gate === "closed") {
-                  setFallbackTriggered(true)
                   setGate("checkout")
                 }
               }}
@@ -319,7 +325,7 @@ export default function KioskPortal() {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Main Content */}
       <main className="flex-1 grid lg:grid-cols-3 gap-8 items-center max-w-6xl mx-auto w-full py-6">
@@ -329,7 +335,7 @@ export default function KioskPortal() {
             {totp && !error ? (
               <>
                 <QRCodeSVG
-                  value={`CEH1K.${event?.ma_su_kien || eventId}.${totp}`}
+                  value={qrPayload}
                   size={245}
                   level="M"
                   aria-label="QR Kiosk điểm danh"
@@ -375,9 +381,11 @@ export default function KioskPortal() {
             </p>
           )}
 
-          <p className="font-mono text-xl sm:text-2xl font-bold mt-3 text-cyan-300 tracking-wider">
-            CEH1K.{event?.ma_su_kien || eventId}.{totp}
-          </p>
+          {totp && !error && (
+            <p className="font-mono text-xl sm:text-2xl font-bold mt-3 text-cyan-300 tracking-wider">
+              {qrPayload}
+            </p>
+          )}
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Dynamic TOTP QR (RFC 6238) đổi sau{" "}
             <strong className="text-cyan-300 font-mono text-base">
