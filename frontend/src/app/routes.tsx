@@ -13,30 +13,76 @@ import { isApiMode } from "../api/config"
 import type { Ticket } from "../data/mock"
 import SystemState from "../screens/SystemState"
 
+// Safe lazy import with auto-retry and cache-busting recovery
+function lazyImport<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+) {
+  return lazy(async () => {
+    try {
+      return await factory()
+    } catch (error) {
+      console.warn("Module load error, attempting automatic reload...", error)
+      const key = "ceh_chunk_reloaded"
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1")
+        window.location.reload()
+      }
+      throw error
+    }
+  })
+}
+
 // FE-PKG-03: Route Code Splitting with React.lazy
-const Login = lazy(() => import("../screens/Login"))
-const EventList = lazy(() => import("../screens/student/EventList"))
-const EventDetail = lazy(() => import("../screens/student/EventDetail"))
-const TicketConfirm = lazy(() => import("../screens/student/TicketConfirm"))
-const MyTickets = lazy(() => import("../screens/student/MyTickets"))
-const Profile = lazy(() => import("../screens/student/Profile"))
-const CheckInScanner = lazy(() => import("../screens/student/CheckInScanner"))
-const Achievements = lazy(() => import("../screens/student/Achievements"))
-const PublicCertificateVerify = lazy(() => import("../screens/PublicCertificateVerify"))
-const Dashboard = lazy(() => import("../screens/organizer/Dashboard"))
-const EventsManage = lazy(() => import("../screens/organizer/EventsManage"))
-const EventForm = lazy(() => import("../screens/organizer/EventForm"))
-const Participants = lazy(() => import("../screens/organizer/Participants"))
-const Staff = lazy(() => import("../screens/organizer/Staff"))
-const ApprovalWorkspace = lazy(() => import("../screens/management/ApprovalWorkspace"))
-const AffairsOperations = lazy(() => import("../screens/management/AffairsOperations"))
-const QRScanner = lazy(() => import("../screens/staff/QRScanner"))
-const AdminPortal = lazy(() => import("../screens/admin/AdminPortal"))
-const RoomManagement = lazy(() => import("../screens/admin/RoomManagement"))
-const KioskPortal = lazy(() => import("../screens/organizer/KioskPortal"))
-const OrganizerSettings = lazy(() => import("../screens/organizer/OrganizerSettings"))
-const CohostInvitations = lazy(() => import("../screens/organizer/CohostInvitations"))
-const AuthFlow = lazy(() => import("../screens/AuthFlow"))
+const Login = lazyImport(() => import("../screens/Login"))
+const EventList = lazyImport(() => import("../screens/student/EventList"))
+const EventDetail = lazyImport(() => import("../screens/student/EventDetail"))
+const TicketConfirm = lazyImport(() => import("../screens/student/TicketConfirm"))
+const MyTickets = lazyImport(() => import("../screens/student/MyTickets"))
+const Profile = lazyImport(() => import("../screens/student/Profile"))
+const CheckInScanner = lazyImport(() => import("../screens/student/CheckInScanner"))
+const Achievements = lazyImport(() => import("../screens/student/Achievements"))
+const PublicCertificateVerify = lazyImport(() => import("../screens/PublicCertificateVerify"))
+const Dashboard = lazyImport(() => import("../screens/organizer/Dashboard"))
+const EventsManage = lazyImport(() => import("../screens/organizer/EventsManage"))
+const EventForm = lazyImport(() => import("../screens/organizer/EventForm"))
+const Participants = lazyImport(() => import("../screens/organizer/Participants"))
+const Staff = lazyImport(() => import("../screens/organizer/Staff"))
+const ApprovalWorkspace = lazyImport(() => import("../screens/management/ApprovalWorkspace"))
+const AffairsOperations = lazyImport(() => import("../screens/management/AffairsOperations"))
+const QRScanner = lazyImport(() => import("../screens/staff/QRScanner"))
+const AdminPortal = lazyImport(() => import("../screens/admin/AdminPortal"))
+const RoomManagement = lazyImport(() => import("../screens/admin/RoomManagement"))
+const KioskPortal = lazyImport(() => import("../screens/organizer/KioskPortal"))
+const OrganizerSettings = lazyImport(() => import("../screens/organizer/OrganizerSettings"))
+const CohostInvitations = lazyImport(() => import("../screens/organizer/CohostInvitations"))
+const AuthFlow = lazyImport(() => import("../screens/AuthFlow"))
+
+export function RouteErrorBoundary() {
+  return (
+    <div className="flex min-h-[60vh] w-full flex-col items-center justify-center p-8 text-center">
+      <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-2xl text-amber-600">
+          ⚠️
+        </div>
+        <h2 className="font-display text-lg font-bold text-slate-900">
+          Phiên bản giao diện đã được cập nhật
+        </h2>
+        <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+          Trình duyệt đang lưu bản tạm cũ của phiên làm việc trước. Vui lòng bấm làm mới để đồng bộ giao diện mới nhất.
+        </p>
+        <button
+          onClick={() => {
+            sessionStorage.removeItem("ceh_chunk_reloaded")
+            window.location.reload()
+          }}
+          className="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 cursor-pointer transition-colors"
+        >
+          Làm mới trang ngay
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function PageFallback() {
   return (
@@ -399,174 +445,180 @@ function VerifyRoute() {
 }
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Navigate to="/events" replace /> },
-  { path: "/events", Component: GuestEvents },
-  { path: "/events/:id", Component: PublicEventDetailRoute },
-  { path: "/login", element: <LoginRoute /> },
-  { path: "/register", element: <LoginRoute register /> },
-  { path: "/verify-otp", element: <SuspenseWrap><AuthFlow mode="otp" /></SuspenseWrap> },
-  { path: "/forgot-password", element: <SuspenseWrap><AuthFlow mode="forgot" /></SuspenseWrap> },
-  { path: "/reset-password", element: <SuspenseWrap><AuthFlow mode="reset" /></SuspenseWrap> },
-  { path: "/change-password", element: <SuspenseWrap><AuthFlow mode="change" /></SuspenseWrap> },
   {
-    path: "/certificates/verify",
-    element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
-  },
-  {
-    path: "/certificates/verify/:hash",
-    element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
-  },
-  {
-    element: <ProtectedRoute roles={["student"]} />,
+    path: "/",
+    errorElement: <RouteErrorBoundary />,
     children: [
-      { path: "/student/tickets", element: <StudentTicketsRoute /> },
-      { path: "/student/waitlist", element: <StudentTicketsRoute waitlist /> },
-      { path: "/student/ticket-confirm", Component: TicketConfirmRoute },
-      { path: "/student/attendance", Component: StudentAttendanceRoute },
-      { path: "/student/achievements", Component: StudentAchievementsRoute },
-      { path: "/student/profile", Component: StudentProfileRoute },
+      { path: "", element: <Navigate to="/events" replace /> },
+      { path: "events", Component: GuestEvents },
+      { path: "events/:id", Component: PublicEventDetailRoute },
+      { path: "login", element: <LoginRoute /> },
+      { path: "register", element: <LoginRoute register /> },
+      { path: "verify-otp", element: <SuspenseWrap><AuthFlow mode="otp" /></SuspenseWrap> },
+      { path: "forgot-password", element: <SuspenseWrap><AuthFlow mode="forgot" /></SuspenseWrap> },
+      { path: "reset-password", element: <SuspenseWrap><AuthFlow mode="reset" /></SuspenseWrap> },
+      { path: "change-password", element: <SuspenseWrap><AuthFlow mode="change" /></SuspenseWrap> },
       {
-        path: "/student/notifications",
+        path: "certificates/verify",
+        element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
+      },
+      {
+        path: "certificates/verify/:hash",
+        element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
+      },
+      {
+        element: <ProtectedRoute roles={["student"]} />,
+        children: [
+          { path: "student/tickets", element: <StudentTicketsRoute /> },
+          { path: "student/waitlist", element: <StudentTicketsRoute waitlist /> },
+          { path: "student/ticket-confirm", Component: TicketConfirmRoute },
+          { path: "student/attendance", Component: StudentAttendanceRoute },
+          { path: "student/achievements", Component: StudentAchievementsRoute },
+          { path: "student/profile", Component: StudentProfileRoute },
+          {
+            path: "student/notifications",
+            element: (
+              <SystemState
+                kind="info"
+                title="Thông báo cá nhân"
+                message="Mở chuông thông báo trên thanh điều hướng để xem và đánh dấu đã đọc."
+              />
+            ),
+          },
+        ],
+      },
+      {
         element: (
-          <SystemState
-            kind="info"
-            title="Thông báo cá nhân"
-            message="Mở chuông thông báo trên thanh điều hướng để xem và đánh dấu đã đọc."
+          <ProtectedRoute
+            roles={["organizer", "faculty_manager", "admin", "student_affairs"]}
           />
         ),
+        children: [
+          {
+            path: "organizer/dashboard",
+            element: <OrganizerRoute page="dashboard" />,
+          },
+          { path: "organizer/events", element: <OrganizerRoute page="events" /> },
+          {
+            path: "organizer/events/create",
+            element: <OrganizerRoute page="form" />,
+          },
+          {
+            path: "organizer/events/:id/edit",
+            element: <OrganizerRoute page="form" />,
+          },
+          {
+            path: "organizer/participants",
+            element: <OrganizerRoute page="participants" />,
+          },
+          { path: "organizer/staff", element: <OrganizerRoute page="staff" /> },
+          {
+            path: "organizer/settings",
+            element: <SuspenseWrap><OrganizerSettings /></SuspenseWrap>,
+          },
+          {
+            path: "organizer/reports",
+            element: <OrganizerRoute page="dashboard" />,
+          },
+          {
+            path: "organizer/kiosk/:eventId",
+            element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
+          },
+          {
+            path: "kiosk/:eventId",
+            element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
+          },
+          {
+            path: "organizer/cohost-invitations",
+            element: <SuspenseWrap><CohostRoute /></SuspenseWrap>,
+          },
+          {
+            path: "organizer/rooms",
+            element: <SuspenseWrap><RoomManagement readOnly /></SuspenseWrap>,
+          },
+        ],
       },
+      {
+        element: (
+          <ProtectedRoute roles={["faculty_manager", "admin", "student_affairs"]} />
+        ),
+        children: [
+          {
+            path: "faculty/approvals",
+            element: <SuspenseWrap><FacultyRoute /></SuspenseWrap>,
+          },
+          {
+            path: "faculty/approvals/:id",
+            element: <SuspenseWrap><FacultyRoute /></SuspenseWrap>,
+          },
+        ],
+      },
+      {
+        element: <ProtectedRoute roles={["student_affairs", "admin"]} />,
+        children: [
+          {
+            path: "affairs/approvals",
+            element: <AffairsRoute mode="approvals" />,
+          },
+          {
+            path: "affairs/approvals/:id",
+            element: <AffairsRoute mode="approvals" />,
+          },
+          { path: "affairs/drl", element: <AffairsRoute mode="results" /> },
+          {
+            path: "affairs/certificates",
+            element: <AffairsRoute mode="certificates" />,
+          },
+        ],
+      },
+      {
+        element: <ProtectedRoute roles={["admin", "student_affairs"]} />,
+        children: [
+          {
+            path: "admin/dashboard",
+            element: <AdminPortal section="dashboard" />,
+          },
+          { path: "admin/users", element: <AdminPortal section="users" /> },
+          {
+            path: "admin/organizations",
+            element: <AdminPortal section="organizations" />,
+          },
+          { path: "admin/topics", element: <AdminPortal section="topics" /> },
+          {
+            path: "admin/rooms",
+            element: <SuspenseWrap><RoomManagement /></SuspenseWrap>,
+          },
+          { path: "admin/reports", element: <AdminPortal section="reports" /> },
+          { path: "admin/no-show", element: <AdminPortal section="no-show" /> },
+          {
+            path: "admin/certificates",
+            element: <AdminPortal section="certificates" />,
+          },
+        ],
+      },
+      {
+        element: (
+          <ProtectedRoute
+            roles={[
+              "student",
+              "organizer",
+              "faculty_manager",
+              "admin",
+              "student_affairs",
+            ]}
+            requireStaff
+          />
+        ),
+        children: [
+          {
+            path: "staff/scanner",
+            element: <SuspenseWrap><StaffScannerRoute /></SuspenseWrap>,
+          },
+        ],
+      },
+      { path: "access-denied", element: <SystemState kind="forbidden" /> },
+      { path: "session-expired", element: <SystemState kind="session" /> },
+      { path: "*", element: <SystemState kind="not-found" /> },
     ],
   },
-  {
-    element: (
-      <ProtectedRoute
-        roles={["organizer", "faculty_manager", "admin", "student_affairs"]}
-      />
-    ),
-    children: [
-      {
-        path: "/organizer/dashboard",
-        element: <OrganizerRoute page="dashboard" />,
-      },
-      { path: "/organizer/events", element: <OrganizerRoute page="events" /> },
-      {
-        path: "/organizer/events/create",
-        element: <OrganizerRoute page="form" />,
-      },
-      {
-        path: "/organizer/events/:id/edit",
-        element: <OrganizerRoute page="form" />,
-      },
-      {
-        path: "/organizer/participants",
-        element: <OrganizerRoute page="participants" />,
-      },
-      { path: "/organizer/staff", element: <OrganizerRoute page="staff" /> },
-      {
-        path: "/organizer/settings",
-        element: <SuspenseWrap><OrganizerSettings /></SuspenseWrap>,
-      },
-      {
-        path: "/organizer/reports",
-        element: <OrganizerRoute page="dashboard" />,
-      },
-      {
-        path: "/organizer/kiosk/:eventId",
-        element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
-      },
-      {
-        path: "/kiosk/:eventId",
-        element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
-      },
-      {
-        path: "/organizer/cohost-invitations",
-        element: <SuspenseWrap><CohostRoute /></SuspenseWrap>,
-      },
-      {
-        path: "/organizer/rooms",
-        element: <SuspenseWrap><RoomManagement readOnly /></SuspenseWrap>,
-      },
-    ],
-  },
-  {
-    element: (
-      <ProtectedRoute roles={["faculty_manager", "admin", "student_affairs"]} />
-    ),
-    children: [
-      {
-        path: "/faculty/approvals",
-        element: <SuspenseWrap><FacultyRoute /></SuspenseWrap>,
-      },
-      {
-        path: "/faculty/approvals/:id",
-        element: <SuspenseWrap><FacultyRoute /></SuspenseWrap>,
-      },
-    ],
-  },
-  {
-    element: <ProtectedRoute roles={["student_affairs", "admin"]} />,
-    children: [
-      {
-        path: "/affairs/approvals",
-        element: <AffairsRoute mode="approvals" />,
-      },
-      {
-        path: "/affairs/approvals/:id",
-        element: <AffairsRoute mode="approvals" />,
-      },
-      { path: "/affairs/drl", element: <AffairsRoute mode="results" /> },
-      {
-        path: "/affairs/certificates",
-        element: <AffairsRoute mode="certificates" />,
-      },
-    ],
-  },
-  {
-    element: <ProtectedRoute roles={["admin", "student_affairs"]} />,
-    children: [
-      {
-        path: "/admin/dashboard",
-        element: <AdminPortal section="dashboard" />,
-      },
-      { path: "/admin/users", element: <AdminPortal section="users" /> },
-      {
-        path: "/admin/organizations",
-        element: <AdminPortal section="organizations" />,
-      },
-      { path: "/admin/topics", element: <AdminPortal section="topics" /> },
-      {
-        path: "/admin/rooms",
-        element: <SuspenseWrap><RoomManagement /></SuspenseWrap>,
-      },
-      { path: "/admin/reports", element: <AdminPortal section="reports" /> },
-      { path: "/admin/no-show", element: <AdminPortal section="no-show" /> },
-      {
-        path: "/admin/certificates",
-        element: <AdminPortal section="certificates" />,
-      },
-    ],
-  },
-  {
-    element: (
-      <ProtectedRoute
-        roles={[
-          "student",
-          "organizer",
-          "faculty_manager",
-          "admin",
-          "student_affairs",
-        ]}
-        requireStaff
-      />
-    ),
-    children: [
-      {
-        path: "/staff/scanner",
-        element: <SuspenseWrap><StaffScannerRoute /></SuspenseWrap>,
-      },
-    ],
-  },
-  { path: "/access-denied", element: <SystemState kind="forbidden" /> },
-  { path: "/session-expired", element: <SystemState kind="session" /> },
-  { path: "*", element: <SystemState kind="not-found" /> },
 ])
