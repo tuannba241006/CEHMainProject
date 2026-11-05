@@ -79,7 +79,23 @@ export default function AdminPortal({ section }: { section: Section }) {
     SEED_USERS,
     "ma_nguoi_dung",
     {
-      list: () => adminService.users() as Promise<{ data: unknown[] }>,
+      list: async () => {
+        try {
+          const res = (await adminService.users()) as { data: any[] }
+          const mapped: AdminUser[] = (res.data || []).map((u: any) => ({
+            ma_nguoi_dung: Number(u.ma_tai_khoan ?? u.ma_nguoi_dung),
+            ho_ten: u.ho_ten || "",
+            email: u.email || "",
+            loai_tai_khoan: u.loai_tai_khoan || "SinhVien",
+            ma_don_vi: u.ma_don_vi_to_chuc ?? u.ma_don_vi ?? null,
+            bi_khoa: u.hoat_dong !== undefined ? !u.hoat_dong : Boolean(u.bi_khoa),
+          }))
+          return { data: mapped }
+        } catch (err) {
+          console.warn("Failed to fetch admin users from backend, using seed data:", err)
+          return { data: SEED_USERS }
+        }
+      },
       create: (i) => adminService.createInternalUser(i),
       update: () =>
         Promise.reject(
@@ -94,7 +110,15 @@ export default function AdminPortal({ section }: { section: Section }) {
     ORGANIZATIONS,
     "ma_don_vi",
     {
-      list: () => adminService.organizations() as Promise<{ data: unknown[] }>,
+      list: async () => {
+        try {
+          const res = (await adminService.organizations()) as { data: unknown[] }
+          return res
+        } catch (err) {
+          console.warn("Admin organizations API not implemented in backend (404), using seed data:", err)
+          return { data: ORGANIZATIONS }
+        }
+      },
       create: (i) => adminService.createOrganization(i),
       update: (id, i) => adminService.updateOrganization(id, i),
     },
@@ -104,7 +128,15 @@ export default function AdminPortal({ section }: { section: Section }) {
     CONTRACT_TOPICS,
     "ma_chuyen_de",
     {
-      list: () => adminService.topics() as Promise<{ data: unknown[] }>,
+      list: async () => {
+        try {
+          const res = (await adminService.topics()) as { data: unknown[] }
+          return res
+        } catch (err) {
+          console.warn("Admin topics API not implemented in backend (404), using seed data:", err)
+          return { data: CONTRACT_TOPICS }
+        }
+      },
       create: (i) => adminService.createTopic(i),
       update: (id, i) => adminService.updateTopic(id, i),
       remove: (id) => adminService.deleteTopic(id),

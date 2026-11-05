@@ -20,7 +20,32 @@ export default function RoomManagement({ readOnly = false }: Props) {
   const { logout } = useUser()
   const { showToast } = useToast()
   const col = useCollection<RoomPublic>("admin_rooms", ROOMS, "ma_phong", {
-    list: () => roomsService.list() as Promise<{ data: unknown[] }>,
+    list: async () => {
+      try {
+        const res = (await roomsService.list()) as { data: any[] }
+        const mapped: RoomPublic[] = (res.data || []).map((r: any) => ({
+          ma_phong: Number(r.ma_phong),
+          ten_phong: r.ten_phong || "Hội trường",
+          suc_chua: Number(r.suc_chua_toi_da ?? r.suc_chua ?? 100),
+          co_so: (r.co_so === "CoSo2" ? "CoSo2" : "CoSo1") as RoomPublic["co_so"],
+          toa_nha: r.toa_nha || (r.co_so === "CoSo2" ? "Tòa B" : "Tòa A"),
+          vi_tri_tang: Number(r.vi_tri_tang ?? 1),
+          thiet_bi: {
+            may_chieu: Boolean(
+              r.trang_thiet_bi?.may_chieu ?? r.thiet_bi?.may_chieu ?? true,
+            ),
+            am_thanh: Boolean(
+              r.trang_thiet_bi?.am_thanh ?? r.thiet_bi?.am_thanh ?? true,
+            ),
+            wifi: Boolean(r.trang_thiet_bi?.wifi ?? r.thiet_bi?.wifi ?? true),
+          },
+        }))
+        return { data: mapped }
+      } catch (err) {
+        console.warn("Failed to fetch rooms from backend, using seed fallback:", err)
+        return { data: ROOMS }
+      }
+    },
     create: (i) => roomsService.create(i),
     update: (id, i) => roomsService.update(id, i),
     remove: (id) => roomsService.remove(id),
