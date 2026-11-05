@@ -26,7 +26,7 @@ class AdminUserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = User::with(['donViToChuc', 'khoa']);
+        $query = User::with(['donViToChuc', 'donViKhoa']);
 
         if ($request->filled('q')) {
             $keyword = trim($request->input('q'));
