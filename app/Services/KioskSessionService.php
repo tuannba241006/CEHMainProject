@@ -107,16 +107,33 @@ class KioskSessionService
     public function openCheckOut(SuKien $event, User $actor, ?string $confirmation, ?string $reason): SuKien
     {
         $this->assertHost($event, $actor);
-        $early = now()->lt($event->thoi_gian_ket_thuc->copy()->subMinutes(25));
+        $now = now();
+        $early = $now->lt($event->thoi_gian_ket_thuc);
         if ($early) {
-            throw new BusinessException('CHECKOUT_TOO_EARLY', 'Chỉ được mở cổng Check-out tối đa 25 phút trước giờ kết thúc kế hoạch.', null, 409);
+            if ($now->lt($event->thoi_gian_ket_thuc->copy()->subMinutes(25))) {
+                throw new BusinessException('CHECKOUT_TOO_EARLY', 'Chỉ được mở cổng Check-out tối đa 25 phút trước giờ kết thúc kế hoạch.', null, 409);
+            }
         }
-        if (now()->lt($event->thoi_gian_ket_thuc) && ! in_array(strtoupper(trim((string) $confirmation)), ['CONFIRM', 'XÁC NHẬN'], true)) {
+        if ($early && ! in_array(strtoupper(trim((string) $confirmation)), ['CONFIRM', 'XÁC NHẬN'], true)) {
             throw new BusinessException('CONFIRMATION_REQUIRED', 'Cần xác nhận để mở cổng Check-out sớm.', null, 422);
         }
         if (! $event->cong_check_out_mo) {
-            $event->update(['cong_check_out_mo' => true]);
-            NhatKyKiemDuyet::create(['ma_su_kien' => $event->ma_su_kien, 'nguoi_thuc_hien' => $actor->ma_tai_khoan, 'hanh_dong' => 'EARLY_CHECKOUT_CONFIRM', 'trang_thai_truoc' => $event->trang_thai, 'trang_thai_sau' => $event->trang_thai, 'ly_do' => $reason ?: 'BTC xác nhận mở cổng Check-out sớm (CONFIRM)']);
+            DB::transaction(function () use ($event, $actor, $early, $reason, $now): void {
+                $event->update([
+                    'cong_check_out_mo' => true,
+                    'thoi_gian_ket_thuc_thuc_te' => $early ? $now : $event->thoi_gian_ket_thuc,
+                ]);
+                if ($early) {
+                    NhatKyKiemDuyet::create([
+                        'ma_su_kien' => $event->ma_su_kien,
+                        'nguoi_thuc_hien' => $actor->ma_tai_khoan,
+                        'hanh_dong' => 'EARLY_CHECKOUT_CONFIRM',
+                        'trang_thai_truoc' => $event->trang_thai,
+                        'trang_thai_sau' => $event->trang_thai,
+                        'ly_do' => $reason ?: 'BTC xác nhận mở cổng Check-out sớm (CONFIRM)',
+                    ]);
+                }
+            });
         }
 
         return $event->fresh(['donViHost', 'phongHoiTruong', 'chuyenDe', 'datPhongs', 'dongToChucs', 'nhatKyKiemDuyets.nguoiThucHien']);

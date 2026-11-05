@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\DB;
 
 class AttendanceService
 {
-    public function __construct(protected KioskSessionService $kiosk) {}
+    public function __construct(
+        protected KioskSessionService $kiosk,
+        protected AttendanceScoringService $scoring,
+    ) {}
 
     public function checkIn(User $user, array $data): DangKy
     {
@@ -53,14 +56,15 @@ class AttendanceService
                 throw new BusinessException('NOT_CHECKED_IN', 'Bạn chưa Check-in hoặc đã Check-out.', null, 409);
             }
             $checkout = now();
-            $start = $event->thoi_gian_bat_dau;
-            $end = $event->thoi_gian_ket_thuc_thuc_te ?: $event->thoi_gian_ket_thuc;
-            $denominator = max(1, $end->diffInSeconds($start));
-            $effectiveCheckout = $checkout->lessThan($end) ? $checkout : $end;
-            $ratio = max(0, min(1, $start->diffInSeconds($effectiveCheckout) / $denominator));
-            $full = $ratio >= 0.6;
-            $partial = ! $full && $ratio >= 0.3;
-            $ticket->update(['trang_thai' => 'DaCheckOut', 'da_check_out' => true, 'thoi_gian_check_out' => $checkout, 'ma_thiet_bi_check_out' => $data['device_id'], 'tham_gia_tron_ven' => $full, 'tham_gia_mot_phan' => $partial, 'ti_le_drl' => $full ? 1.0 : ($partial ? 0.5 : 0.0)]);
+            $score = $this->scoring->score($event, $ticket, $checkout);
+            unset($score['thoi_luong_tham_du_phut']);
+            $ticket->update([
+                'trang_thai' => 'DaCheckOut',
+                'da_check_out' => true,
+                'thoi_gian_check_out' => $checkout,
+                'ma_thiet_bi_check_out' => $data['device_id'],
+                ...$score,
+            ]);
 
             return $ticket->fresh('taiKhoan');
         });
