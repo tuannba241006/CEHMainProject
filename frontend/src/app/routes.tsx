@@ -423,10 +423,21 @@ function StaffScannerRoute() {
   return (
     <QRScanner
       onBack={() => {
-        if (role === "organizer") navigate("/organizer/events")
-        else if (role === "admin" || role === "student_affairs")
+        if (
+          window.history.state &&
+          typeof window.history.state.idx === "number" &&
+          window.history.state.idx > 0
+        ) {
+          navigate(-1)
+        } else if (role === "faculty_manager") {
+          navigate("/faculty/approvals")
+        } else if (role === "organizer") {
+          navigate("/organizer/events")
+        } else if (role === "admin" || role === "student_affairs") {
           navigate("/admin/dashboard")
-        else navigate("/events")
+        } else {
+          navigate("/events")
+        }
       }}
       onLogout={() => void logout().finally(() => navigate("/login"))}
     />

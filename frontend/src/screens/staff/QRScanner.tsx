@@ -135,19 +135,23 @@ export default function QRScanner({ onLogout, onBack }: Props) {
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-1">
               <span>📷</span>
               <span>
-                {role === "organizer"
-                  ? "Ban tổ chức soát vé"
-                  : role === "admin" || role === "student_affairs"
-                    ? "Kiểm tra hiện trường Admin"
-                    : "Bàn soát vé Cộng tác viên"}
+                {role === "faculty_manager"
+                  ? "Ban Quản lý Khoa soát vé"
+                  : role === "organizer"
+                    ? "Ban tổ chức soát vé"
+                    : role === "admin" || role === "student_affairs"
+                      ? "Kiểm tra hiện trường Admin"
+                      : "Bàn soát vé Cộng tác viên"}
               </span>
             </div>
             <h1 className="font-display font-bold text-lg text-white">
-              {role === "organizer"
-                ? "Soát vé sự kiện (Ban tổ chức)"
-                : role === "admin" || role === "student_affairs"
-                  ? "Thanh tra & Quét kiểm tra vé"
-                  : "Quét mã vé Sinh viên"}
+              {role === "faculty_manager"
+                ? "Soát vé sự kiện (Ban Quản lý Khoa)"
+                : role === "organizer"
+                  ? "Soát vé sự kiện (Ban tổ chức)"
+                  : role === "admin" || role === "student_affairs"
+                    ? "Thanh tra & Quét kiểm tra vé"
+                    : "Quét mã vé Sinh viên"}
             </h1>
             <p className="text-xs text-slate-400">
               Quét mã QR HMAC trên vé của sinh viên và đối chiếu thẻ sinh viên
@@ -160,11 +164,13 @@ export default function QRScanner({ onLogout, onBack }: Props) {
                 onClick={onBack}
                 className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
               >
-                {role === "organizer"
-                  ? "← Sự kiện"
-                  : role === "admin" || role === "student_affairs"
-                    ? "← Quản trị"
-                    : "← Quay lại"}
+                {role === "faculty_manager"
+                  ? "← Quản lý Khoa"
+                  : role === "organizer"
+                    ? "← Sự kiện"
+                    : role === "admin" || role === "student_affairs"
+                      ? "← Quản trị"
+                      : "← Quay lại"}
               </button>
             )}
             <button

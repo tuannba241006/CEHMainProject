@@ -114,19 +114,29 @@ export default function WebNavbar({
                     Campus Event Hub
                   </span>
                   <span
+                    onClick={(e) => {
+                      if (!isGuest && role !== "student") {
+                        e.stopPropagation()
+                        if (role === "faculty_manager") onNavigate("/faculty/approvals")
+                        else if (role === "organizer") onNavigate("/organizer/events")
+                        else if (role === "admin" || role === "student_affairs") onNavigate("/admin/dashboard")
+                      }
+                    }}
                     className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
                       isGuest
                         ? "bg-slate-100 text-slate-600 border-slate-200"
-                        : "bg-indigo-50 text-indigo-700 border-indigo-100"
+                        : "bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 cursor-pointer"
                     }`}
                   >
                     {isGuest
                       ? "Cổng công khai"
                       : role === "admin" || role === "student_affairs"
-                        ? "Quản trị viên"
-                        : role === "organizer" || role === "faculty_manager"
-                          ? "Ban tổ chức"
-                          : "Sinh viên"}
+                        ? "Quản trị viên ↗"
+                        : role === "faculty_manager"
+                          ? "Ban QL Khoa ↗"
+                          : role === "organizer"
+                            ? "Ban tổ chức ↗"
+                            : "Sinh viên"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 font-normal">
@@ -456,16 +466,28 @@ export default function WebNavbar({
                           </button>
                         )}
                         {role === "faculty_manager" && (
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false)
-                              onNavigate("/faculty/approvals")
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
-                          >
-                            <span>📋</span>
-                            <span>Bảng thẩm định cấp Khoa →</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => {
+                                setUserMenuOpen(false)
+                                onNavigate("/faculty/approvals")
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
+                            >
+                              <span>📋</span>
+                              <span>Hồ sơ Thẩm định cấp Khoa →</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setUserMenuOpen(false)
+                                onNavigate("/organizer/events")
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors cursor-pointer"
+                            >
+                              <span>🎪</span>
+                              <span>Không gian Quản lý sự kiện →</span>
+                            </button>
+                          </>
                         )}
 
                         <button
