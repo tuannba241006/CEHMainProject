@@ -817,6 +817,143 @@ function adaptApiTicket(
   }
 }
 
+function adaptApiEvent(e: any): LiveEvent {
+  const id = String(e.ma_su_kien || e.id || 101)
+  const title = e.ten_su_kien || e.title || "Sự kiện học đường"
+  const startIso = e.thoi_gian_bat_dau || "2026-11-20T08:30:00+07:00"
+  const endIso = e.thoi_gian_ket_thuc || "2026-11-20T11:30:00+07:00"
+  const date = startIso.includes("T") ? startIso.split("T")[0] : startIso
+  const time = startIso.includes("T") ? startIso.split("T")[1].slice(0, 5) : "08:30"
+  const endTime = endIso.includes("T") ? endIso.split("T")[1].slice(0, 5) : "11:30"
+  const capacity = Number(e.so_luong_toi_da || e.capacity || 200)
+  const remaining = typeof e.so_ve_con_lai === "number" ? e.so_ve_con_lai : capacity
+  const registered = Math.max(0, capacity - remaining)
+  const banner =
+    e.anh_bia ||
+    e.banner ||
+    "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop"
+
+  return {
+    ma_su_kien: Number(e.ma_su_kien || id),
+    ten_su_kien: title,
+    anh_bia: banner,
+    dien_gia: e.dien_gia || e.speaker || "Chuyên gia khách mời",
+    ten_chuyen_de: e.ten_chuyen_de || e.topic || "Công nghệ Thông tin",
+    ten_don_vi_host:
+      e.ten_don_vi_host || e.organizer || "Đoàn Thanh niên - Hội Sinh viên",
+    danh_sach_ten_dong_to_chuc: e.danh_sach_ten_dong_to_chuc || e.coHosts || [],
+    ten_phong: e.ten_phong || e.room || "Hội trường A",
+    co_so: (e.co_so || "CoSo1") as "CoSo1" | "CoSo2",
+    thoi_gian_bat_dau: startIso,
+    thoi_gian_ket_thuc: endIso,
+    khong_gioi_han_slot: Boolean(e.khong_gioi_han_slot),
+    so_ve_con_lai: remaining,
+    so_luong_toi_da: capacity,
+    trang_thai: (e.trang_thai || "PUBLISHED") as ContractEventStatus,
+    dieu_khoan_drl: (e.dieu_khoan_drl || "Dieu3") as "KhongCo" | "Dieu3" | "Dieu4",
+    diem_drl_du_kien: Number(e.diem_drl_du_kien || e.points || 5),
+    gio_tinh_nguyen: Number(e.gio_tinh_nguyen || 0),
+    mo_ta: e.mo_ta || e.description || "",
+    lo_trinh: Array.isArray(e.lo_trinh) ? e.lo_trinh : [],
+    doi_tuong_tham_gia: e.doi_tuong_tham_gia || null,
+
+    // UI & Legacy fields
+    id,
+    title,
+    speaker: e.dien_gia || e.speaker || "Chuyên gia khách mời",
+    topic: (e.ten_chuyen_de || e.topic || "academic") as Topic,
+    description: e.mo_ta || e.description || "",
+    date,
+    time,
+    endTime,
+    location: `${e.ten_phong || e.room || "Hội trường A"}, ${e.co_so || "Cơ sở 1"}`,
+    room: e.ten_phong || e.room || "Hội trường A",
+    capacity,
+    registered,
+    registrationOpen: e.trang_thai === "PUBLISHED" || e.status === "open",
+    isCancelled: e.trang_thai === "CANCELLED" || e.status === "cancelled",
+    banner,
+    organizer:
+      e.ten_don_vi_host || e.organizer || "Đoàn Thanh niên - Hội Sinh viên",
+    benefits: ["Cộng điểm rèn luyện", "Cấp chứng nhận tham gia"],
+    schedule: [{ time: `${time} - ${endTime}`, title: "Nội dung chương trình" }],
+  }
+}
+
+function adaptApiNotification(n: any): Notification {
+  const title = n.tieu_de || n.title || "Thông báo hệ thống"
+  const desc = n.noi_dung || n.description || n.message || ""
+  const time = n.thoi_gian_gui || n.created_at || new Date().toISOString()
+  return {
+    id: n.id || n.ma_thong_bao || newNotifId(),
+    tieu_de: title,
+    noi_dung: desc,
+    loai_thong_bao: n.loai_thong_bao || n.type || "HE_THONG",
+    lien_ket: n.lien_ket || n.link || null,
+    da_doc: Boolean(n.da_doc ?? n.read ?? false),
+    thoi_gian_gui: time,
+    title,
+    description: desc,
+    type: n.loai_thong_bao || n.type || "HE_THONG",
+    time: "Vừa xong",
+    read: Boolean(n.da_doc ?? n.read ?? false),
+    action: n.action,
+    eventId: n.eventId || (n.ma_su_kien ? String(n.ma_su_kien) : undefined),
+    audience: n.audience,
+  } as unknown as Notification
+}
+
+function adaptApiTicketSummary(ticket: any): Ticket {
+  const id = String(
+    ticket.ma_ve_uuid || ticket.id || ticket.ma_dang_ky || `TKT-${Date.now()}`,
+  )
+  const eventId = String(ticket.ma_su_kien || ticket.eventId || 101)
+  const title = ticket.ten_su_kien || ticket.eventTitle || "Sự kiện học đường"
+  const startIso = ticket.thoi_gian_bat_dau || "2026-11-20T08:30:00+07:00"
+  const endIso = ticket.thoi_gian_ket_thuc || "2026-11-20T11:30:00+07:00"
+  const date = startIso.includes("T") ? startIso.split("T")[0] : startIso
+  const time =
+    startIso.includes("T") && endIso.includes("T")
+      ? `${startIso.split("T")[1].slice(0, 5)} – ${endIso.split("T")[1].slice(0, 5)}`
+      : "08:30 – 11:30"
+
+  return {
+    ...ticket,
+    id,
+    ma_dang_ky: ticket.ma_dang_ky || 1,
+    ma_ve_uuid: ticket.ma_ve_uuid || id,
+    eventId,
+    ma_su_kien: Number(eventId),
+    eventTitle: title,
+    ten_su_kien: title,
+    eventDate: date,
+    eventTime: time,
+    thoi_gian_bat_dau: startIso,
+    thoi_gian_ket_thuc: endIso,
+    eventLocation: `${ticket.ten_phong || "Hội trường A"}, ${ticket.co_so || "Cơ sở 1"}`,
+    ten_phong: ticket.ten_phong || "Hội trường A",
+    co_so: ticket.co_so || "CoSo1",
+    studentId: String(ticket.mssv || ticket.studentId || "22520000"),
+    mssv: String(ticket.mssv || ticket.studentId || "22520000"),
+    studentName: ticket.ho_ten || ticket.studentName || "Sinh viên UIT",
+    ho_ten: ticket.ho_ten || ticket.studentName || "Sinh viên UIT",
+    studentEmail: ticket.email || ticket.studentEmail || "sinhvien@uit.edu.vn",
+    faculty: ticket.khoa || ticket.faculty || "Khoa Hệ thống Thông tin",
+    status:
+      ticket.trang_thai === "DaHuy"
+        ? "cancelled"
+        : ticket.trang_thai === "DaCheckOut"
+          ? "attended"
+          : "pending",
+    trang_thai: ticket.trang_thai || "DaDangKy",
+    checkinTime: ticket.thoi_gian_check_in?.slice(11, 19),
+    checkoutTime: ticket.thoi_gian_check_out?.slice(11, 19),
+    qrCode: ticket.payload_qr || ticket.qrCode || `CEH1.${id}`,
+    registeredAt: ticket.thoi_gian_dang_ky || new Date().toISOString(),
+    thoi_gian_dang_ky: ticket.thoi_gian_dang_ky || new Date().toISOString(),
+  }
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 interface AppContextType {
@@ -995,7 +1132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         Array.isArray(eventRes.value.data) &&
         eventRes.value.data.length > 0
       ) {
-        // Hydrated from API
+        setEvents(eventRes.value.data.map(adaptApiEvent))
       }
       if (
         notifRes.status === "fulfilled" &&
@@ -1003,7 +1140,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         Array.isArray(notifRes.value.data) &&
         notifRes.value.data.length > 0
       ) {
-        // Hydrated from API
+        setNotifications(notifRes.value.data.map(adaptApiNotification))
       }
       if (
         ticketRes.status === "fulfilled" &&
@@ -1011,7 +1148,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         Array.isArray(ticketRes.value.data) &&
         ticketRes.value.data.length > 0
       ) {
-        // Hydrated from API
+        setTickets(ticketRes.value.data.map(adaptApiTicketSummary))
       }
     } catch (err) {
       setDataError(getApiErrorMessage(err))
