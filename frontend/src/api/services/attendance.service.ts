@@ -1,13 +1,46 @@
 import { api } from "../client"
 import type { ApiEnvelope } from "./auth.service"
 
+export interface KioskTotpData {
+  ma_su_kien: number
+  ten_su_kien: string
+  che_do_hien_tai: "DONG" | "CHECK_IN" | "CHECK_OUT"
+  cong_check_in_mo: boolean
+  cong_check_out_mo: boolean
+  totp_code: string
+  qr_payload: string
+  chu_ky_giay: number
+  het_han_luc: string
+  expires_in_seconds: number
+}
+
+export interface StaffScanData {
+  ma_dang_ky: number
+  sinh_vien: {
+    ho_ten: string
+    mssv: string
+    khoa: string
+    lop_sinh_hoat: string | null
+  }
+  canh_bao_doi_soat_the_sv: boolean
+  trang_thai_ve: "DaCheckIn" | "DaCheckOut"
+  thoi_gian_quet: string
+  thoi_luong_tham_du_phut: number | null
+  ti_le_drl: number | null
+}
+
+export interface StaffEventOption {
+  ma_su_kien: number
+  ten_su_kien: string
+}
+
 export const attendanceService = {
   startKiosk: (eventId: number | string) =>
     api.post<ApiEnvelope<{ kiosk_token: string }>>(
       `/events/${eventId}/kiosk/start`,
     ),
   totpStream: (kioskToken: string) =>
-    api.get<ApiEnvelope<unknown>>("/kiosk/totp-stream", { kioskToken }),
+    api.get<ApiEnvelope<KioskTotpData>>("/kiosk/totp-stream", { kioskToken }),
   openCheckin: (eventId: number | string) =>
     api.post<ApiEnvelope<unknown>>(`/events/${eventId}/kiosk/open-checkin`),
   openCheckout: (eventId: number | string, payload?: unknown) =>
@@ -17,12 +50,13 @@ export const attendanceService = {
     ),
   closeGates: (eventId: number | string) =>
     api.post<ApiEnvelope<unknown>>(`/events/${eventId}/kiosk/close-gates`),
-  myStaffEvents: () => api.get<ApiEnvelope<unknown[]>>("/staff/my-events"),
+  myStaffEvents: () =>
+    api.get<ApiEnvelope<StaffEventOption[]>>("/staff/my-events"),
   staffScan: (payload: {
     ma_su_kien: number
     che_do_quet: "CHECK_IN" | "CHECK_OUT"
     chuoi_qr_ve: string
-  }) => api.post<ApiEnvelope<unknown>>("/attendance/staff-scan", payload),
+  }) => api.post<ApiEnvelope<StaffScanData>>("/attendance/staff-scan", payload),
   selfCheckin: (payload: unknown, deviceId: string) =>
     api.post<ApiEnvelope<unknown>>("/attendance/self-check-in", payload, {
       headers: { "X-Device-Id": deviceId },

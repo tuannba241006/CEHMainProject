@@ -11,13 +11,19 @@ use Illuminate\Support\Facades\DB;
 
 class StaffScanService
 {
-    public function __construct(protected CryptoService $crypto) {}
+    public function __construct(
+        protected CryptoService $crypto,
+        protected AttendanceScoringService $scoring,
+    ) {}
 
     public function scan(User $actor, array $data): DangKy
     {
         [$uuid, $userId, $eventId, $signature] = explode('.', substr($data['chuoi_qr_ve'], 5), 4);
-        if ((int) $eventId !== (int) $data['ma_su_kien'] || ! $this->crypto->verifyTicket($signature, $uuid, (int) $userId, (int) $eventId)) {
-            throw new BusinessException('INVALID_TICKET_SIGNATURE', 'Mã QR vé không hợp lệ hoặc đã bị chỉnh sửa.', null, 400);
+        if (! $this->crypto->verifyTicket($signature, $uuid, (int) $userId, (int) $eventId)) {
+            throw new BusinessException('TICKET_INVALID_SIGNATURE', 'Mã vé không hợp lệ hoặc đã bị chỉnh sửa.', null, 400);
+        }
+        if ((int) $eventId !== (int) $data['ma_su_kien']) {
+            throw new BusinessException('TICKET_WRONG_EVENT', 'Vé này thuộc sự kiện khác, không dùng được tại đây.', null, 400);
         }
 
         return DB::transaction(function () use ($actor, $data, $uuid, $userId, $eventId, $signature) {
@@ -31,7 +37,7 @@ class StaffScanService
             }
             $ticket = DangKy::with('taiKhoan')->where('ma_ve_uuid', $uuid)->where('ma_tai_khoan', $userId)->where('ma_su_kien', $eventId)->lockForUpdate()->first();
             if (! $ticket || ! hash_equals((string) $ticket->chu_ky_hmac, $signature)) {
-                throw new BusinessException('INVALID_TICKET_SIGNATURE', 'Mã QR vé không hợp lệ hoặc đã bị chỉnh sửa.', null, 400);
+                throw new BusinessException('TICKET_INVALID_SIGNATURE', 'Mã vé không hợp lệ hoặc đã bị chỉnh sửa.', null, 400);
             }
             if ($data['che_do_quet'] === 'CHECK_IN') {
                 if (! $event->cong_check_in_mo) {
@@ -48,10 +54,24 @@ class StaffScanService
                 if ($ticket->trang_thai !== 'DaCheckIn') {
                     throw new BusinessException('TICKET_ALREADY_USED', 'Vé chưa Check-in hoặc đã Check-out.', null, 409);
                 }
-                $ticket->update(['trang_thai' => 'DaCheckOut', 'da_check_out' => true, 'thoi_gian_check_out' => now()]);
+                $checkout = now();
+                $score = $this->scoring->score($event, $ticket, $checkout);
+                $attendedMinutes = $score['thoi_luong_tham_du_phut'];
+                unset($score['thoi_luong_tham_du_phut']);
+                $ticket->update([
+                    'trang_thai' => 'DaCheckOut',
+                    'da_check_out' => true,
+                    'thoi_gian_check_out' => $checkout,
+                    ...$score,
+                ]);
             }
 
-            return $ticket->fresh('taiKhoan');
+            $ticket = $ticket->fresh(['taiKhoan', 'suKien']);
+            if ($data['che_do_quet'] === 'CHECK_OUT') {
+                $ticket->setAttribute('thoi_luong_tham_du_phut', $attendedMinutes);
+            }
+
+            return $ticket;
         });
     }
 }

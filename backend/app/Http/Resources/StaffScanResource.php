@@ -13,16 +13,17 @@ class StaffScanResource extends JsonResource
 
         return [
             'ma_dang_ky' => (int) $this->ma_dang_ky,
-            'ma_su_kien' => (int) $this->ma_su_kien,
-            'trang_thai' => $this->trang_thai,
-            'ho_ten' => $user?->ho_ten,
-            'mssv' => $user?->mssv,
-            'khoa' => $user?->khoa,
-            'lop_sinh_hoat' => $user?->lop_sinh_hoat,
-            'nghi_van_gian_lan' => (bool) $this->nghi_van_gian_lan,
-            'ma_thiet_bi_nghi_van' => $this->ma_thiet_bi_nghi_van,
-            'thoi_gian_check_in' => $this->thoi_gian_check_in?->toIso8601String(),
-            'thoi_gian_check_out' => $this->thoi_gian_check_out?->toIso8601String(),
+            'sinh_vien' => [
+                'ho_ten' => $user?->ho_ten,
+                'mssv' => $user?->mssv,
+                'khoa' => $user?->khoa,
+                'lop_sinh_hoat' => $user?->lop_sinh_hoat,
+            ],
+            'canh_bao_doi_soat_the_sv' => (bool) $this->nghi_van_gian_lan,
+            'trang_thai_ve' => $this->trang_thai,
+            'thoi_gian_quet' => ($this->thoi_gian_check_out ?: $this->thoi_gian_check_in)?->toIso8601String(),
+            'thoi_luong_tham_du_phut' => $this->getAttribute('thoi_luong_tham_du_phut'),
+            'ti_le_drl' => $this->da_check_out ? (float) $this->ti_le_drl : null,
         ];
     }
 }
