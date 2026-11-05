@@ -43,7 +43,7 @@ class StaffAttendanceController extends Controller
         $this->kiosk->assertHost($event, $request->user());
         $staff = NhanVienCheckIn::with('taiKhoan')->where('ma_su_kien', $id)->paginate(min(max((int) $request->input('limit', 20), 1), 100));
 
-        return response()->json(['success' => true, 'data' => $staff->getCollection()->map(fn ($item) => ['id' => $item->id, 'ma_tai_khoan' => $item->ma_tai_khoan, 'mssv' => $item->taiKhoan?->mssv, 'ho_ten' => $item->taiKhoan?->ho_ten, 'thoi_gian_phan_cong' => $item->thoi_gian_phan_cong?->toIso8601String()])->values(), 'meta' => ['current_page' => $staff->currentPage(), 'last_page' => $staff->lastPage(), 'per_page' => $staff->perPage(), 'total' => $staff->total()]]);
+        return response()->json(['success' => true, 'data' => $staff->getCollection()->map(fn ($item) => $this->staffAssignment($item))->values(), 'meta' => ['current_page' => $staff->currentPage(), 'last_page' => $staff->lastPage(), 'per_page' => $staff->perPage(), 'total' => $staff->total()]]);
     }
 
     public function assignStaff(Request $request, int $id): JsonResponse
@@ -59,7 +59,9 @@ class StaffAttendanceController extends Controller
                 $errors[] = ['mssv' => $mssv, 'ly_do' => 'MSSV không tồn tại hoặc không thuộc vai trò SinhVien'];
 
                 continue;
-            } $assigned[] = NhanVienCheckIn::firstOrCreate(['ma_tai_khoan' => $user->ma_tai_khoan, 'ma_su_kien' => $id], ['nguoi_phan_cong' => $request->user()->ma_tai_khoan]);
+            }
+            $assignment = NhanVienCheckIn::firstOrCreate(['ma_tai_khoan' => $user->ma_tai_khoan, 'ma_su_kien' => $id], ['nguoi_phan_cong' => $request->user()->ma_tai_khoan]);
+            $assigned[] = $this->staffAssignment($assignment->load('taiKhoan'));
         }
 
         return response()->json(['success' => true, 'message' => 'Đã xử lý phân công nhân viên soát vé', 'data' => ['da_phan_cong' => $assigned, 'loi' => $errors]], 201);
@@ -72,5 +74,19 @@ class StaffAttendanceController extends Controller
         NhanVienCheckIn::where(['ma_su_kien' => $id, 'ma_tai_khoan' => $userId])->delete();
 
         return response()->json(['success' => true, 'message' => 'Thu hồi quyền Staff thành công', 'data' => null]);
+    }
+
+    private function staffAssignment(NhanVienCheckIn $assignment): array
+    {
+        return [
+            'id' => (int) $assignment->id,
+            'ma_su_kien' => (int) $assignment->ma_su_kien,
+            'ma_tai_khoan' => (int) $assignment->ma_tai_khoan,
+            'mssv' => $assignment->taiKhoan->mssv,
+            'ho_ten' => $assignment->taiKhoan->ho_ten,
+            'lop_sinh_hoat' => $assignment->taiKhoan->lop_sinh_hoat,
+            'khoa' => $assignment->taiKhoan->khoa,
+            'thoi_gian_phan_cong' => $assignment->thoi_gian_phan_cong?->toIso8601String(),
+        ];
     }
 }
