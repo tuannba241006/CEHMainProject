@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate } from "react-router"
-import { useApp, type LiveEvent } from "../../context/AppContext"
+import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
 import { isApiMode } from "../../api/config"
@@ -42,6 +42,7 @@ const SEED_ADMIN_EVENTS: any[] = [
     mo_ta: "Sự kiện cấp trường kết nối các dự án khởi nghiệp công nghệ sinh viên với các nhà đầu tư mạo hiểm.",
     coHosts: ["CLB WebDev UIT", "Khoa Kỹ thuật Phần mềm"],
     danh_sach_ten_dong_to_chuc: ["CLB WebDev UIT", "Khoa Kỹ thuật Phần mềm"],
+    banner: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop",
   },
   {
     id: 992,
@@ -67,8 +68,38 @@ const SEED_ADMIN_EVENTS: any[] = [
     trang_thai: "DRAFT",
     description: "Nháp ủy quyền do Admin tạo hộ cho Khoa Hệ thống Thông tin để Khoa phân công diễn giả và cấu hình chi tiết.",
     mo_ta: "Nháp ủy quyền do Admin tạo hộ cho Khoa Hệ thống Thông tin để Khoa phân công diễn giả và cấu hình chi tiết.",
+    coHosts: ["CLB WebDev UIT"],
+    danh_sach_ten_dong_to_chuc: ["CLB WebDev UIT"],
+    banner: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&h=400&fit=crop",
+  },
+  {
+    id: 993,
+    ma_su_kien: 993,
+    title: "Hội thảo Chuyển đổi số & Điện toán đám mây UIT",
+    ten_su_kien: "Hội thảo Chuyển đổi số & Điện toán đám mây UIT",
+    organizer: "CLB WebDev UIT",
+    ten_don_vi_host: "CLB WebDev UIT",
+    topic: "Kỹ năng mềm & Công nghệ",
+    ten_chuyen_de: "Kỹ năng mềm & Công nghệ",
+    room: "Hội trường B",
+    ten_phong: "Hội trường B",
+    capacity: 250,
+    so_luong_toi_da: 250,
+    registered: 0,
+    so_luong_da_dang_ky: 0,
+    points: 4,
+    speaker: "ThS. Hoàng Văn Nam - Solutions Architect AWS",
+    dien_gia: "ThS. Hoàng Văn Nam - Solutions Architect AWS",
+    date: "10/11/2026",
+    time: "14:00 - 17:00",
+    status: "rejected",
+    trang_thai: "REJECTED",
+    description: "Hội thảo thực chiến về kiến trúc Microservices và Serverless trên AWS dành cho sinh viên.",
+    mo_ta: "Hội thảo thực chiến về kiến trúc Microservices và Serverless trên AWS dành cho sinh viên.",
+    ly_do_tu_choi: "Trùng khung giờ với Lễ Khai giảng năm học mới tại Hội trường B và chưa có phương án an ninh đảm bảo.",
     coHosts: [],
     danh_sach_ten_dong_to_chuc: [],
+    banner: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&h=400&fit=crop",
   },
   ...EVENTS,
 ]
@@ -83,9 +114,14 @@ export default function AdminEventsManagement({
   const { events: appEvents, approvalCases } = useApp()
   const { showToast } = useToast()
 
+  // View mode: list table or full-page creation/edit page
+  const [viewMode, setViewMode] = useState<"list" | "create" | "create-delegated" | "edit">(
+    initialMode === "create" ? "create" : initialMode === "edit" ? "edit" : "list",
+  )
+
   // Merged events list
   const [localEvents, setLocalEvents] = useState<any[]>(() => {
-    return SEED_ADMIN_EVENTS
+    return (appEvents && appEvents.length > 0 ? appEvents : SEED_ADMIN_EVENTS) as any[]
   })
 
   // Filter & Search states
@@ -93,30 +129,27 @@ export default function AdminEventsManagement({
   const [unitFilter, setUnitFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  // Modal dialog states
+  // Target event being edited
+  const [editingEvent, setEditingEvent] = useState<any | null>(null)
+
+  // Action Modals (Emergency Room, Cancel, Withdraw, Reopen)
   type ActionModal =
-    | { kind: "form"; event?: any; isDelegated?: boolean }
     | { kind: "changeRoom"; event: any }
     | { kind: "cancel"; event: any }
     | { kind: "withdraw"; event: any }
     | { kind: "reopen"; event: any }
     | null
 
-  const [modal, setModal] = useState<ActionModal>(() => {
-    if (initialMode === "create") return { kind: "form", isDelegated: false }
-    return null
-  })
-
-  // Sub-dialog form states
+  const [modal, setModal] = useState<ActionModal>(null)
   const [submitting, setSubmitting] = useState(false)
   const [actionReason, setActionReason] = useState("")
   const [newRoom, setNewRoom] = useState("")
 
-  // Form field states for create/edit
+  // Form field states for full creation/edit page
   const [formTitle, setFormTitle] = useState("")
   const [formUnitId, setFormUnitId] = useState<number>(4) // Default P.CTSV
   const [formTopic, setFormTopic] = useState("")
-  const [formDate, setFormDate] = useState("2026-11-15")
+  const [formDate, setFormDate] = useState("2026-11-20")
   const [formStartTime, setFormStartTime] = useState("08:30")
   const [formEndTime, setFormEndTime] = useState("11:30")
   const [formRoom, setFormRoom] = useState("Hội trường A")
@@ -126,41 +159,84 @@ export default function AdminEventsManagement({
   const [formSpeaker, setFormSpeaker] = useState("")
   const [formDescription, setFormDescription] = useState("")
   const [formCoHosts, setFormCoHosts] = useState<string[]>([])
+  const [selectedCoHostToAdd, setSelectedCoHostToAdd] = useState<string>("")
 
-  // Init form when editing
-  function openForm(event?: any, isDelegated = false) {
-    if (event) {
-      setFormTitle(event.title || event.ten_su_kien || "")
-      setFormUnitId(
-        event.organizer?.includes("Khoa") || event.ten_don_vi_host?.includes("Khoa") ? 1 : 4,
-      )
-      setFormTopic(event.topic || event.ten_chuyen_de || "")
-      setFormDate("2026-11-15")
-      setFormStartTime("08:30")
-      setFormEndTime("11:30")
-      setFormRoom(event.room || event.ten_phong || "Hội trường A")
-      setFormCapacity(event.capacity || event.so_luong_toi_da || 200)
-      setFormDrlRule("Dieu3")
-      setFormDrlPoints(event.points || event.diem_drl_du_kien || 5)
-      setFormSpeaker(event.speaker || event.dien_gia || "")
-      setFormDescription(event.description || event.mo_ta || "")
-      setFormCoHosts(event.coHosts || event.danh_sach_ten_dong_to_chuc || [])
-    } else {
-      setFormTitle("")
-      setFormUnitId(isDelegated ? 1 : 4) // 4 = P.CTSV, 1 = Khoa
-      setFormTopic(topics[0]?.ten_chuyen_de || "Trí tuệ Nhân tạo & Khoa học Dữ liệu")
-      setFormDate("2026-11-20")
-      setFormStartTime("08:30")
-      setFormEndTime("11:30")
-      setFormRoom("Hội trường A")
-      setFormCapacity(250)
-      setFormDrlRule("Dieu3")
-      setFormDrlPoints(5)
-      setFormSpeaker("")
-      setFormDescription("")
-      setFormCoHosts([])
+  // AI Content Copilot (UC-AI-01)
+  const [showAiModal, setShowAiModal] = useState(false)
+  const [aiPrompt, setAiPrompt] = useState("")
+  const [aiGenerating, setAiGenerating] = useState(false)
+
+  // Initialize form state
+  function openCreatePage(isDelegated: boolean) {
+    setEditingEvent(null)
+    setFormTitle("")
+    setFormUnitId(isDelegated ? 1 : 4) // 4 = P.CTSV, 1 = Khoa
+    setFormTopic(topics[0]?.ten_chuyen_de || "Trí tuệ Nhân tạo & Khoa học Dữ liệu")
+    setFormDate("2026-11-25")
+    setFormStartTime("08:30")
+    setFormEndTime("11:30")
+    setFormRoom("Hội trường A")
+    setFormCapacity(250)
+    setFormDrlRule("Dieu3")
+    setFormDrlPoints(5)
+    setFormSpeaker("")
+    setFormDescription("")
+    setFormCoHosts([])
+    setSelectedCoHostToAdd("")
+    setViewMode(isDelegated ? "create-delegated" : "create")
+  }
+
+  function openEditPage(evt: any) {
+    setEditingEvent(evt)
+    setFormTitle(evt.title || evt.ten_su_kien || "")
+    setFormUnitId(
+      evt.organizer?.includes("Sinh viên") || evt.ten_don_vi_host?.includes("Sinh viên") ? 4 : 1,
+    )
+    setFormTopic(evt.topic || evt.ten_chuyen_de || topics[0]?.ten_chuyen_de || "")
+    setFormDate(evt.date ? evt.date.split("/").reverse().join("-") : "2026-11-20")
+    setFormStartTime(evt.time ? evt.time.split(" - ")[0] : "08:30")
+    setFormEndTime(evt.time ? evt.time.split(" - ")[1] : "11:30")
+    setFormRoom(evt.room || evt.ten_phong || "Hội trường A")
+    setFormCapacity(evt.capacity || evt.so_luong_toi_da || 200)
+    setFormDrlRule("Dieu3")
+    setFormDrlPoints(evt.points || evt.diem_drl_du_kien || 5)
+    setFormSpeaker(evt.speaker || evt.dien_gia || "")
+    setFormDescription(evt.description || evt.mo_ta || "")
+    setFormCoHosts(evt.coHosts || evt.danh_sach_ten_dong_to_chuc || [])
+    setSelectedCoHostToAdd("")
+    setViewMode("edit")
+  }
+
+  // Co-hosts add & remove
+  function handleAddCoHost() {
+    if (!selectedCoHostToAdd.trim()) return
+    if (formCoHosts.includes(selectedCoHostToAdd.trim())) {
+      showToast("Đơn vị này đã có trong danh sách đồng tổ chức.", "warning")
+      return
     }
-    setModal({ kind: "form", event, isDelegated })
+    setFormCoHosts((prev) => [...prev, selectedCoHostToAdd.trim()])
+    setSelectedCoHostToAdd("")
+    showToast(`Đã thêm "${selectedCoHostToAdd.trim()}" vào danh sách đồng tổ chức.`, "success")
+  }
+
+  function handleRemoveCoHost(name: string) {
+    setFormCoHosts((prev) => prev.filter((item) => item !== name))
+    showToast(`Đã xóa "${name}" khỏi danh sách đồng tổ chức.`, "info")
+  }
+
+  // AI Generator
+  function handleGenerateAi() {
+    if (!aiPrompt.trim()) return
+    setAiGenerating(true)
+    setTimeout(() => {
+      setFormTitle(`Hội thảo Toàn trường: ${aiPrompt.trim()} — Đổi mới Sáng tạo 2026`)
+      setFormDescription(
+        `Chương trình chuyên đề cấp toàn trường về ${aiPrompt.trim()} do Phòng Công tác Sinh viên (P.CTSV) phối hợp tổ chức, cung cấp kiến thức thực tiễn và định hướng nghề nghiệp cho sinh viên UIT.\n\n[LỊCH TRÌNH AGENDA]\n1. 08:30 - 09:00: Đón tiếp đại biểu và Quét mã Kiosk TOTP\n2. 09:00 - 10:30: Tham luận của các chuyên gia đầu ngành\n3. 10:30 - 11:15: Phiên thảo luận, Q&A và kết nối doanh nghiệp\n4. 11:15 - 11:30: Check-out và phát hành khảo sát ĐRL.`,
+      )
+      setAiGenerating(false)
+      setShowAiModal(false)
+      showToast("Đã tạo tự động tiêu đề, mô tả và agenda từ AI Copilot!", "success")
+    }, 650)
   }
 
   // Filtered events
@@ -182,7 +258,7 @@ export default function AdminEventsManagement({
         unitFilter === "all" ||
         (evt.organizer || evt.ten_don_vi_host || "").includes(unitFilter)
 
-      const status = (evt.status || "").toLowerCase()
+      const status = (evt.status || evt.trang_thai || "").toLowerCase()
       const matchStatus =
         statusFilter === "all" ||
         (statusFilter === "open" && (status === "open" || status === "published")) ||
@@ -207,9 +283,14 @@ export default function AdminEventsManagement({
   const pendingCount = approvalCases.filter((c) =>
     c.status.includes("pending"),
   ).length
-  const draftCount = localEvents.filter((e) => e.status === "draft").length
+  const draftCount = localEvents.filter(
+    (e) => (e.status || e.trang_thai || "").toLowerCase() === "draft",
+  ).length
+  const rejectedCount = localEvents.filter(
+    (e) => (e.status || e.trang_thai || "").toLowerCase().includes("rejected"),
+  ).length
 
-  // Handlers
+  // Save or submit event
   async function handleSaveEvent(asSubmit = false) {
     if (!formTitle.trim()) {
       showToast("Vui lòng nhập tên sự kiện.", "error")
@@ -217,7 +298,7 @@ export default function AdminEventsManagement({
     }
     setSubmitting(true)
     try {
-      const isEdit = Boolean(modal?.kind === "form" && modal.event)
+      const isEdit = viewMode === "edit"
       const targetUnit = orgs.find((o) => o.ma_don_vi === formUnitId)
       const payload = {
         ten_su_kien: formTitle.trim(),
@@ -236,21 +317,21 @@ export default function AdminEventsManagement({
       }
 
       if (isApiMode()) {
-        if (isEdit && modal?.kind === "form" && modal.event) {
-          await eventsService.updateDraft(modal.event.id || modal.event.ma_su_kien, payload)
+        if (isEdit && editingEvent) {
+          await eventsService.updateDraft(editingEvent.id || editingEvent.ma_su_kien, payload)
         } else {
           await eventsService.createDraft(payload)
         }
-        if (asSubmit && modal?.kind === "form" && modal.event) {
-          await eventsService.submitApproval(modal.event.id || modal.event.ma_su_kien)
+        if (asSubmit && editingEvent) {
+          await eventsService.submitApproval(editingEvent.id || editingEvent.ma_su_kien)
         }
       }
 
       // Update local state
-      if (isEdit && modal?.kind === "form" && modal.event) {
+      if (isEdit && editingEvent) {
         setLocalEvents((prev) =>
           prev.map((e) =>
-            (e.id === modal.event?.id || e.ma_su_kien === modal.event?.ma_su_kien)
+            e.id === editingEvent.id || e.ma_su_kien === editingEvent.ma_su_kien
               ? {
                   ...e,
                   title: formTitle.trim(),
@@ -267,7 +348,8 @@ export default function AdminEventsManagement({
                   mo_ta: formDescription.trim(),
                   coHosts: formCoHosts,
                   danh_sach_ten_dong_to_chuc: formCoHosts,
-                  status: asSubmit ? "pending" : e.status,
+                  status: asSubmit ? "pending" : "draft",
+                  trang_thai: asSubmit ? "PENDING_ADMIN" : "DRAFT",
                 }
               : e,
           ),
@@ -294,6 +376,7 @@ export default function AdminEventsManagement({
           date: formDate.split("-").reverse().join("/"),
           time: `${formStartTime} - ${formEndTime}`,
           status: asSubmit ? "pending" : "draft",
+          trang_thai: asSubmit ? "PENDING_ADMIN" : "DRAFT",
           description: formDescription.trim(),
           mo_ta: formDescription.trim(),
           coHosts: formCoHosts,
@@ -307,11 +390,11 @@ export default function AdminEventsManagement({
         asSubmit
           ? "Đã lưu bản nháp và gửi hồ sơ phê duyệt thành công."
           : isEdit
-            ? "Đã cập nhật nội dung sự kiện thành công."
+            ? "Đã cập nhật bản nháp sự kiện thành công."
             : "Đã tạo bản nháp sự kiện mới thành công.",
         "success",
       )
-      setModal(null)
+      setViewMode("list")
     } catch (err) {
       showToast(getApiErrorMessage(err), "error")
     } finally {
@@ -319,6 +402,7 @@ export default function AdminEventsManagement({
     }
   }
 
+  // Emergency room change
   async function handleEmergencyChangeRoom() {
     if (!modal || modal.kind !== "changeRoom" || !newRoom) return
     if (!actionReason.trim() || actionReason.trim().length < 10) {
@@ -335,13 +419,13 @@ export default function AdminEventsManagement({
       }
       setLocalEvents((prev) =>
         prev.map((e) =>
-          (e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien)
+          e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
             ? { ...e, room: newRoom, ten_phong: newRoom }
             : e,
         ),
       )
       showToast(
-        `Đã điều chuyển phòng sang "${newRoom}" thành công. Toàn bộ sinh viên đã nhận thông báo khẩn cấp (In-app & Email).`,
+        `Đã điều chuyển phòng sang "${newRoom}" thành công. Toàn bộ sinh viên đã nhận thông báo khẩn cấp.`,
         "success",
       )
       setModal(null)
@@ -354,6 +438,7 @@ export default function AdminEventsManagement({
     }
   }
 
+  // Emergency cancel
   async function handleEmergencyCancel() {
     if (!modal || modal.kind !== "cancel") return
     if (!actionReason.trim() || actionReason.trim().length < 10) {
@@ -370,7 +455,7 @@ export default function AdminEventsManagement({
       }
       setLocalEvents((prev) =>
         prev.map((e) =>
-          (e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien)
+          e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
             ? { ...e, status: "cancelled", trang_thai: "CANCELLED" }
             : e,
         ),
@@ -388,40 +473,7 @@ export default function AdminEventsManagement({
     }
   }
 
-  async function handleWithdraw() {
-    if (!modal || modal.kind !== "withdraw") return
-    if (!actionReason.trim() || actionReason.trim().length < 10) {
-      showToast("Vui lòng nhập lý do rút đề xuất chi tiết (tối thiểu 10 ký tự).", "error")
-      return
-    }
-    setSubmitting(true)
-    try {
-      if (isApiMode()) {
-        await eventsService.withdraw(
-          modal.event.id || modal.event.ma_su_kien,
-          actionReason.trim(),
-        )
-      }
-      setLocalEvents((prev) =>
-        prev.map((e) =>
-          (e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien)
-            ? { ...e, status: "draft", trang_thai: "DRAFT" }
-            : e,
-        ),
-      )
-      showToast(
-        "Đã rút đề xuất cưỡng chế về DRAFT. Phòng giữ chỗ tạm thời đã được tự động giải phóng.",
-        "success",
-      )
-      setModal(null)
-      setActionReason("")
-    } catch (err) {
-      showToast(getApiErrorMessage(err), "error")
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
+  // Reopen rejected draft
   async function handleReopen() {
     if (!modal || modal.kind !== "reopen") return
     if (!actionReason.trim() || actionReason.trim().length < 10) {
@@ -438,13 +490,13 @@ export default function AdminEventsManagement({
       }
       setLocalEvents((prev) =>
         prev.map((e) =>
-          (e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien)
+          e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
             ? { ...e, status: "draft", trang_thai: "DRAFT" }
             : e,
         ),
       )
       showToast(
-        "Đã khôi phục bản nháp về trạng thái DRAFT thành công để chỉnh sửa lại.",
+        "Đã khôi phục sự kiện bị từ chối về trạng thái DRAFT thành công để tiếp tục chỉnh sửa.",
         "success",
       )
       setModal(null)
@@ -456,47 +508,510 @@ export default function AdminEventsManagement({
     }
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Top Creation & Action Banner */}
-      <div className="bg-gradient-to-r from-indigo-50/90 via-white to-purple-50/90 rounded-2xl border border-indigo-100 p-4 sm:p-5 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-        <div>
+  // Withdraw proposal
+  async function handleWithdraw() {
+    if (!modal || modal.kind !== "withdraw") return
+    if (!actionReason.trim() || actionReason.trim().length < 10) {
+      showToast("Vui lòng nhập lý do rút đề xuất chi tiết (tối thiểu 10 ký tự).", "error")
+      return
+    }
+    setSubmitting(true)
+    try {
+      if (isApiMode()) {
+        await eventsService.withdraw(
+          modal.event.id || modal.event.ma_su_kien,
+          actionReason.trim(),
+        )
+      }
+      setLocalEvents((prev) =>
+        prev.map((e) =>
+          e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
+            ? { ...e, status: "draft", trang_thai: "DRAFT" }
+            : e,
+        ),
+      )
+      showToast(
+        "Đã rút đề xuất cưỡng chế về DRAFT. Phòng hội trường giữ chỗ đã được giải phóng.",
+        "success",
+      )
+      setModal(null)
+      setActionReason("")
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // RENDER FULL EVENT FORM (WHEN CREATING OR EDITING)
+  if (viewMode !== "list") {
+    const isDelegated = viewMode === "create-delegated"
+    const isEdit = viewMode === "edit"
+    const targetRoomObj = ROOMS.find((r) => r.ten_phong === formRoom)
+
+    return (
+      <div className="space-y-6">
+        {/* Breadcrumb & Navigation */}
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-200">
+          <button
+            onClick={() => setViewMode("list")}
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo transition-colors cursor-pointer"
+          >
+            <span>← Quay lại danh sách sự kiện</span>
+          </button>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-600 text-white shadow-2xs">
-              Toàn quyền Quản trị & Soạn thảo Sự kiện Toàn trường
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {isEdit ? "Chỉnh sửa bản nháp" : isDelegated ? "Tạo nháp ủy quyền" : "Sự kiện cấp Trường"}
             </span>
           </div>
-          <h2 className="font-display font-bold text-lg text-navy mt-1">
-            Khởi tạo & Điều phối Sự kiện Toàn trường
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5 max-w-xl">
-            Quản trị viên P.CTSV có thẩm quyền tạo sự kiện cấp Trường trực tiếp, tạo nháp ủy quyền cho Khoa/CLB, chỉnh sửa bản nháp, điều chuyển phòng và xử lý khẩn cấp.
-          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            id="admin-create-univ-evt-btn"
-            onClick={() => openForm(undefined, false)}
-            className="px-4 py-2.5 rounded-xl bg-indigo text-white text-xs sm:text-sm font-semibold cursor-pointer hover:bg-indigo-700 shadow-xs flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
-            title="Khởi tạo sự kiện cấp Trường trực tiếp cho Phòng Công tác Sinh viên (P.CTSV)"
-          >
-            <span className="text-base">➕</span>
-            <span>Tạo sự kiện cấp Trường (P.CTSV)</span>
-          </button>
-          <button
-            id="admin-create-delegated-evt-btn"
-            onClick={() => openForm(undefined, true)}
-            className="px-4 py-2.5 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold cursor-pointer hover:bg-indigo-50 shadow-2xs flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
-            title="Tạo bản nháp ủy quyền / tạo hộ cho bất kỳ Khoa/CLB cấp dưới nào bằng cách truyền tham số ma_don_vi_to_chuc"
-          >
-            <span className="text-base">📋</span>
-            <span>Tạo nháp ủy quyền (Tạo hộ)</span>
-          </button>
-        </div>
-      </div>
 
+        {/* Header Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="font-display font-bold text-2xl text-navy">
+              {isEdit
+                ? `Chỉnh sửa bản nháp: ${formTitle || "Sự kiện chưa đặt tên"}`
+                : isDelegated
+                  ? "Tạo bản nháp sự kiện ủy quyền (Tạo hộ Khoa / CLB)"
+                  : "Khởi tạo sự kiện mới cấp Trường (P.CTSV)"}
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              {isDelegated
+                ? "Tạo khung bản nháp và chỉ định đơn vị chủ trì cấp dưới hoàn thiện trước khi gửi duyệt."
+                : "Soạn thảo hồ sơ sự kiện quy mô toàn trường trực tiếp cho Phòng Công tác Sinh viên."}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAiModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            >
+              <span>✨</span>
+              <span>Trợ lý AI gợi ý nội dung (UC-AI-01)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 2-Column Layout: Form (2/3) + Preview Sidebar (1/3) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Form Fields */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Warning Banner Soft Hold 48h */}
+            <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3">
+              <span className="text-base">⏳</span>
+              <div>
+                <p className="font-bold">Quy chế bảo toàn phòng Soft Hold 48h & Đệm Buffer 15m:</p>
+                <p className="mt-0.5 text-amber-800 leading-relaxed">
+                  Khi gửi duyệt, phòng hội trường sẽ được tạm giữ (Soft Hold) 48h. Hệ thống tự động kích hoạt khoảng đệm 15 phút trước và sau ca để bảo đảm không có sự cố trùng lịch.
+                </p>
+              </div>
+            </div>
+
+            {/* SECTION 1: THÔNG TIN CHUNG */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+              <h2 className="font-display font-bold text-sm text-navy uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>📌</span> 1. Thông tin sự kiện
+              </h2>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Tên sự kiện <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="Ví dụ: Ngày hội Khởi nghiệp & Đổi mới Sáng tạo UIT 2026..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Đơn vị chủ trì (ma_don_vi_to_chuc) *
+                  </label>
+                  <select
+                    value={formUnitId}
+                    onChange={(e) => setFormUnitId(Number(e.target.value))}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
+                  >
+                    <option value={4}>Phòng Công tác Sinh viên (P.CTSV) — Cấp Trường</option>
+                    {orgs.filter((o) => o.ma_don_vi !== 4).map((o) => (
+                      <option key={o.ma_don_vi} value={o.ma_don_vi}>
+                        {o.ten_don_vi} ({o.loai_don_vi})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Chuyên đề sự kiện *
+                  </label>
+                  <select
+                    value={formTopic}
+                    onChange={(e) => setFormTopic(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
+                  >
+                    {topics.map((t) => (
+                      <option key={t.ma_chuyen_de} value={t.ten_chuyen_de}>
+                        {t.ten_chuyen_de}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Diễn giả / Khách mời</label>
+                <input
+                  type="text"
+                  value={formSpeaker}
+                  onChange={(e) => setFormSpeaker(e.target.value)}
+                  placeholder="Ví dụ: TS. Nguyễn Minh Anh - Giám đốc Trung tâm AI Viettel..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+                />
+              </div>
+            </div>
+
+            {/* SECTION 2: THỜI GIAN & PHÒNG HỘI TRƯỜNG */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+              <h2 className="font-display font-bold text-sm text-navy uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>📍</span> 2. Thời gian & Phòng hội trường
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Ngày tổ chức *</label>
+                  <input
+                    type="date"
+                    value={formDate}
+                    onChange={(e) => setFormDate(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Giờ bắt đầu *</label>
+                  <input
+                    type="time"
+                    value={formStartTime}
+                    onChange={(e) => setFormStartTime(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Giờ kết thúc *</label>
+                  <input
+                    type="time"
+                    value={formEndTime}
+                    onChange={(e) => setFormEndTime(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Chọn phòng hội trường *
+                  </label>
+                  <select
+                    value={formRoom}
+                    onChange={(e) => {
+                      setFormRoom(e.target.value)
+                      const target = ROOMS.find((r) => r.ten_phong === e.target.value)
+                      if (target) setFormCapacity(target.suc_chua)
+                    }}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
+                  >
+                    {ROOMS.map((r) => (
+                      <option key={r.ma_phong} value={r.ten_phong}>
+                        {r.ten_phong} (Sức chứa {r.suc_chua} chỗ - {r.toa_nha})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Số lượng sinh viên tối đa *
+                  </label>
+                  <input
+                    type="number"
+                    value={formCapacity}
+                    onChange={(e) => setFormCapacity(Number(e.target.value))}
+                    min={10}
+                    max={targetRoomObj?.suc_chua || 1000}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Giới hạn theo sức chứa phòng: tối đa {targetRoomObj?.suc_chua || 500} sinh viên.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 3: ĐƠN VỊ ĐỒNG TỔ CHỨC (CO-HOSTS) - ADDRESSING POINT 3 */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h2 className="font-display font-bold text-sm text-navy uppercase tracking-wider flex items-center gap-2">
+                  <span>🤝</span> 3. Quản lý Đơn vị Đồng tổ chức (Co-hosts)
+                </h2>
+                <span className="text-xs font-medium text-slate-400">
+                  {formCoHosts.length} đơn vị đã chọn
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Thêm hoặc bớt các đơn vị phối hợp (Khoa, CLB, Đoàn Hội). Khi gửi duyệt, hệ thống sẽ tự động phát lời mời xác nhận phối hợp tới người quản lý của các đơn vị này.
+              </p>
+
+              {/* Selector toolbar */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <select
+                  value={selectedCoHostToAdd}
+                  onChange={(e) => setSelectedCoHostToAdd(e.target.value)}
+                  className="flex-1 min-w-[200px] p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
+                >
+                  <option value="">-- Chọn đơn vị phối hợp để thêm --</option>
+                  {orgs
+                    .filter((o) => o.ma_don_vi !== formUnitId && !formCoHosts.includes(o.ten_don_vi))
+                    .map((o) => (
+                      <option key={o.ma_don_vi} value={o.ten_don_vi}>
+                        {o.ten_don_vi} ({o.loai_don_vi})
+                      </option>
+                    ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleAddCoHost}
+                  disabled={!selectedCoHostToAdd}
+                  className="px-4 py-2.5 rounded-xl bg-indigo text-white text-xs font-semibold cursor-pointer hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs transition-colors flex items-center gap-1.5"
+                >
+                  <span>➕</span>
+                  <span>Thêm đồng tổ chức</span>
+                </button>
+              </div>
+
+              {/* Selected Co-Hosts Tag List with Remove Button */}
+              <div className="pt-2">
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Danh sách đơn vị đồng tổ chức trong bản nháp:
+                </label>
+                {formCoHosts.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {formCoHosts.map((coHostName) => (
+                      <span
+                        key={coHostName}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs font-medium shadow-2xs"
+                      >
+                        <span>🏢 {coHostName}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCoHost(coHostName)}
+                          className="w-4 h-4 rounded-full bg-indigo-200 hover:bg-rose-200 hover:text-rose-700 flex items-center justify-center text-[10px] font-bold cursor-pointer transition-colors"
+                          title={`Xóa ${coHostName}`}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-400 text-center">
+                    Chưa có đơn vị đồng tổ chức nào được chọn (tùy chọn).
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* SECTION 4: ĐIỂM RÈN LUYỆN */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+              <h2 className="font-display font-bold text-sm text-navy uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>⭐</span> 4. Quy chuẩn Điểm rèn luyện (ĐRL)
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Căn cứ Điều khoản ĐRL *
+                  </label>
+                  <select
+                    value={formDrlRule}
+                    onChange={(e) => setFormDrlRule(e.target.value as any)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
+                  >
+                    <option value="Dieu3">Điều 3: Hoạt động học thuật, NCKH & Kỹ năng</option>
+                    <option value="Dieu4">Điều 4: Phẩm chất công dân, Văn hóa, Tình nguyện</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Mức điểm cộng (+3 đến +5 điểm) *
+                  </label>
+                  <select
+                    value={formDrlPoints}
+                    onChange={(e) => setFormDrlPoints(Number(e.target.value))}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
+                  >
+                    <option value={3}>+3 Điểm rèn luyện</option>
+                    <option value={4}>+4 Điểm rèn luyện</option>
+                    <option value={5}>+5 Điểm rèn luyện (Mức cao nhất)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 5: MÔ TẢ CHI TIẾT & AGENDA */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs">
+              <h2 className="font-display font-bold text-sm text-navy uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>📝</span> 5. Mô tả & Kế hoạch Agenda
+              </h2>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Mô tả chi tiết và lộ trình chương trình *
+                </label>
+                <textarea
+                  rows={5}
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="Mục tiêu sự kiện, nội dung chính và các mốc thời gian trình bày của diễn giả..."
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Live Event Summary Preview & Action Buttons */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-2xs sticky top-4">
+              <h3 className="font-display font-bold text-sm text-navy uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>👁️</span> Xem trước thẻ sự kiện
+              </h3>
+
+              <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                <img
+                  src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop"
+                  alt="Preview banner"
+                  className="w-full h-32 object-cover"
+                />
+                <div className="p-3.5 space-y-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">
+                    {formTopic || "Chuyên đề"}
+                  </span>
+                  <p className="font-bold text-sm text-navy line-clamp-2">
+                    {formTitle || "Tên sự kiện chưa đặt"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    🏢 {orgs.find((o) => o.ma_don_vi === formUnitId)?.ten_don_vi || "P.CTSV"}
+                  </p>
+                  <div className="text-xs text-slate-600 pt-1 border-t border-slate-200 space-y-1">
+                    <div>📍 {formRoom}</div>
+                    <div>🕒 {formDate} · {formStartTime} - {formEndTime}</div>
+                    <div className="flex justify-between font-semibold">
+                      <span>Sức chứa: {formCapacity}</span>
+                      <span className="text-indigo-600">+{formDrlPoints} ĐRL</span>
+                    </div>
+                  </div>
+                  {formCoHosts.length > 0 && (
+                    <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200">
+                      + {formCoHosts.length} đơn vị đồng tổ chức
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveEvent(true)}
+                  disabled={submitting || !formTitle.trim()}
+                  className="w-full py-2.5 rounded-xl bg-indigo hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold cursor-pointer shadow-xs disabled:opacity-50 transition-colors"
+                >
+                  {submitting ? "Đang xử lý..." : "Lưu & Gửi phê duyệt ngay"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSaveEvent(false)}
+                  disabled={submitting || !formTitle.trim()}
+                  className="w-full py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs sm:text-sm font-semibold cursor-pointer shadow-2xs disabled:opacity-50 transition-colors"
+                >
+                  {submitting ? "Đang lưu..." : "Lưu bản nháp (DRAFT)"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Hủy bỏ & Quay lại
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* AI CONTENT COPILOT MODAL */}
+        {showAiModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100">
+              <h2 className="font-display font-bold text-lg text-navy flex items-center gap-2">
+                <span>✨</span> Trợ lý AI gợi ý nội dung (UC-AI-01)
+              </h2>
+              <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
+                Nhập từ khóa hoặc chủ đề sự kiện, AI Copilot sẽ tự động phác thảo tiêu đề, mô tả và khung lộ trình Agenda chuyên nghiệp chuẩn quy chế CTSV.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Chủ đề hoặc mục tiêu sự kiện *
+                </label>
+                <input
+                  type="text"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="Ví dụ: AI & Big Data ứng dụng trong Tài chính Ngân hàng..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+                />
+              </div>
+
+              <div className="flex gap-2.5 mt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowAiModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateAi}
+                  disabled={aiGenerating || !aiPrompt.trim()}
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer shadow-xs"
+                >
+                  {aiGenerating ? "Đang tạo..." : "Áp dụng nội dung AI"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // RENDER EVENTS LIST TABLE (DEFAULT VIEW)
+  return (
+    <div className="space-y-6">
       {/* KPI Overview Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
           <p className="text-xs text-slate-400 font-medium">Tổng số sự kiện</p>
           <p className="font-display font-bold text-2xl text-navy mt-1.5">{totalEvents}</p>
@@ -522,58 +1037,97 @@ export default function AdminEventsManagement({
           <p className="font-display font-bold text-2xl text-slate-700 mt-1.5">{draftCount}</p>
           <span className="text-[11px] text-slate-400">Đang chuẩn bị</span>
         </div>
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
+          <p className="text-xs text-rose-600 font-medium">Bị từ chối</p>
+          <p className="font-display font-bold text-2xl text-rose-700 mt-1.5">{rejectedCount}</p>
+          <span className="text-[11px] text-rose-400">Cần tái mở</span>
+        </div>
       </div>
 
-      {/* Search & Filter Toolbar */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm kiếm sự kiện, diễn giả, phòng..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
-            />
+      {/* Action Header & Search Toolbar */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <h2 className="font-display font-bold text-base text-navy">
+              Danh sách Sự kiện & Quản trị Toàn trường
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Tra cứu, sửa bản nháp, tái mở hồ sơ bị từ chối và xử lý điều chuyển khẩn cấp.
+            </p>
           </div>
-          <select
-            value={unitFilter}
-            onChange={(e) => setUnitFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white font-medium text-slate-700 focus:outline-none focus:border-indigo"
-          >
-            <option value="all">Tất cả đơn vị tổ chức</option>
-            <option value="Sinh viên">Phòng Công tác Sinh viên (P.CTSV)</option>
-            {orgs.map((o) => (
-              <option key={o.ma_don_vi} value={o.ten_don_vi}>
-                {o.ten_don_vi}
-              </option>
-            ))}
-          </select>
+
+          {/* Creation Button Pair - SINGLE CLEAN LOCATION (ADDRESSING POINT 2) */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => openCreatePage(false)}
+              className="px-3.5 py-2 rounded-xl bg-indigo text-white text-xs sm:text-sm font-semibold cursor-pointer hover:bg-indigo-700 shadow-xs flex items-center gap-1.5 transition-colors"
+              title="Khởi tạo sự kiện cấp Trường trực tiếp cho Phòng Công tác Sinh viên (POST /events)"
+            >
+              <span>➕</span>
+              <span>Tạo sự kiện cấp Trường (P.CTSV)</span>
+            </button>
+            <button
+              onClick={() => openCreatePage(true)}
+              className="px-3.5 py-2 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs sm:text-sm font-semibold cursor-pointer hover:bg-indigo-100 shadow-2xs flex items-center gap-1.5 transition-colors"
+              title="Tạo bản nháp ủy quyền / tạo hộ cho bất kỳ Khoa/CLB cấp dưới nào (truyền tham số ma_don_vi_to_chuc)"
+            >
+              <span>📋</span>
+              <span>Tạo nháp ủy quyền (Tạo hộ)</span>
+            </button>
+          </div>
         </div>
 
-        {/* Status Tab Filters */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs overflow-x-auto max-w-full">
-          {[
-            ["all", "Tất cả"],
-            ["open", "Đang mở"],
-            ["pending", "Chờ duyệt"],
-            ["draft", "Bản nháp"],
-            ["ended", "Đã kết thúc"],
-            ["cancelled", "Đã hủy"],
-          ].map(([val, lbl]) => (
-            <button
-              key={val}
-              onClick={() => setStatusFilter(val)}
-              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap cursor-pointer transition-colors ${
-                statusFilter === val
-                  ? "bg-white text-indigo font-bold shadow-2xs"
-                  : "text-slate-600 hover:text-navy"
-              }`}
+        {/* Search & Status Filters */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Tìm kiếm sự kiện, diễn giả, phòng..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
+              />
+            </div>
+            <select
+              value={unitFilter}
+              onChange={(e) => setUnitFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white font-medium text-slate-700 focus:outline-none focus:border-indigo"
             >
-              {lbl}
-            </button>
-          ))}
+              <option value="all">Tất cả đơn vị tổ chức</option>
+              <option value="Sinh viên">Phòng Công tác Sinh viên (P.CTSV)</option>
+              {orgs.map((o) => (
+                <option key={o.ma_don_vi} value={o.ten_don_vi}>
+                  {o.ten_don_vi}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs overflow-x-auto max-w-full">
+            {[
+              ["all", "Tất cả"],
+              ["draft", "Bản nháp"],
+              ["pending", "Chờ duyệt"],
+              ["open", "Đang mở"],
+              ["rejected", "Bị từ chối"],
+              ["ended", "Đã kết thúc"],
+              ["cancelled", "Đã hủy"],
+            ].map(([val, lbl]) => (
+              <button
+                key={val}
+                onClick={() => setStatusFilter(val)}
+                className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap cursor-pointer transition-colors ${
+                  statusFilter === val
+                    ? "bg-white text-indigo font-bold shadow-2xs"
+                    : "text-slate-600 hover:text-navy"
+                }`}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -600,7 +1154,9 @@ export default function AdminEventsManagement({
                 const capacity = evt.capacity || evt.so_luong_toi_da || 200
                 const registered = evt.registered || evt.so_luong_da_dang_ky || 0
                 const pct = Math.min(100, Math.round((registered / capacity) * 100))
-                const status = (evt.status || "").toLowerCase()
+                const status = (evt.status || evt.trang_thai || "").toLowerCase()
+
+                // ADDRESSING POINT 1: ONLY DRAFT EVENTS CAN BE EDITED!
                 const isDraft = status === "draft"
                 const isPending = status.includes("pending")
                 const isRejected = status.includes("rejected")
@@ -675,9 +1231,9 @@ export default function AdminEventsManagement({
                             : isPending
                               ? "bg-amber-50 text-amber-700 border border-amber-200"
                               : isDraft
-                                ? "bg-slate-100 text-slate-700 border border-slate-200"
+                                ? "bg-slate-100 text-slate-700 border border-slate-200 font-bold"
                                 : isRejected
-                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                  ? "bg-rose-100 text-rose-700 border border-rose-200 font-bold"
                                   : status === "cancelled"
                                     ? "bg-red-100 text-red-700"
                                     : "bg-slate-100 text-slate-600"
@@ -699,13 +1255,13 @@ export default function AdminEventsManagement({
 
                     <td className="p-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
-                        {/* Draft / Edit action */}
-                        {isDraft ? (
+                        {/* ONLY DRAFT EVENTS HAVE "SỬA NHÁP" (ADDRESSING POINT 1 & POINT 4) */}
+                        {isDraft && (
                           <>
                             <button
-                              onClick={() => openForm(evt)}
+                              onClick={() => openEditPage(evt)}
                               className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold cursor-pointer border border-indigo-200 shadow-2xs transition-colors"
-                              title="Chỉnh sửa nội dung bản nháp (tiêu đề, chuyên đề, slot, ĐRL)"
+                              title="Chỉnh sửa toàn diện nội dung bản nháp (mở cả trang tạo sự kiện)"
                             >
                               ✏️ Sửa nháp
                             </button>
@@ -717,7 +1273,7 @@ export default function AdminEventsManagement({
                                 )
                                 setLocalEvents((prev) =>
                                   prev.map((e) =>
-                                    (e.id === evt.id || e.ma_su_kien === evt.ma_su_kien)
+                                    e.id === evt.id || e.ma_su_kien === evt.ma_su_kien
                                       ? { ...e, status: "pending", trang_thai: "PENDING_ADMIN" }
                                       : e,
                                   ),
@@ -729,20 +1285,29 @@ export default function AdminEventsManagement({
                               📤 Gửi duyệt
                             </button>
                           </>
-                        ) : (
+                        )}
+
+                        {/* REOPEN REJECTED EVENTS (ADDRESSING POINT 3) */}
+                        {isRejected && (
                           <button
-                            onClick={() => openForm(evt)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold cursor-pointer border border-slate-200"
-                            title="Chỉnh sửa thông tin sự kiện (Admin can thiệp)"
+                            onClick={() => {
+                              setActionReason("")
+                              setModal({ kind: "reopen", event: evt })
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-bold cursor-pointer border border-amber-300 shadow-2xs transition-colors"
+                            title="Khôi phục sự kiện bị từ chối quay trở lại DRAFT để chỉnh sửa"
                           >
-                            ✏️ Sửa
+                            🔄 Tái mở bản nháp
                           </button>
                         )}
 
-                        {/* Withdraw Proposal */}
+                        {/* WITHDRAW PROPOSAL */}
                         {isPending && (
                           <button
-                            onClick={() => setModal({ kind: "withdraw", event: evt })}
+                            onClick={() => {
+                              setActionReason("")
+                              setModal({ kind: "withdraw", event: evt })
+                            }}
                             className="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
                             title="Rút đề xuất cưỡng chế về DRAFT & giải phóng phòng đã giữ chỗ"
                           >
@@ -750,44 +1315,31 @@ export default function AdminEventsManagement({
                           </button>
                         )}
 
-                        {/* Reopen Rejected */}
-                        {isRejected && (
-                          <button
-                            onClick={() => setModal({ kind: "reopen", event: evt })}
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold cursor-pointer border border-amber-200"
-                            title="Tái mở bản nháp bị từ chối về DRAFT để chỉnh sửa lại"
-                          >
-                            🔄 Tái mở nháp
-                          </button>
-                        )}
-
-                        {/* Emergency Change Room */}
+                        {/* EMERGENCY ACTIONS FOR APPROVED/PUBLISHED (NO SỬA BUTTON!) */}
                         {isLiveOrApproved && (
-                          <button
-                            onClick={() => {
-                              setNewRoom("")
-                              setActionReason("")
-                              setModal({ kind: "changeRoom", event: evt })
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold cursor-pointer border border-amber-200 shadow-2xs"
-                            title="Điều chuyển phòng khẩn cấp khi gặp sự cố bất khả kháng"
-                          >
-                            🔄 Đổi phòng
-                          </button>
-                        )}
-
-                        {/* Emergency Cancel */}
-                        {isLiveOrApproved && (
-                          <button
-                            onClick={() => {
-                              setActionReason("")
-                              setModal({ kind: "cancel", event: evt })
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold cursor-pointer border border-rose-200 shadow-2xs"
-                            title="Hủy sự kiện khẩn cấp và giải phóng phòng, hủy vé không phạt No-show"
-                          >
-                            ⚠️ Hủy khẩn cấp
-                          </button>
+                          <>
+                            <button
+                              onClick={() => {
+                                setNewRoom("")
+                                setActionReason("")
+                                setModal({ kind: "changeRoom", event: evt })
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold cursor-pointer border border-amber-200 shadow-2xs"
+                              title="Điều chuyển phòng khẩn cấp khi gặp sự cố bất khả kháng"
+                            >
+                              🔄 Đổi phòng
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActionReason("")
+                                setModal({ kind: "cancel", event: evt })
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold cursor-pointer border border-rose-200 shadow-2xs"
+                              title="Hủy sự kiện khẩn cấp và giải phóng phòng, hủy vé không phạt No-show"
+                            >
+                              ⚠️ Hủy khẩn cấp
+                            </button>
+                          </>
                         )}
 
                         {/* Open Kiosk */}
@@ -799,7 +1351,7 @@ export default function AdminEventsManagement({
                           🖥️ Kiosk
                         </button>
 
-                        {/* Reconciliation & Manual Override */}
+                        {/* Reconciliation */}
                         <button
                           onClick={() => onOpenReconciliation(evt)}
                           className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold cursor-pointer"
@@ -824,233 +1376,6 @@ export default function AdminEventsManagement({
           </table>
         </div>
       </div>
-
-      {/* CREATE / EDIT EVENT MODAL */}
-      {modal?.kind === "form" && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-2xl w-full shadow-2xl border border-slate-100 max-h-[92vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-              <div>
-                <h2 className="font-display font-bold text-lg text-navy">
-                  {modal.event
-                    ? "Chỉnh sửa sự kiện"
-                    : modal.isDelegated
-                      ? "Tạo nháp ủy quyền (Tạo hộ cấp dưới)"
-                      : "Khởi tạo sự kiện cấp Trường (P.CTSV)"}
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {modal.isDelegated
-                    ? "Tạo nháp và truyền tham số ma_don_vi_to_chuc cho Khoa/CLB cấp dưới hoàn thiện."
-                    : "Khởi tạo sự kiện cấp toàn trường thuộc phạm vi chủ trì của Phòng Công tác Sinh viên."}
-                </p>
-              </div>
-              <button
-                onClick={() => setModal(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 text-lg cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="mt-4 flex-1 overflow-y-auto space-y-4 pr-1">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Tên sự kiện <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="Ví dụ: Hội thảo Hướng nghiệp và Công nghệ AI 2026..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Đơn vị chủ trì (ma_don_vi_to_chuc) *
-                  </label>
-                  <select
-                    value={formUnitId}
-                    onChange={(e) => setFormUnitId(Number(e.target.value))}
-                    disabled={!modal.isDelegated && !modal.event}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo disabled:bg-slate-50"
-                  >
-                    <option value={4}>Phòng Công tác Sinh viên (P.CTSV)</option>
-                    {orgs.map((o) => (
-                      <option key={o.ma_don_vi} value={o.ma_don_vi}>
-                        {o.ten_don_vi} ({o.loai_don_vi})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Chuyên đề sự kiện *
-                  </label>
-                  <select
-                    value={formTopic}
-                    onChange={(e) => setFormTopic(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
-                  >
-                    {topics.map((t) => (
-                      <option key={t.ma_chuyen_de} value={t.ten_chuyen_de}>
-                        {t.ten_chuyen_de}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Ngày tổ chức *</label>
-                  <input
-                    type="date"
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Giờ bắt đầu *</label>
-                  <input
-                    type="time"
-                    value={formStartTime}
-                    onChange={(e) => setFormStartTime(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Giờ kết thúc *</label>
-                  <input
-                    type="time"
-                    value={formEndTime}
-                    onChange={(e) => setFormEndTime(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Hội trường & Khoảng đệm 15m *
-                  </label>
-                  <select
-                    value={formRoom}
-                    onChange={(e) => {
-                      setFormRoom(e.target.value)
-                      const target = ROOMS.find((r) => r.ten_phong === e.target.value)
-                      if (target) setFormCapacity(target.suc_chua)
-                    }}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
-                  >
-                    {ROOMS.map((r) => (
-                      <option key={r.ma_phong} value={r.ten_phong}>
-                        {r.ten_phong} (Sức chứa {r.suc_chua} - {r.toa_nha})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Số lượng sinh viên tối đa *
-                  </label>
-                  <input
-                    type="number"
-                    value={formCapacity}
-                    onChange={(e) => setFormCapacity(Number(e.target.value))}
-                    min={10}
-                    max={1000}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Quy chuẩn Điểm rèn luyện *
-                  </label>
-                  <select
-                    value={formDrlRule}
-                    onChange={(e) => setFormDrlRule(e.target.value as any)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
-                  >
-                    <option value="Dieu3">Điều 3: Hoạt động học thuật, NCKH</option>
-                    <option value="Dieu4">Điều 4: Phẩm chất công dân & Xã hội</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Mức điểm cộng (+3 đến +5 điểm) *
-                  </label>
-                  <select
-                    value={formDrlPoints}
-                    onChange={(e) => setFormDrlPoints(Number(e.target.value))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
-                  >
-                    <option value={3}>+3 Điểm rèn luyện</option>
-                    <option value={4}>+4 Điểm rèn luyện</option>
-                    <option value={5}>+5 Điểm rèn luyện</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Diễn giả / Khách mời</label>
-                <input
-                  type="text"
-                  value={formSpeaker}
-                  onChange={(e) => setFormSpeaker(e.target.value)}
-                  placeholder="Ví dụ: TS. Nguyễn Minh Anh - Trưởng ban Kỹ thuật AI..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Mô tả sự kiện</label>
-                <textarea
-                  rows={2}
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Mục tiêu, nội dung chính và quyền lợi sinh viên tham gia..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-indigo"
-                />
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setModal(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveEvent(false)}
-                disabled={submitting}
-                className="px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold cursor-pointer shadow-2xs"
-              >
-                {submitting ? "Đang lưu..." : "Lưu bản nháp (DRAFT)"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSaveEvent(true)}
-                disabled={submitting}
-                className="px-5 py-2.5 rounded-xl bg-indigo hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer shadow-xs"
-              >
-                {submitting ? "Đang xử lý..." : "Lưu & Gửi phê duyệt ngay"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* EMERGENCY CHANGE ROOM MODAL */}
       {modal?.kind === "changeRoom" && (
@@ -1207,16 +1532,22 @@ export default function AdminEventsManagement({
         </div>
       )}
 
-      {/* REOPEN REJECTED MODAL */}
+      {/* REOPEN REJECTED DRAFT MODAL (ADDRESSING POINT 3) */}
       {modal?.kind === "reopen" && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
             <h2 className="font-display font-bold text-lg text-navy flex items-center gap-2">
               <span>🔄</span> Tái mở bản nháp bị từ chối
             </h2>
-            <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
-              Khôi phục sự kiện bị từ chối quay trở lại DRAFT để đơn vị tổ chức có thể tiếp tục chỉnh sửa và đề xuất lại.
+            <p className="text-xs text-slate-500 mt-1 mb-3 leading-relaxed">
+              Khôi phục sự kiện bị từ chối (REJECTED) quay trở lại trạng thái DRAFT để đơn vị tổ chức có thể tiếp tục chỉnh sửa và đề xuất lại.
             </p>
+
+            {modal.event.ly_do_tu_choi && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 mb-3 leading-relaxed">
+                <b>Lý do đã bị từ chối trước đây:</b> {modal.event.ly_do_tu_choi}
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1226,7 +1557,7 @@ export default function AdminEventsManagement({
                 rows={3}
                 value={actionReason}
                 onChange={(e) => setActionReason(e.target.value)}
-                placeholder="Ví dụ: Ban tổ chức đã liên hệ giải trình và cam kết điều chỉnh nội dung theo chỉ đạo..."
+                placeholder="Ví dụ: Ban tổ chức đã liên hệ giải trình và cam kết điều chỉnh khung giờ theo chỉ đạo..."
                 className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo"
               />
             </div>
