@@ -33,6 +33,11 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
   const { showToast } = useToast()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [reopenModal, setReopenModal] = useState<{
+    id: string
+    title: string
+  } | null>(null)
+  const [reopenReason, setReopenReason] = useState("")
   const [withdrawModal, setWithdrawModal] = useState<{
     id: string
     title: string
@@ -43,6 +48,24 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
     title: string
   } | null>(null)
   const [cancelReason, setCancelReason] = useState("")
+
+  async function handleReopen() {
+    if (!reopenModal) return
+    try {
+      if (isApiMode()) {
+        await eventsService.reopen(reopenModal.id, reopenReason)
+      }
+      updateApproval(reopenModal.id, "reopen", reopenReason)
+      showToast(
+        `Đã tái mở sự kiện "${reopenModal.title}" về bản nháp. Bạn có thể chỉnh sửa và gửi duyệt lại.`,
+        "success",
+      )
+      setReopenModal(null)
+      setReopenReason("")
+    } catch (e) {
+      showToast(getApiErrorMessage(e), "error")
+    }
+  }
 
   async function handleWithdraw() {
     if (!withdrawModal) return
@@ -195,6 +218,19 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                       title="Rút hồ sơ về bản nháp để điều chỉnh"
                     >
                       Rút đề xuất
+                    </button>
+                  )}
+                  {(item.status === "faculty_rejected" ||
+                    item.status === "affairs_rejected") && (
+                    <button
+                      onClick={() =>
+                        setReopenModal({ id: item.id, title: item.title })
+                      }
+                      className="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                      title="Tái mở bản nháp bị từ chối để chỉnh sửa lại (UC-EVT-03.AC.2)"
+                    >
+                      <span>🔄</span>
+                      <span>Tái mở bản nháp</span>
                     </button>
                   )}
                   {item.status.endsWith("revision") && (
@@ -480,6 +516,21 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                             />
                           </ActionBtn>
                           <ActionBtn
+                            title="Tái mở bản nháp để chỉnh sửa lại (UC-EVT-03.AC.2)"
+                            onClick={() =>
+                              setReopenModal({
+                                id: event.id,
+                                title: event.title,
+                              })
+                            }
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+                            />
+                          </ActionBtn>
+                          <ActionBtn
                             title="Hủy sự kiện khẩn cấp (Host A)"
                             onClick={() =>
                               setCancelModal({
@@ -595,6 +646,18 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                   </button>
                   <button
                     onClick={() =>
+                      setReopenModal({
+                        id: event.id,
+                        title: event.title,
+                      })
+                    }
+                    className="py-2 px-2.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                    title="Tái mở bản nháp để chỉnh sửa lại"
+                  >
+                    🔄 Tái mở
+                  </button>
+                  <button
+                    onClick={() =>
                       setCancelModal({
                         id: event.id,
                         title: event.title,
@@ -611,6 +674,52 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
           })}
         </div>
       </div>
+
+      {reopenModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-2.5 text-indigo-600 mb-2">
+              <span className="text-xl">🔄</span>
+              <h2 className="font-display font-bold text-lg text-navy">
+                Tái mở bản nháp sự kiện
+              </h2>
+            </div>
+            <p className="text-xs text-slate-500 mb-3">
+              {reopenModal.title} (POST /events/{reopenModal.id}/reopen)
+            </p>
+            <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200 text-xs text-indigo-800 mb-4 leading-relaxed">
+              Khôi phục sự kiện bị từ chối quay về trạng thái <b>Bản nháp (Draft)</b> theo quy chuẩn <b>UC-EVT-03.AC.2</b>. Sau khi mở lại, Ban tổ chức có thể tiếp tục chỉnh sửa nội dung, danh sách đồng tổ chức, cấu hình phòng và gửi duyệt lại.
+            </div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Lý do hoặc ghi chú chỉnh sửa (tùy chọn):
+            </label>
+            <textarea
+              value={reopenReason}
+              onChange={(e) => setReopenReason(e.target.value)}
+              rows={3}
+              className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo/20 focus:border-indigo"
+              placeholder="Ví dụ: Bổ sung phương án kiểm soát slot và cập nhật danh sách diễn giả mới..."
+            />
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => {
+                  setReopenModal(null)
+                  setReopenReason("")
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleReopen}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs cursor-pointer shadow-xs"
+              >
+                Xác nhận tái mở nháp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {withdrawModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">

@@ -8,7 +8,9 @@ import {
   type Ticket,
 } from "../../data/mock"
 import type { OrganizationSummary, Topic } from "../../data/contract"
+import { isApiMode } from "../../api/config"
 import { adminService } from "../../api/services/admin.service"
+import { feedbackService } from "../../api/services/feedback.service"
 import { useCollection } from "../../hooks/useCollection"
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
@@ -1021,14 +1023,24 @@ export default function AdminPortal({ section }: { section: Section }) {
                           Sao chép mã
                         </button>
                         <button
-                          onClick={() => {
-                            showToast(
-                              `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${dialog.student.ho_ten}.`,
-                              "success",
-                            )
+                          onClick={async () => {
+                            try {
+                              if (isApiMode() && t.ma_dang_ky) {
+                                await feedbackService.grantGrace(
+                                  t.ma_dang_ky,
+                                  `Admin phê duyệt ân hạn khảo sát 24h cho sinh viên ${dialog.student.ho_ten}`,
+                                )
+                              }
+                              showToast(
+                                `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${dialog.student.ho_ten} (POST /admin/tickets/${t.ma_dang_ky}/feedback-grace).`,
+                                "success",
+                              )
+                            } catch (err) {
+                              showToast(getApiErrorMessage(err), "error")
+                            }
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px]"
-                          title="Cấp ân hạn làm bài khảo sát sau 48h"
+                          className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] cursor-pointer"
+                          title="Cấp ân hạn làm bài khảo sát sau 48h (UC-FEED-01.AC.1)"
                         >
                           Ân hạn 24h
                         </button>

@@ -882,7 +882,7 @@ interface AppContextType {
   ) => ApprovalCase
   updateApproval: (
     caseId: string,
-    action: "faculty_approve" | "affairs_approve" | "request_revision" | "reject" | "resubmit" | "withdraw",
+    action: "faculty_approve" | "affairs_approve" | "request_revision" | "reject" | "resubmit" | "withdraw" | "reopen",
     reason?: string,
   ) => { success: boolean; error?: string }
   cancelEvent: (
@@ -1732,7 +1732,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   function updateApproval(
     caseId: string,
-    action: "faculty_approve" | "affairs_approve" | "request_revision" | "reject" | "resubmit" | "withdraw",
+    action: "faculty_approve" | "affairs_approve" | "request_revision" | "reject" | "resubmit" | "withdraw" | "reopen",
     reason?: string,
   ) {
     const target = approvalCases.find((item) => item.id === caseId)
@@ -1777,6 +1777,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (action === "withdraw") {
       status = "draft"
       label = "Rút hồ sơ về bản nháp"
+    }
+    if (action === "reopen") {
+      status = "draft"
+      label = "Tái mở bản nháp để chỉnh sửa"
     }
     setApprovalCases((prev) =>
       prev.map((item) =>

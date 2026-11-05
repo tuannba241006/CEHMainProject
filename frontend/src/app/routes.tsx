@@ -343,9 +343,12 @@ function StudentAchievementsRoute() {
 
 function OrganizerRoute({ page }: { page: string }) {
   const navigate = useNavigate()
-  const { logout } = useUser()
+  const { logout, role } = useUser()
   const onNavigate = useLegacyNavigation()
   const onLogout = () => void logout().finally(() => navigate("/login"))
+  if (role === "admin" || role === "student_affairs") {
+    return <Navigate to="/admin/dashboard" replace />
+  }
   if (page === "events")
     return <EventsManage onNavigate={onNavigate} onLogout={onLogout} />
   if (page === "form")
@@ -359,9 +362,12 @@ function OrganizerRoute({ page }: { page: string }) {
 
 function CohostRoute() {
   const navigate = useNavigate()
-  const { logout } = useUser()
+  const { logout, role } = useUser()
   const onNavigate = useLegacyNavigation()
   const onLogout = () => void logout().finally(() => navigate("/login"))
+  if (role === "admin" || role === "student_affairs") {
+    return <Navigate to="/admin/dashboard" replace />
+  }
   return <CohostInvitations onNavigate={onNavigate} onLogout={onLogout} />
 }
 
@@ -492,6 +498,7 @@ export const router = createBrowserRouter([
       },
       {
         element: <ProtectedRoute roles={["student"]} />,
+        errorElement: <RouteErrorBoundary />,
         children: [
           { path: "student/tickets", element: <StudentTicketsRoute /> },
           { path: "student/waitlist", element: <StudentTicketsRoute waitlist /> },
@@ -514,9 +521,10 @@ export const router = createBrowserRouter([
       {
         element: (
           <ProtectedRoute
-            roles={["organizer", "faculty_manager", "admin", "student_affairs"]}
+            roles={["organizer", "faculty_manager"]}
           />
         ),
+        errorElement: <RouteErrorBoundary />,
         children: [
           {
             path: "organizer/dashboard",
@@ -566,6 +574,7 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute roles={["faculty_manager", "admin", "student_affairs"]} />
         ),
+        errorElement: <RouteErrorBoundary />,
         children: [
           {
             path: "faculty/approvals",
@@ -579,6 +588,7 @@ export const router = createBrowserRouter([
       },
       {
         element: <ProtectedRoute roles={["student_affairs", "admin"]} />,
+        errorElement: <RouteErrorBoundary />,
         children: [
           {
             path: "affairs/approvals",
@@ -597,6 +607,7 @@ export const router = createBrowserRouter([
       },
       {
         element: <ProtectedRoute roles={["admin", "student_affairs"]} />,
+        errorElement: <RouteErrorBoundary />,
         children: [
           {
             path: "admin/dashboard",
@@ -633,6 +644,7 @@ export const router = createBrowserRouter([
             requireStaff
           />
         ),
+        errorElement: <RouteErrorBoundary />,
         children: [
           {
             path: "staff/scanner",

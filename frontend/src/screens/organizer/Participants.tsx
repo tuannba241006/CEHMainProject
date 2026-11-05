@@ -5,6 +5,10 @@ import {
   computeEventStatus,
   EVENT_STATUS_LABELS,
 } from "../../context/AppContext"
+import { useToast } from "../../components/Toast"
+import { isApiMode } from "../../api/config"
+import { getApiErrorMessage } from "../../api/errors"
+import { drlService } from "../../api/services/drl.service"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -296,6 +300,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
         {activeTab === "checkin" && <CheckinView participants={participants} />}
         {activeTab === "reconciliation" && (
           <ReconciliationView
+            eventId={selectedEventId}
             rows={attendanceRecords.filter(
               (row) => row.eventId === selectedEventId,
             )}
@@ -335,10 +340,12 @@ export default function Participants({ onNavigate, onLogout }: Props) {
 }
 
 function ReconciliationView({
+  eventId,
   rows,
   onSubmit,
   onAdjust,
 }: {
+  eventId?: string | null
   rows: import("../../context/AppContext").AttendanceRecord[]
   onSubmit: () => { success: boolean; error?: string }
   onAdjust: (
@@ -348,6 +355,7 @@ function ReconciliationView({
     evidence: string,
   ) => { success: boolean; error?: string }
 }) {
+  const { showToast } = useToast()
   const [adjusting, setAdjusting] = useState<string | null>(null)
   const [minutes, setMinutes] = useState("120")
   const [reason, setReason] = useState("")
@@ -398,7 +406,22 @@ function ReconciliationView({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => {
+            onClick={async () => {
+              try {
+                if (isApiMode() && eventId) {
+                  const blob = (await drlService.export(eventId)) as unknown as Blob
+                  const url = URL.createObjectURL(blob)
+                  const link = document.createElement("a")
+                  link.href = url
+                  link.download = `Danh_Sach_DRL_Su_Kien_${eventId}.xlsx`
+                  link.click()
+                  URL.revokeObjectURL(url)
+                  showToast("Đã xuất danh sách ĐRL chuẩn 12 cột thành công.", "success")
+                  return
+                }
+              } catch (err) {
+                console.warn("Backend DRL export failed, falling back to CSV:", err)
+              }
               // Generate CSV file formatted per CTSV standard
               const headers =
                 "STT,MSSV,Họ và tên,Lớp,Thời lượng tham gia (phút),Tỷ lệ (%),Đạt điều kiện,Điểm ĐRL cộng\n"
@@ -419,17 +442,29 @@ function ReconciliationView({
               link.download = `Danh_Sach_DRL_CTSV_${rows[0]?.id || "export"}.csv`
               link.click()
               URL.revokeObjectURL(url)
+              showToast("Đã xuất danh sách ĐRL dạng CSV thành công.", "success")
             }}
             className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <span>📥</span>
-            <span>Xuất Excel ĐRL</span>
+            <span>Xuất Excel ĐRL (12 cột)</span>
           </button>
           <button
-            onClick={() => {
-              setMessage(
-                "Đã khóa chốt danh sách Điểm Rèn Luyện. Dữ liệu đã được niêm phong gửi về Phòng CTSV.",
-              )
+            onClick={async () => {
+              try {
+                if (isApiMode() && eventId) {
+                  await drlService.lock(eventId)
+                }
+                setMessage(
+                  "Đã khóa chốt danh sách Điểm Rèn Luyện (POST /events/{id}/drl/lock). Dữ liệu đã được niêm phong gửi về Phòng CTSV.",
+                )
+                showToast(
+                  "Đã khóa chốt danh sách Điểm Rèn Luyện thành công.",
+                  "success",
+                )
+              } catch (e) {
+                showToast(getApiErrorMessage(e), "error")
+              }
             }}
             className="px-3 py-2 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
           >
