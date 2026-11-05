@@ -19,6 +19,9 @@ class KioskSessionService
         if (! in_array($event->trang_thai, ['PUBLISHED', 'HAPPENING'], true)) {
             throw new BusinessException('INVALID_STATE_TRANSITION', 'Chỉ có thể khởi tạo phiên Kiosk khi sự kiện đang ở trạng thái PUBLISHED hoặc HAPPENING.', null, 409);
         }
+        if (now()->greaterThanOrEqualTo($event->thoi_gian_ket_thuc->copy()->addMinutes(15))) {
+            throw new BusinessException('INVALID_STATE_TRANSITION', 'Không thể khởi tạo phiên Kiosk sau khi thời gian hiệu lực của phiên đã kết thúc.', null, 409);
+        }
 
         return DB::transaction(function () use ($event, $actor, $request) {
             PhienKiosk::where('ma_su_kien', $event->ma_su_kien)

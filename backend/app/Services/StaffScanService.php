@@ -52,7 +52,10 @@ class StaffScanService
                     throw new BusinessException('GATE_CLOSED', 'Cổng Check-out đang đóng.', null, 409);
                 }
                 if ($ticket->trang_thai !== 'DaCheckIn') {
-                    throw new BusinessException('TICKET_ALREADY_USED', 'Vé chưa Check-in hoặc đã Check-out.', null, 409);
+                    if ($ticket->trang_thai === 'DaDangKy') {
+                        throw new BusinessException('NOT_CHECKED_IN', 'Sinh viên chưa điểm danh đầu vào (Check-in) nên không thể thực hiện Check-out.', null, 409);
+                    }
+                    throw new BusinessException('TICKET_ALREADY_USED', 'Vé đã được sử dụng hoặc không còn hợp lệ.', null, 409);
                 }
                 $checkout = now();
                 $score = $this->scoring->score($event, $ticket, $checkout);

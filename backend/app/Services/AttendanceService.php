@@ -6,6 +6,7 @@ use App\Exceptions\BusinessException;
 use App\Models\DangKy;
 use App\Models\SuKien;
 use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class AttendanceService
@@ -70,7 +71,7 @@ class AttendanceService
         });
     }
 
-    public function participants(User $actor, int $eventId, array $filters = []): array
+    public function participants(User $actor, int $eventId, array $filters = []): LengthAwarePaginator
     {
         $event = SuKien::findOrFail($eventId);
         if (! $actor->isAdmin() && (int) $actor->ma_don_vi_to_chuc !== (int) $event->ma_don_vi_to_chuc) {
