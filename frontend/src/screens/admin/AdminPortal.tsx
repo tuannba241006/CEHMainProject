@@ -323,6 +323,38 @@ export default function AdminPortal({ section }: { section: Section }) {
             </h1>
             <p className="text-sm text-slate-500 mt-1">{description}</p>
           </div>
+          {(section === "events" ||
+            section === "events-create" ||
+            section === "events-edit") && (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={() => {
+                  const btn = document.getElementById(
+                    "admin-create-univ-evt-btn",
+                  )
+                  if (btn) btn.click()
+                }}
+                className="px-4 py-2.5 rounded-xl bg-indigo text-white text-sm font-semibold flex items-center gap-2 cursor-pointer hover:bg-indigo-700 shadow-xs transition-colors"
+                title="Khởi tạo sự kiện cấp Trường trực tiếp cho P.CTSV (POST /events)"
+              >
+                <span>➕</span>
+                <span>Tạo sự kiện cấp Trường (P.CTSV)</span>
+              </button>
+              <button
+                onClick={() => {
+                  const btn = document.getElementById(
+                    "admin-create-delegated-evt-btn",
+                  )
+                  if (btn) btn.click()
+                }}
+                className="px-4 py-2.5 rounded-xl border border-indigo-200 bg-white text-indigo-700 text-sm font-semibold flex items-center gap-2 cursor-pointer hover:bg-indigo-50 shadow-2xs transition-colors"
+                title="Tạo nháp ủy quyền cho Khoa/CLB cấp dưới (truyền tham số ma_don_vi_to_chuc)"
+              >
+                <span>📋</span>
+                <span>Tạo nháp ủy quyền (Tạo hộ)</span>
+              </button>
+            </div>
+          )}
           {createFor[section] && (
             <button
               onClick={() => setDialog(createFor[section] ?? null)}

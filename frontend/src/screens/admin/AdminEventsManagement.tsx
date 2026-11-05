@@ -15,6 +15,64 @@ interface Props {
   onOpenReconciliation: (evt: any) => void
 }
 
+const SEED_ADMIN_EVENTS: any[] = [
+  {
+    id: 991,
+    ma_su_kien: 991,
+    title: "Ngày hội Khởi nghiệp & Đổi mới Sáng tạo UIT 2026",
+    ten_su_kien: "Ngày hội Khởi nghiệp & Đổi mới Sáng tạo UIT 2026",
+    organizer: "Phòng Công tác Sinh viên (P.CTSV)",
+    ten_don_vi_host: "Phòng Công tác Sinh viên (P.CTSV)",
+    topic: "Kỹ năng mềm & Công nghệ",
+    ten_chuyen_de: "Kỹ năng mềm & Công nghệ",
+    room: "Hội trường A",
+    ten_phong: "Hội trường A",
+    capacity: 350,
+    so_luong_toi_da: 350,
+    registered: 0,
+    so_luong_da_dang_ky: 0,
+    points: 5,
+    speaker: "Shark Nguyễn Thanh Hùng - Chủ tịch Quỹ Khởi nghiệp",
+    dien_gia: "Shark Nguyễn Thanh Hùng - Chủ tịch Quỹ Khởi nghiệp",
+    date: "25/11/2026",
+    time: "08:00 - 11:30",
+    status: "draft",
+    trang_thai: "DRAFT",
+    description: "Sự kiện cấp trường kết nối các dự án khởi nghiệp công nghệ sinh viên với các nhà đầu tư mạo hiểm.",
+    mo_ta: "Sự kiện cấp trường kết nối các dự án khởi nghiệp công nghệ sinh viên với các nhà đầu tư mạo hiểm.",
+    coHosts: ["CLB WebDev UIT", "Khoa Kỹ thuật Phần mềm"],
+    danh_sach_ten_dong_to_chuc: ["CLB WebDev UIT", "Khoa Kỹ thuật Phần mềm"],
+  },
+  {
+    id: 992,
+    ma_su_kien: 992,
+    title: "Hội thảo An toàn Mạng & Kỹ thuật SOC Phòng thủ",
+    ten_su_kien: "Hội thảo An toàn Mạng & Kỹ thuật SOC Phòng thủ",
+    organizer: "Khoa Hệ thống Thông tin",
+    ten_don_vi_host: "Khoa Hệ thống Thông tin",
+    topic: "Học thuật & Trí tuệ nhân tạo",
+    ten_chuyen_de: "Học thuật & Trí tuệ nhân tạo",
+    room: "Phòng Hội thảo E",
+    ten_phong: "Phòng Hội thảo E",
+    capacity: 150,
+    so_luong_toi_da: 150,
+    registered: 0,
+    so_luong_da_dang_ky: 0,
+    points: 4,
+    speaker: "TS. Lê Hoàng Long - Chuyên gia An ninh mạng Viettel",
+    dien_gia: "TS. Lê Hoàng Long - Chuyên gia An ninh mạng Viettel",
+    date: "28/11/2026",
+    time: "13:30 - 16:30",
+    status: "draft",
+    trang_thai: "DRAFT",
+    description: "Nháp ủy quyền do Admin tạo hộ cho Khoa Hệ thống Thông tin để Khoa phân công diễn giả và cấu hình chi tiết.",
+    mo_ta: "Nháp ủy quyền do Admin tạo hộ cho Khoa Hệ thống Thông tin để Khoa phân công diễn giả và cấu hình chi tiết.",
+    coHosts: [],
+    danh_sach_ten_dong_to_chuc: [],
+  },
+  ...EVENTS,
+]
+
 export default function AdminEventsManagement({
   initialMode = "list",
   orgs,
@@ -27,7 +85,7 @@ export default function AdminEventsManagement({
 
   // Merged events list
   const [localEvents, setLocalEvents] = useState<any[]>(() => {
-    return (appEvents && appEvents.length > 0 ? appEvents : EVENTS) as any[]
+    return SEED_ADMIN_EVENTS
   })
 
   // Filter & Search states
@@ -400,6 +458,43 @@ export default function AdminEventsManagement({
 
   return (
     <div className="space-y-6">
+      {/* Top Creation & Action Banner */}
+      <div className="bg-gradient-to-r from-indigo-50/90 via-white to-purple-50/90 rounded-2xl border border-indigo-100 p-4 sm:p-5 shadow-2xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-600 text-white shadow-2xs">
+              Toàn quyền Quản trị & Soạn thảo Sự kiện Toàn trường
+            </span>
+          </div>
+          <h2 className="font-display font-bold text-lg text-navy mt-1">
+            Khởi tạo & Điều phối Sự kiện Toàn trường
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5 max-w-xl">
+            Quản trị viên P.CTSV có thẩm quyền tạo sự kiện cấp Trường trực tiếp, tạo nháp ủy quyền cho Khoa/CLB, chỉnh sửa bản nháp, điều chuyển phòng và xử lý khẩn cấp.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            id="admin-create-univ-evt-btn"
+            onClick={() => openForm(undefined, false)}
+            className="px-4 py-2.5 rounded-xl bg-indigo text-white text-xs sm:text-sm font-semibold cursor-pointer hover:bg-indigo-700 shadow-xs flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
+            title="Khởi tạo sự kiện cấp Trường trực tiếp cho Phòng Công tác Sinh viên (P.CTSV)"
+          >
+            <span className="text-base">➕</span>
+            <span>Tạo sự kiện cấp Trường (P.CTSV)</span>
+          </button>
+          <button
+            id="admin-create-delegated-evt-btn"
+            onClick={() => openForm(undefined, true)}
+            className="px-4 py-2.5 rounded-xl border border-indigo-300 bg-white text-indigo-700 text-xs sm:text-sm font-semibold cursor-pointer hover:bg-indigo-50 shadow-2xs flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
+            title="Tạo bản nháp ủy quyền / tạo hộ cho bất kỳ Khoa/CLB cấp dưới nào bằng cách truyền tham số ma_don_vi_to_chuc"
+          >
+            <span className="text-base">📋</span>
+            <span>Tạo nháp ủy quyền (Tạo hộ)</span>
+          </button>
+        </div>
+      </div>
+
       {/* KPI Overview Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs">
@@ -605,13 +700,42 @@ export default function AdminEventsManagement({
                     <td className="p-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         {/* Draft / Edit action */}
-                        {isDraft && (
+                        {isDraft ? (
+                          <>
+                            <button
+                              onClick={() => openForm(evt)}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-bold cursor-pointer border border-indigo-200 shadow-2xs transition-colors"
+                              title="Chỉnh sửa nội dung bản nháp (tiêu đề, chuyên đề, slot, ĐRL)"
+                            >
+                              ✏️ Sửa nháp
+                            </button>
+                            <button
+                              onClick={() => {
+                                showToast(
+                                  `Đã gửi hồ sơ "${evt.title || evt.ten_su_kien}" lên hội đồng thẩm định phê duyệt.`,
+                                  "success",
+                                )
+                                setLocalEvents((prev) =>
+                                  prev.map((e) =>
+                                    (e.id === evt.id || e.ma_su_kien === evt.ma_su_kien)
+                                      ? { ...e, status: "pending", trang_thai: "PENDING_ADMIN" }
+                                      : e,
+                                  ),
+                                )
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold cursor-pointer border border-emerald-200 shadow-2xs transition-colors"
+                              title="Gửi hồ sơ bản nháp đi phê duyệt"
+                            >
+                              📤 Gửi duyệt
+                            </button>
+                          </>
+                        ) : (
                           <button
                             onClick={() => openForm(evt)}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold cursor-pointer border border-indigo-200"
-                            title="Chỉnh sửa nội dung bản nháp (tiêu đề, chuyên đề, slot, ĐRL)"
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold cursor-pointer border border-slate-200"
+                            title="Chỉnh sửa thông tin sự kiện (Admin can thiệp)"
                           >
-                            ✏️ Sửa nháp
+                            ✏️ Sửa
                           </button>
                         )}
 
