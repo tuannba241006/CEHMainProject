@@ -882,7 +882,15 @@ interface AppContextType {
   ) => ApprovalCase
   updateApproval: (
     caseId: string,
-    action: "faculty_approve" | "affairs_approve" | "request_revision" | "reject" | "resubmit" | "withdraw" | "reopen",
+    action:
+      | "faculty_approve"
+      | "faculty_approve_by_admin"
+      | "affairs_approve"
+      | "request_revision"
+      | "reject"
+      | "resubmit"
+      | "withdraw"
+      | "reopen",
     reason?: string,
   ) => { success: boolean; error?: string }
   cancelEvent: (
@@ -1732,7 +1740,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   function updateApproval(
     caseId: string,
-    action: "faculty_approve" | "affairs_approve" | "request_revision" | "reject" | "resubmit" | "withdraw" | "reopen",
+    action:
+      | "faculty_approve"
+      | "faculty_approve_by_admin"
+      | "affairs_approve"
+      | "request_revision"
+      | "reject"
+      | "resubmit"
+      | "withdraw"
+      | "reopen",
     reason?: string,
   ) {
     const target = approvalCases.find((item) => item.id === caseId)
@@ -1748,6 +1764,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (action === "faculty_approve") {
       status = "affairs_pending"
       label = "Duyệt và chuyển Phòng CTSV"
+    }
+    if (action === "faculty_approve_by_admin") {
+      status = "affairs_pending"
+      label = "Admin duyệt thay cấp Khoa (Sự cố) và chuyển CTSV"
     }
     if (action === "affairs_approve") {
       status = "approved"

@@ -557,10 +557,6 @@ export const router = createBrowserRouter([
             element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
           },
           {
-            path: "kiosk/:eventId",
-            element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
-          },
-          {
             path: "organizer/cohost-invitations",
             element: <SuspenseWrap><CohostRoute /></SuspenseWrap>,
           },
@@ -613,6 +609,22 @@ export const router = createBrowserRouter([
             path: "admin/dashboard",
             element: <AdminPortal section="dashboard" />,
           },
+          {
+            path: "admin/events",
+            element: <AdminPortal section="events" />,
+          },
+          {
+            path: "admin/events/create",
+            element: <AdminPortal section="events-create" />,
+          },
+          {
+            path: "admin/events/:id/edit",
+            element: <AdminPortal section="events-edit" />,
+          },
+          {
+            path: "admin/kiosk/:eventId",
+            element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
+          },
           { path: "admin/users", element: <AdminPortal section="users" /> },
           {
             path: "admin/organizations",
@@ -628,6 +640,25 @@ export const router = createBrowserRouter([
           {
             path: "admin/certificates",
             element: <AdminPortal section="certificates" />,
+          },
+        ],
+      },
+      {
+        element: (
+          <ProtectedRoute
+            roles={[
+              "organizer",
+              "faculty_manager",
+              "admin",
+              "student_affairs",
+            ]}
+          />
+        ),
+        errorElement: <RouteErrorBoundary />,
+        children: [
+          {
+            path: "kiosk/:eventId",
+            element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
           },
         ],
       },

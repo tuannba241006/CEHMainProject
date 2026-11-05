@@ -5,6 +5,7 @@ import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
 
 const items = [
   ["/admin/dashboard", "Tổng quan toàn trường"],
+  ["/admin/events", "Sự kiện cấp trường & Nháp"],
   ["/affairs/approvals", "Duyệt đề xuất sự kiện"],
   ["/affairs/drl", "Phê duyệt kết quả ĐRL"],
   ["/faculty/approvals", "Duyệt thay cấp Khoa (Sự cố)"],

@@ -20,8 +20,68 @@ import FormDialog, { ConfirmDialog, type FieldSpec } from "./FormDialog"
 import { useApp } from "../../context/AppContext"
 import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
 import { Certificates } from "../management/AffairsOperations"
+import AdminEventsManagement from "./AdminEventsManagement"
+import { attendanceService } from "../../api/services/attendance.service"
 
-type Section = "dashboard" | "users" | "organizations" | "topics" | "reports" | "no-show" | "certificates"
+export type Section =
+  | "dashboard"
+  | "events"
+  | "events-create"
+  | "events-edit"
+  | "users"
+  | "organizations"
+  | "topics"
+  | "reports"
+  | "no-show"
+  | "certificates"
+
+export interface NoShowViolation {
+  ma_dang_ky: number
+  mssv: string
+  name: string
+  lop: string
+  khoa: string
+  count: number
+  events: string
+  penalty: string
+  vi_pham_no_show: boolean
+}
+
+const DEFAULT_NO_SHOWS: NoShowViolation[] = [
+  {
+    ma_dang_ky: 501,
+    mssv: "22520088",
+    name: "Trần Minh Quân",
+    lop: "HTTT2022",
+    khoa: "Hệ thống Thông tin",
+    count: 3,
+    events: "Hội thảo AI 2026, Web Dev Workshop, Talkshow Startup",
+    penalty: "Khóa quyền đặt vé 30 ngày",
+    vi_pham_no_show: true,
+  },
+  {
+    ma_dang_ky: 502,
+    mssv: "22520145",
+    name: "Lê Hoàng Long",
+    lop: "KHMT2022",
+    khoa: "Khoa học Máy tính",
+    count: 2,
+    events: "An toàn Thông tin 2026, Techfest UIT",
+    penalty: "Trừ 5 Điểm rèn luyện",
+    vi_pham_no_show: true,
+  },
+  {
+    ma_dang_ky: 503,
+    mssv: "23520312",
+    name: "Phạm Thu Hương",
+    lop: "KTPM2023",
+    khoa: "Kỹ thuật Phần mềm",
+    count: 2,
+    events: "Chinh phục Hackathon, Lễ hội CLB",
+    penalty: "Cảnh cáo in-app lần 1",
+    vi_pham_no_show: true,
+  },
+]
 
 interface AdminUser {
   ma_nguoi_dung: number
@@ -152,8 +212,13 @@ export default function AdminPortal({ section }: { section: Section }) {
     | { kind: "delTopic"; item: Topic }
     | { kind: "ticketLookup"; student: AdminUser }
     | { kind: "eventReconciliation"; event: typeof EVENTS[0] }
+    | { kind: "noShowGrace"; violation: NoShowViolation }
     | null
   const [dialog, setDialog] = useState<Dialog>(null)
+  const [noShowList, setNoShowList] = useState<NoShowViolation[]>(DEFAULT_NO_SHOWS)
+  const [noShowRate, setNoShowRate] = useState<number>(1.0)
+  const [noShowReason, setNoShowReason] = useState<string>("")
+  const [noShowSubmitting, setNoShowSubmitting] = useState<boolean>(false)
 
   const users = useMemo(
     () =>
@@ -212,6 +277,18 @@ export default function AdminPortal({ section }: { section: Section }) {
       "Tổng quan toàn trường",
       "Các chỉ số macro theo phạm vi Admin.",
     ],
+    events: [
+      "Quản lý sự kiện & Khởi tạo cấp trường",
+      "Khởi tạo sự kiện cấp Trường (P.CTSV), tạo nháp ủy quyền, sửa nháp, duyệt/rút đề xuất và can thiệp khẩn cấp.",
+    ],
+    "events-create": [
+      "Khởi tạo sự kiện mới",
+      "Tạo sự kiện cấp Trường (P.CTSV) hoặc tạo nháp ủy quyền cho các Khoa/CLB.",
+    ],
+    "events-edit": [
+      "Chỉnh sửa nội dung sự kiện",
+      "Cập nhật thông tin bản nháp hoặc điều chỉnh cấu hình sự kiện toàn trường.",
+    ],
     users: [
       "Quản lý tài khoản",
       "Tạo tài khoản nội bộ, gán đơn vị và khóa/mở tài khoản.",
@@ -227,7 +304,7 @@ export default function AdminPortal({ section }: { section: Section }) {
     ],
     "no-show": [
       "Quản lý No-show",
-      "Theo dõi vi phạm; dữ liệu chỉ đọc theo API contract.",
+      "Xử lý vi phạm, đối soát minh chứng và cứu xét/xóa cờ vi phạm No-show theo quy chuẩn CTSV.",
     ],
     certificates: [
       "Quản trị chứng nhận",
@@ -270,7 +347,24 @@ export default function AdminPortal({ section }: { section: Section }) {
             </button>
           )}
         </div>
-        {section === "dashboard" || section === "reports" ? (
+        {section === "events" ||
+        section === "events-create" ||
+        section === "events-edit" ? (
+          <AdminEventsManagement
+            initialMode={
+              section === "events-create"
+                ? "create"
+                : section === "events-edit"
+                  ? "edit"
+                  : "list"
+            }
+            orgs={orgCol.items}
+            topics={topicCol.items}
+            onOpenReconciliation={(evt) =>
+              setDialog({ kind: "eventReconciliation", event: evt })
+            }
+          />
+        ) : section === "dashboard" || section === "reports" ? (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
@@ -649,45 +743,23 @@ export default function AdminPortal({ section }: { section: Section }) {
                       "Số lần No-show",
                       "Lịch sử sự kiện bỏ vé",
                       "Biện pháp xử lý",
+                      "Thao tác cứu xét",
                     ].map((c) => (
-                      <th key={c} className="text-left p-3">
+                      <th
+                        key={c}
+                        className={`p-3 text-left ${c.includes("Thao tác") ? "text-right" : ""}`}
+                      >
                         {c}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    {
-                      mssv: "22520088",
-                      name: "Trần Minh Quân",
-                      lop: "HTTT2022",
-                      khoa: "Hệ thống Thông tin",
-                      count: 3,
-                      events:
-                        "Hội thảo AI 2026, Web Dev Workshop, Talkshow Startup",
-                      penalty: "Khóa quyền đặt vé 30 ngày",
-                    },
-                    {
-                      mssv: "22520145",
-                      name: "Lê Hoàng Long",
-                      lop: "KHMT2022",
-                      khoa: "Khoa học Máy tính",
-                      count: 2,
-                      events: "An toàn Thông tin 2026, Techfest UIT",
-                      penalty: "Trừ 5 Điểm rèn luyện",
-                    },
-                    {
-                      mssv: "23520312",
-                      name: "Phạm Thu Hương",
-                      lop: "KTPM2023",
-                      khoa: "Kỹ thuật Phần mềm",
-                      count: 2,
-                      events: "Chinh phục Hackathon, Lễ hội CLB",
-                      penalty: "Cảnh cáo in-app lần 1",
-                    },
-                  ].map((row) => (
-                    <tr key={row.mssv} className="border-t border-slate-100">
+                  {noShowList.map((row) => (
+                    <tr
+                      key={row.mssv}
+                      className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors"
+                    >
                       <td className="p-3 font-mono font-semibold text-slate-800">
                         {row.mssv}
                       </td>
@@ -697,7 +769,13 @@ export default function AdminPortal({ section }: { section: Section }) {
                       <td className="p-3 text-slate-600">{row.lop}</td>
                       <td className="p-3 text-slate-600">{row.khoa}</td>
                       <td className="p-3">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            row.vi_pham_no_show
+                              ? "bg-rose-100 text-rose-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
                           {row.count} lần
                         </span>
                       </td>
@@ -705,9 +783,34 @@ export default function AdminPortal({ section }: { section: Section }) {
                         {row.events}
                       </td>
                       <td className="p-3">
-                        <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-lg border ${
+                            row.vi_pham_no_show
+                              ? "text-amber-700 bg-amber-50 border-amber-200"
+                              : "text-emerald-700 bg-emerald-50 border-emerald-200"
+                          }`}
+                        >
                           {row.penalty}
                         </span>
+                      </td>
+                      <td className="p-3 text-right whitespace-nowrap">
+                        {row.vi_pham_no_show ? (
+                          <button
+                            onClick={() => {
+                              setNoShowReason("")
+                              setNoShowRate(1.0)
+                              setDialog({ kind: "noShowGrace", violation: row })
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+                            title="Xử lý cứu xét phân bậc ĐRL và xóa cờ vi phạm No-show theo quy chuẩn CTSV"
+                          >
+                            ⚖️ Cứu xét / Xóa cờ
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                            ✓ Đã xóa cờ vi phạm
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1057,6 +1160,164 @@ export default function AdminPortal({ section }: { section: Section }) {
                 className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors"
               >
                 Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dialog?.kind === "noShowGrace" && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-sm">
+                  ⚖️
+                </span>
+                <div>
+                  <h2 className="font-display font-bold text-lg text-navy">
+                    Cứu xét & Xóa cờ No-show
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Phòng Công tác Sinh viên (UC-OPS-04)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDialog(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs my-4 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Sinh viên:</span>
+                <b className="text-navy">
+                  {dialog.violation.name} ({dialog.violation.mssv})
+                </b>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Lớp / Khoa:</span>
+                <span className="text-slate-700">
+                  {dialog.violation.lop} · {dialog.violation.khoa}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Số lần vi phạm:</span>
+                <span className="font-bold text-rose-600">
+                  {dialog.violation.count} lần
+                </span>
+              </div>
+              <div className="text-slate-500 pt-1 border-t border-slate-200">
+                Sự kiện:{" "}
+                <span className="text-slate-700">
+                  {dialog.violation.events}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Phương án cứu xét & Phân bậc ĐRL *
+                </label>
+                <select
+                  value={noShowRate}
+                  onChange={(e) => setNoShowRate(Number(e.target.value))}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white font-medium focus:outline-none focus:border-indigo"
+                >
+                  <option value={1.0}>
+                    Xóa cờ No-show & Cứu xét 100% ĐRL (ti_le_drl = 1.00)
+                  </option>
+                  <option value={0.7}>
+                    Xóa cờ No-show & Cứu xét 70% ĐRL (ti_le_drl = 0.70)
+                  </option>
+                  <option value={0.5}>
+                    Xóa cờ No-show & Cứu xét 50% ĐRL (ti_le_drl = 0.50)
+                  </option>
+                  <option value={0.0}>
+                    Chỉ xóa cờ No-show, không cấp ĐRL (ti_le_drl = 0.00)
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <label className="font-semibold text-slate-700">
+                    Lý do cứu xét (Lưu Audit Log) *
+                  </label>
+                  <span
+                    className={`font-mono text-[11px] ${
+                      noShowReason.trim().length >= 10
+                        ? "text-emerald-600 font-bold"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {noShowReason.trim().length} / 10 ký tự
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={noShowReason}
+                  onChange={(e) => setNoShowReason(e.target.value)}
+                  placeholder="Ví dụ: Đã đối soát minh chứng sinh viên có mặt tham dự nhưng điện thoại hết pin không quét được mã check-in..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 mt-5">
+              <button
+                type="button"
+                onClick={() => setDialog(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={noShowSubmitting || noShowReason.trim().length < 10}
+                onClick={async () => {
+                  setNoShowSubmitting(true)
+                  try {
+                    if (isApiMode()) {
+                      await attendanceService.manualOverride({
+                        ma_dang_ky: dialog.violation.ma_dang_ky,
+                        trang_thai_moi:
+                          noShowRate > 0 ? "DaCheckOut" : "DaCheckIn",
+                        ti_le_drl_moi: noShowRate,
+                        ly_do: noShowReason.trim(),
+                      })
+                    }
+                    setNoShowList((prev) =>
+                      prev.map((row) =>
+                        row.mssv === dialog.violation.mssv
+                          ? {
+                              ...row,
+                              vi_pham_no_show: false,
+                              count: Math.max(0, row.count - 1),
+                              penalty: "Đã giải tỏa vi phạm",
+                            }
+                          : row,
+                      ),
+                    )
+                    showToast(
+                      `Đã cứu xét và xóa cờ No-show cho sinh viên ${dialog.violation.name} (${dialog.violation.mssv}) thành công.`,
+                      "success",
+                    )
+                    setDialog(null)
+                    setNoShowReason("")
+                  } catch (err) {
+                    showToast(getApiErrorMessage(err), "error")
+                  } finally {
+                    setNoShowSubmitting(false)
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-indigo hover:bg-indigo-700 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer shadow-xs"
+              >
+                {noShowSubmitting ? "Đang xử lý..." : "Xác nhận xóa cờ"}
               </button>
             </div>
           </div>
