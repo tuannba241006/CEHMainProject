@@ -419,26 +419,39 @@ function AffairsRoute({
 
 function StaffScannerRoute() {
   const navigate = useNavigate()
-  const { logout, role } = useUser()
+  const { logout, role, user } = useUser()
+
+  const isFaculty =
+    role === "faculty_manager" ||
+    user.don_vi?.loai_don_vi === "Khoa" ||
+    (typeof user.email === "string" &&
+      (user.email.includes("httt@") || user.email.includes("bql.")))
+
+  const isAdmin =
+    role === "admin" ||
+    role === "student_affairs" ||
+    user.loai_tai_khoan === "Admin"
+
+  const isOrg =
+    role === "organizer" ||
+    user.loai_tai_khoan === "ToChuc"
+
   return (
     <QRScanner
       onBack={() => {
-        if (
-          window.history.state &&
-          typeof window.history.state.idx === "number" &&
-          window.history.state.idx > 0
-        ) {
-          navigate(-1)
-        } else if (role === "faculty_manager") {
+        if (isFaculty) {
           navigate("/faculty/approvals")
-        } else if (role === "organizer") {
-          navigate("/organizer/events")
-        } else if (role === "admin" || role === "student_affairs") {
+        } else if (isAdmin) {
           navigate("/admin/dashboard")
+        } else if (isOrg) {
+          navigate("/organizer/events")
         } else {
-          navigate("/events")
+          navigate("/student/tickets")
         }
       }}
+      onNavigateToEvents={
+        isFaculty ? () => navigate("/organizer/events") : undefined
+      }
       onLogout={() => void logout().finally(() => navigate("/login"))}
     />
   )

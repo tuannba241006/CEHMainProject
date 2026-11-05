@@ -8,6 +8,7 @@ import { getApiErrorMessage } from "../../api/errors"
 interface Props {
   onLogout: () => void
   onBack?: () => void
+  onNavigateToEvents?: () => void
 }
 
 interface HistoryEntry {
@@ -18,7 +19,11 @@ interface HistoryEntry {
   message?: string
 }
 
-export default function QRScanner({ onLogout, onBack }: Props) {
+export default function QRScanner({
+  onLogout,
+  onBack,
+  onNavigateToEvents,
+}: Props) {
   const {
     events,
     checkIn,
@@ -28,6 +33,18 @@ export default function QRScanner({ onLogout, onBack }: Props) {
     getStudentPermissions,
   } = useApp()
   const { user, role } = useUser()
+  const isFaculty =
+    role === "faculty_manager" ||
+    user.don_vi?.loai_don_vi === "Khoa" ||
+    (typeof user.email === "string" &&
+      (user.email.includes("httt@") || user.email.includes("bql.")))
+  const isAdmin =
+    role === "admin" ||
+    role === "student_affairs" ||
+    user.loai_tai_khoan === "Admin"
+  const isOrg =
+    role === "organizer" ||
+    user.loai_tai_khoan === "ToChuc"
   const assignedIds = getStudentPermissions(user.studentId).map(
     (permission) => permission.eventId,
   )
@@ -135,21 +152,21 @@ export default function QRScanner({ onLogout, onBack }: Props) {
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-1">
               <span>📷</span>
               <span>
-                {role === "faculty_manager"
+                {isFaculty
                   ? "Ban Quản lý Khoa soát vé"
-                  : role === "organizer"
+                  : isOrg
                     ? "Ban tổ chức soát vé"
-                    : role === "admin" || role === "student_affairs"
+                    : isAdmin
                       ? "Kiểm tra hiện trường Admin"
                       : "Bàn soát vé Cộng tác viên"}
               </span>
             </div>
             <h1 className="font-display font-bold text-lg text-white">
-              {role === "faculty_manager"
+              {isFaculty
                 ? "Soát vé sự kiện (Ban Quản lý Khoa)"
-                : role === "organizer"
+                : isOrg
                   ? "Soát vé sự kiện (Ban tổ chức)"
-                  : role === "admin" || role === "student_affairs"
+                  : isAdmin
                     ? "Thanh tra & Quét kiểm tra vé"
                     : "Quét mã vé Sinh viên"}
             </h1>
@@ -162,15 +179,23 @@ export default function QRScanner({ onLogout, onBack }: Props) {
             {onBack && (
               <button
                 onClick={onBack}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm transition-colors cursor-pointer"
+              >
+                {isFaculty
+                  ? "← Bảng Thẩm định Khoa"
+                  : isOrg
+                    ? "← Quản lý sự kiện"
+                    : isAdmin
+                      ? "← Cổng Quản trị Admin"
+                      : "← Ví vé của tôi"}
+              </button>
+            )}
+            {isFaculty && onNavigateToEvents && (
+              <button
+                onClick={onNavigateToEvents}
                 className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
               >
-                {role === "faculty_manager"
-                  ? "← Quản lý Khoa"
-                  : role === "organizer"
-                    ? "← Sự kiện"
-                    : role === "admin" || role === "student_affairs"
-                      ? "← Quản trị"
-                      : "← Quay lại"}
+                🎪 Sự kiện Khoa
               </button>
             )}
             <button
