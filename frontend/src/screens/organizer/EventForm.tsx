@@ -7,6 +7,7 @@ import { formatCalendarDate } from "../../utils/date"
 import { isApiMode } from "../../api/config"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
+import { organizationsService } from "../../api/services/organizations.service"
 
 interface Props {
   onNavigate: (screen: string) => void

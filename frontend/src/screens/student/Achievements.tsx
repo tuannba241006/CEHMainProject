@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
 import {
@@ -6,6 +6,8 @@ import {
   CertificatePreview,
 } from "../management/AffairsOperations"
 import type { Certificate } from "../../context/AppContext"
+import { certificatesService } from "../../api/services/certificates.service"
+import { drlService } from "../../api/services/drl.service"
 
 interface Props {
   onBack: () => void
@@ -16,11 +18,35 @@ export default function Achievements({ onBack, onVerify }: Props) {
   const { user } = useUser()
   const { attendanceRecords, certificates } = useApp()
   const [preview, setPreview] = useState<Certificate | null>(null)
+  const [remoteCertificates, setRemoteCertificates] = useState<Certificate[] | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    async function loadAchievements() {
+      setLoading(true)
+      try {
+        const certRes = await certificatesService.mine().catch(() => null)
+        if (certRes?.data && Array.isArray(certRes.data) && active) {
+          setRemoteCertificates(certRes.data as any)
+        }
+      } catch {
+        // keep local context fallback
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void loadAchievements()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const myResults = attendanceRecords.filter(
     (row) => row.studentId === user.studentId,
   )
-  const myCertificates = certificates.filter(
+  const activeCertList = remoteCertificates || certificates
+  const myCertificates = activeCertList.filter(
     (item) => item.studentId === user.studentId,
   )
   const officialContribution = myResults.reduce(

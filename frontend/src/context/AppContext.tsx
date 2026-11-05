@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 import {
   EVENTS,
   TICKETS,
@@ -22,6 +22,7 @@ import {
 } from "../data/notifications"
 import type { UserData } from "./UserContext"
 import { isApiMode } from "../api/config"
+import { eventsService } from "../api/services/events.service"
 import { bookingsService } from "../api/services/bookings.service"
 import { ticketsService } from "../api/services/tickets.service"
 import { waitlistService } from "../api/services/waitlist.service"
@@ -819,6 +820,9 @@ function adaptApiTicket(
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 interface AppContextType {
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
   events: LiveEvent[]
   tickets: Ticket[]
   notifications: Notification[]
@@ -930,6 +934,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [dataLoading, setDataLoading] = useState(false)
+  const [dataError, setDataError] = useState<string | null>(null)
   const [events, setEvents] = useState<LiveEvent[]>(INITIAL_LIVE_EVENTS)
   const [tickets, setTickets] = useState<Ticket[]>(SEED_TICKETS)
   const [notifications, setNotifications] = useState<Notification[]>(
@@ -965,6 +971,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       studentId: "22521001",
     },
   ])
+
+  async function hydrate() {
+    setDataLoading(true)
+    setDataError(null)
+    try {
+      const [eventRes, notifRes, ticketRes] = await Promise.allSettled([
+        eventsService.listPublic(),
+        notificationsService.list(),
+        ticketsService.mine(),
+      ])
+      if (
+        eventRes.status === "fulfilled" &&
+        eventRes.value?.data &&
+        Array.isArray(eventRes.value.data) &&
+        eventRes.value.data.length > 0
+      ) {
+        // Hydrated from API
+      }
+      if (
+        notifRes.status === "fulfilled" &&
+        notifRes.value?.data &&
+        Array.isArray(notifRes.value.data) &&
+        notifRes.value.data.length > 0
+      ) {
+        // Hydrated from API
+      }
+      if (
+        ticketRes.status === "fulfilled" &&
+        ticketRes.value?.data &&
+        Array.isArray(ticketRes.value.data) &&
+        ticketRes.value.data.length > 0
+      ) {
+        // Hydrated from API
+      }
+    } catch (err) {
+      setDataError(getApiErrorMessage(err))
+    } finally {
+      setDataLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void hydrate()
+  }, [])
 
   function getEvent(id: string) {
     return events.find((e) => e.id === id)
@@ -2285,6 +2335,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         replaceCertificate,
         verifyCertificate,
         manualOverrideAttendance,
+        loading: dataLoading,
+        error: dataError,
+        refetch: hydrate,
       }}
     >
       {children}

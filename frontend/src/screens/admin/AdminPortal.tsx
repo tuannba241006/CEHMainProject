@@ -12,6 +12,8 @@ import { adminService } from "../../api/services/admin.service"
 import { useCollection } from "../../hooks/useCollection"
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
+import { reportsService } from "../../api/services/reports.service"
+import { certificatesService } from "../../api/services/certificates.service"
 import FormDialog, { ConfirmDialog, type FieldSpec } from "./FormDialog"
 import { useApp } from "../../context/AppContext"
 import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
@@ -226,6 +228,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                   "info",
                 )
               }}
+              onClickCapture={() => void reportsService.exportMacro().catch(() => null)}
               className="px-4 py-2.5 rounded-xl bg-indigo text-white text-sm font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-indigo-700"
             >
               <span>📊</span>
@@ -593,6 +596,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                     "info",
                   )
                 }}
+                onClickCapture={() => void reportsService.noShow().catch(() => null)}
                 className="px-3.5 py-2 rounded-xl bg-indigo text-white text-xs font-semibold whitespace-nowrap cursor-pointer hover:bg-indigo-700 flex items-center gap-1.5"
               >
                 <span>📥</span>

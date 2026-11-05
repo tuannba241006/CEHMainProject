@@ -9,6 +9,8 @@ import {
   CertificatePreview,
 } from "../management/AffairsOperations"
 import type { Certificate } from "../../context/AppContext"
+import { ticketsService } from "../../api/services/tickets.service"
+import { feedbackService } from "../../api/services/feedback.service"
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> =
   {
@@ -677,6 +679,10 @@ function AfterEvent({
   )
 
   function sendSurvey() {
+    void feedbackService.submit(ticket.eventId, {
+      ...form,
+      ma_su_kien: Number(ticket.eventId) || 1,
+    }).catch(() => null)
     const result = submitSurvey({
       eventId: ticket.eventId,
       studentId: user.studentId,

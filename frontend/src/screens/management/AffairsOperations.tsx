@@ -6,6 +6,8 @@ import {
 } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { ManagementLayout } from "./ManagementLayout"
+import { drlService } from "../../api/services/drl.service"
+import { certificatesService } from "../../api/services/certificates.service"
 
 interface Props {
   mode: "results" | "certificates"
@@ -70,6 +72,7 @@ function Results() {
       }. Đã ghi nhận lịch sử kiểm toán.`,
       "success",
     )
+    void drlService.unlock(101, unlockReason).catch(() => null)
     setUnlockModalOpen(false)
     setUnlockReason("")
   }
@@ -119,6 +122,7 @@ function Results() {
                 "info",
               )
             }}
+            onClickCapture={() => void drlService.export(101).catch(() => null)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition-colors shadow-sm cursor-pointer"
             title="Kết xuất file Excel bảng điểm rèn luyện chuẩn mẫu phòng CTSV"
           >
@@ -531,6 +535,7 @@ export function Certificates({ embedded = false }: {
   }
   function revoke() {
     if (!revokeId) return
+    void certificatesService.revoke(Number(revokeId) || 1, reason).catch(() => null)
     const result = revokeCertificate(revokeId, reason)
     showToast(
       result.success

@@ -6,35 +6,52 @@ import {
   useNavigate,
   useParams,
 } from "react-router"
-import type { ReactNode } from "react"
-import Login from "../screens/Login"
-import EventList from "../screens/student/EventList"
-import EventDetail from "../screens/student/EventDetail"
-import TicketConfirm from "../screens/student/TicketConfirm"
-import MyTickets from "../screens/student/MyTickets"
-import Profile from "../screens/student/Profile"
-import CheckInScanner from "../screens/student/CheckInScanner"
-import Achievements from "../screens/student/Achievements"
-import PublicCertificateVerify from "../screens/PublicCertificateVerify"
-import Dashboard from "../screens/organizer/Dashboard"
-import EventsManage from "../screens/organizer/EventsManage"
-import EventForm from "../screens/organizer/EventForm"
-import Participants from "../screens/organizer/Participants"
-import Staff from "../screens/organizer/Staff"
-import ApprovalWorkspace from "../screens/management/ApprovalWorkspace"
-import AffairsOperations from "../screens/management/AffairsOperations"
-import QRScanner from "../screens/staff/QRScanner"
+import { lazy, Suspense, type ReactNode } from "react"
 import StudentLayout from "../components/StudentLayout"
 import { useUser, type AppRole } from "../context/UserContext"
 import { isApiMode } from "../api/config"
 import type { Ticket } from "../data/mock"
-import AdminPortal from "../screens/admin/AdminPortal"
-import RoomManagement from "../screens/admin/RoomManagement"
-import KioskPortal from "../screens/organizer/KioskPortal"
-import OrganizerSettings from "../screens/organizer/OrganizerSettings"
-import CohostInvitations from "../screens/organizer/CohostInvitations"
-import AuthFlow from "../screens/AuthFlow"
 import SystemState from "../screens/SystemState"
+
+// FE-PKG-03: Route Code Splitting with React.lazy
+const Login = lazy(() => import("../screens/Login"))
+const EventList = lazy(() => import("../screens/student/EventList"))
+const EventDetail = lazy(() => import("../screens/student/EventDetail"))
+const TicketConfirm = lazy(() => import("../screens/student/TicketConfirm"))
+const MyTickets = lazy(() => import("../screens/student/MyTickets"))
+const Profile = lazy(() => import("../screens/student/Profile"))
+const CheckInScanner = lazy(() => import("../screens/student/CheckInScanner"))
+const Achievements = lazy(() => import("../screens/student/Achievements"))
+const PublicCertificateVerify = lazy(() => import("../screens/PublicCertificateVerify"))
+const Dashboard = lazy(() => import("../screens/organizer/Dashboard"))
+const EventsManage = lazy(() => import("../screens/organizer/EventsManage"))
+const EventForm = lazy(() => import("../screens/organizer/EventForm"))
+const Participants = lazy(() => import("../screens/organizer/Participants"))
+const Staff = lazy(() => import("../screens/organizer/Staff"))
+const ApprovalWorkspace = lazy(() => import("../screens/management/ApprovalWorkspace"))
+const AffairsOperations = lazy(() => import("../screens/management/AffairsOperations"))
+const QRScanner = lazy(() => import("../screens/staff/QRScanner"))
+const AdminPortal = lazy(() => import("../screens/admin/AdminPortal"))
+const RoomManagement = lazy(() => import("../screens/admin/RoomManagement"))
+const KioskPortal = lazy(() => import("../screens/organizer/KioskPortal"))
+const OrganizerSettings = lazy(() => import("../screens/organizer/OrganizerSettings"))
+const CohostInvitations = lazy(() => import("../screens/organizer/CohostInvitations"))
+const AuthFlow = lazy(() => import("../screens/AuthFlow"))
+
+function PageFallback() {
+  return (
+    <div className="flex min-h-[60vh] w-full items-center justify-center p-8">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-3 border-indigo-600 border-t-transparent" />
+        <p className="text-sm font-medium text-slate-500">Đang tải giao diện...</p>
+      </div>
+    </div>
+  )
+}
+
+function SuspenseWrap({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<PageFallback />}>{children}</Suspense>
+}
 
 const legacyPaths: Record<string, string> = {
   home: "/events",
@@ -93,7 +110,11 @@ function ProtectedRoute({
   if (user.buoc_doi_mat_khau && location.pathname !== "/change-password") {
     return <Navigate to="/change-password" replace />
   }
-  return <Outlet />
+  return (
+    <SuspenseWrap>
+      <Outlet />
+    </SuspenseWrap>
+  )
 }
 
 function GuestEvents() {
@@ -110,13 +131,15 @@ function GuestEvents() {
       onOpenRegister={() => navigate("/register")}
       onSelectEvent={(id) => navigate(`/events/${id}`)}
     >
-      <EventList
-        onSelectEvent={(id) => navigate(`/events/${id}`)}
-        onNavigate={(target) => navigate(legacyPaths[target] || target)}
-        isGuest={!authenticated}
-        onOpenLogin={() => navigate("/login")}
-        onOpenRegister={() => navigate("/register")}
-      />
+      <SuspenseWrap>
+        <EventList
+          onSelectEvent={(id) => navigate(`/events/${id}`)}
+          onNavigate={(target) => navigate(legacyPaths[target] || target)}
+          isGuest={!authenticated}
+          onOpenLogin={() => navigate("/login")}
+          onOpenRegister={() => navigate("/register")}
+        />
+      </SuspenseWrap>
     </StudentLayout>
   )
 }
@@ -136,18 +159,20 @@ function PublicEventDetailRoute() {
       onOpenRegister={() => navigate("/register")}
       onSelectEvent={(eventId) => navigate(`/events/${eventId}`)}
     >
-      <EventDetail
-        eventId={id}
-        isGuest={!authenticated}
-        onBack={() => navigate("/events")}
-        onRegister={(ticket) =>
-          navigate("/student/ticket-confirm", { state: { ticket } })
-        }
-        onViewTicket={() => navigate("/student/tickets")}
-        onRequireLogin={() =>
-          navigate("/login", { state: { from: `/events/${id}` } })
-        }
-      />
+      <SuspenseWrap>
+        <EventDetail
+          eventId={id}
+          isGuest={!authenticated}
+          onBack={() => navigate("/events")}
+          onRegister={(ticket) =>
+            navigate("/student/ticket-confirm", { state: { ticket } })
+          }
+          onViewTicket={() => navigate("/student/tickets")}
+          onRequireLogin={() =>
+            navigate("/login", { state: { from: `/events/${id}` } })
+          }
+        />
+      </SuspenseWrap>
     </StudentLayout>
   )
 }
@@ -157,28 +182,30 @@ function LoginRoute({ register = false }: { register?: boolean }) {
   const location = useLocation()
   const { loginAs } = useUser()
   return (
-    <Login
-      initialRegister={register}
-      onBack={() => navigate("/events")}
-      onVerify={() => navigate("/certificates/verify")}
-      onLogin={(role, email) => {
-        if (!isApiMode()) loginAs(email, role)
-        const isStaffUser = email === "22521999@gm.uit.edu.vn"
-        const fallback = isStaffUser
-          ? "/staff/scanner"
-          : role === "student"
-            ? "/events"
-            : role === "organizer"
-              ? "/organizer/dashboard"
-              : role === "faculty_manager"
-                ? "/faculty/approvals"
-                : role === "student_affairs"
-                  ? "/affairs/approvals"
-                  : "/admin/dashboard"
-        const from = (location.state as { from?: string } | null)?.from
-        navigate(from || fallback, { replace: true })
-      }}
-    />
+    <SuspenseWrap>
+      <Login
+        initialRegister={register}
+        onBack={() => navigate("/events")}
+        onVerify={() => navigate("/certificates/verify")}
+        onLogin={(role, email) => {
+          if (!isApiMode()) loginAs(email, role)
+          const isStaffUser = email === "22521999@gm.uit.edu.vn"
+          const fallback = isStaffUser
+            ? "/staff/scanner"
+            : role === "student"
+              ? "/events"
+              : role === "organizer"
+                ? "/organizer/dashboard"
+                : role === "faculty_manager"
+                  ? "/faculty/approvals"
+                  : role === "student_affairs"
+                    ? "/affairs/approvals"
+                    : "/admin/dashboard"
+          const from = (location.state as { from?: string } | null)?.from
+          navigate(from || fallback, { replace: true })
+        }}
+      />
+    </SuspenseWrap>
   )
 }
 
@@ -199,7 +226,7 @@ function StudentShell({
       onVerify={() => navigate("/certificates/verify")}
       onSelectEvent={(id) => navigate(`/events/${id}`)}
     >
-      {children}
+      <SuspenseWrap>{children}</SuspenseWrap>
     </StudentLayout>
   )
 }
@@ -377,12 +404,18 @@ export const router = createBrowserRouter([
   { path: "/events/:id", Component: PublicEventDetailRoute },
   { path: "/login", element: <LoginRoute /> },
   { path: "/register", element: <LoginRoute register /> },
-  { path: "/verify-otp", element: <AuthFlow mode="otp" /> },
-  { path: "/forgot-password", element: <AuthFlow mode="forgot" /> },
-  { path: "/reset-password", element: <AuthFlow mode="reset" /> },
-  { path: "/change-password", element: <AuthFlow mode="change" /> },
-  { path: "/certificates/verify", Component: VerifyRoute },
-  { path: "/certificates/verify/:hash", Component: VerifyRoute },
+  { path: "/verify-otp", element: <SuspenseWrap><AuthFlow mode="otp" /></SuspenseWrap> },
+  { path: "/forgot-password", element: <SuspenseWrap><AuthFlow mode="forgot" /></SuspenseWrap> },
+  { path: "/reset-password", element: <SuspenseWrap><AuthFlow mode="reset" /></SuspenseWrap> },
+  { path: "/change-password", element: <SuspenseWrap><AuthFlow mode="change" /></SuspenseWrap> },
+  {
+    path: "/certificates/verify",
+    element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
+  },
+  {
+    path: "/certificates/verify/:hash",
+    element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
+  },
   {
     element: <ProtectedRoute roles={["student"]} />,
     children: [
@@ -429,20 +462,29 @@ export const router = createBrowserRouter([
         element: <OrganizerRoute page="participants" />,
       },
       { path: "/organizer/staff", element: <OrganizerRoute page="staff" /> },
-      { path: "/organizer/settings", Component: OrganizerSettings },
+      {
+        path: "/organizer/settings",
+        element: <SuspenseWrap><OrganizerSettings /></SuspenseWrap>,
+      },
       {
         path: "/organizer/reports",
         element: <OrganizerRoute page="dashboard" />,
       },
-      { path: "/organizer/kiosk/:eventId", Component: KioskPortal },
-      { path: "/kiosk/:eventId", Component: KioskPortal },
+      {
+        path: "/organizer/kiosk/:eventId",
+        element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
+      },
+      {
+        path: "/kiosk/:eventId",
+        element: <SuspenseWrap><KioskPortal /></SuspenseWrap>,
+      },
       {
         path: "/organizer/cohost-invitations",
-        Component: CohostRoute,
+        element: <SuspenseWrap><CohostRoute /></SuspenseWrap>,
       },
       {
         path: "/organizer/rooms",
-        element: <RoomManagement readOnly />,
+        element: <SuspenseWrap><RoomManagement readOnly /></SuspenseWrap>,
       },
     ],
   },
@@ -451,8 +493,14 @@ export const router = createBrowserRouter([
       <ProtectedRoute roles={["faculty_manager", "admin", "student_affairs"]} />
     ),
     children: [
-      { path: "/faculty/approvals", Component: FacultyRoute },
-      { path: "/faculty/approvals/:id", Component: FacultyRoute },
+      {
+        path: "/faculty/approvals",
+        element: <SuspenseWrap><FacultyRoute /></SuspenseWrap>,
+      },
+      {
+        path: "/faculty/approvals/:id",
+        element: <SuspenseWrap><FacultyRoute /></SuspenseWrap>,
+      },
     ],
   },
   {
@@ -486,7 +534,10 @@ export const router = createBrowserRouter([
         element: <AdminPortal section="organizations" />,
       },
       { path: "/admin/topics", element: <AdminPortal section="topics" /> },
-      { path: "/admin/rooms", Component: RoomManagement },
+      {
+        path: "/admin/rooms",
+        element: <SuspenseWrap><RoomManagement /></SuspenseWrap>,
+      },
       { path: "/admin/reports", element: <AdminPortal section="reports" /> },
       { path: "/admin/no-show", element: <AdminPortal section="no-show" /> },
       {
@@ -508,7 +559,12 @@ export const router = createBrowserRouter([
         requireStaff
       />
     ),
-    children: [{ path: "/staff/scanner", Component: StaffScannerRoute }],
+    children: [
+      {
+        path: "/staff/scanner",
+        element: <SuspenseWrap><StaffScannerRoute /></SuspenseWrap>,
+      },
+    ],
   },
   { path: "/access-denied", element: <SystemState kind="forbidden" /> },
   { path: "/session-expired", element: <SystemState kind="session" /> },
