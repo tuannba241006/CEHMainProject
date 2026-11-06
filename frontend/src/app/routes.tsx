@@ -6,7 +6,7 @@ import {
   useNavigate,
   useParams,
 } from "react-router"
-import { lazy, Suspense, type ReactNode } from "react"
+import { lazy, Suspense, useEffect, type ReactNode } from "react"
 import StudentLayout from "../components/StudentLayout"
 import { useUser, type AppRole } from "../context/UserContext"
 import { isApiMode } from "../api/config"
@@ -144,6 +144,12 @@ function ProtectedRoute({
   const location = useLocation()
   if (loading) return <SystemState kind="loading" />
   if (!authenticated) {
+    const justLoggedOut =
+      typeof window !== "undefined" &&
+      sessionStorage.getItem("ceh_just_logged_out") === "true"
+    if (justLoggedOut) {
+      return <Navigate to="/login" replace />
+    }
     return <Navigate to="/login" state={{ from: location.pathname }} replace />
   }
   if (
@@ -223,10 +229,92 @@ function PublicEventDetailRoute() {
   )
 }
 
+function isPathAllowedForRole(
+  path: string,
+  role: AppRole,
+  isStaffUser: boolean,
+): boolean {
+  if (
+    !path ||
+    path === "/login" ||
+    path === "/register" ||
+    path === "/access-denied" ||
+    path === "/session-expired"
+  ) {
+    return false
+  }
+
+  // Public/shared routes accessible to anyone
+  if (
+    path === "/" ||
+    path.startsWith("/events") ||
+    path.startsWith("/certificates/verify")
+  ) {
+    return true
+  }
+
+  // Staff check-in scanner
+  if (path.startsWith("/staff/scanner")) {
+    return (
+      isStaffUser ||
+      role === "organizer" ||
+      role === "admin" ||
+      role === "student_affairs"
+    )
+  }
+
+  // Kiosk mode routes
+  if (path.startsWith("/admin/kiosk")) {
+    return role === "admin" || role === "student_affairs"
+  }
+  if (path.startsWith("/organizer/kiosk")) {
+    return role === "organizer" || role === "faculty_manager"
+  }
+  if (path.startsWith("/kiosk")) {
+    return role !== "student"
+  }
+
+  // Student specific routes
+  if (role === "student") {
+    return path.startsWith("/student")
+  }
+
+  // Organizer specific routes (Strictly scoped - Admin is NOT permitted here)
+  if (role === "organizer") {
+    return path.startsWith("/organizer")
+  }
+
+  // Faculty manager routes
+  if (role === "faculty_manager") {
+    return path.startsWith("/faculty") || path.startsWith("/organizer")
+  }
+
+  // Student Affairs (P.CTSV) routes
+  if (role === "student_affairs") {
+    return path.startsWith("/affairs") || path.startsWith("/admin")
+  }
+
+  // Admin routes (Strictly scoped to admin & affairs - NEVER organizer layout)
+  if (role === "admin") {
+    return path.startsWith("/admin") || path.startsWith("/affairs")
+  }
+
+  return false
+}
+
 function LoginRoute({ register = false }: { register?: boolean }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { loginAs } = useUser()
+
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem("ceh_just_logged_out")
+    } catch {
+      // ignore in environments without storage
+    }
+  }, [])
+
   return (
     <SuspenseWrap>
       <Login
@@ -247,8 +335,14 @@ function LoginRoute({ register = false }: { register?: boolean }) {
                   : role === "student_affairs"
                     ? "/affairs/approvals"
                     : "/admin/dashboard"
-          const from = (location.state as { from?: string } | null)?.from
-          navigate(from || fallback, { replace: true })
+
+          const rawFrom = (location.state as { from?: string } | null)?.from
+          const targetPath =
+            rawFrom && isPathAllowedForRole(rawFrom, role, isStaffUser)
+              ? rawFrom
+              : fallback
+
+          navigate(targetPath, { replace: true })
         }}
       />
     </SuspenseWrap>
@@ -515,7 +609,7 @@ export const router = createBrowserRouter([
       {
         element: (
           <ProtectedRoute
-            roles={["organizer", "faculty_manager", "admin", "student_affairs"]}
+            roles={["organizer", "faculty_manager"]}
           />
         ),
         errorElement: <RouteErrorBoundary />,

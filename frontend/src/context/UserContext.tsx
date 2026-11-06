@@ -327,6 +327,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       tokenStore.clear()
       sessionStorage.removeItem("ceh_demo_role")
       sessionStorage.removeItem("ceh_demo_email")
+      sessionStorage.setItem("ceh_just_logged_out", "true")
       setRole(null)
       setUser(DEFAULT_USER)
     }

@@ -1,0 +1,1 @@
+import{n as t}from"./index-BdPVc9ca.js";const l={list:(e,o)=>t.get(`/events/${e}/drl`,{query:o}),lock:e=>t.post(`/events/${e}/drl/lock`),unlock:(e,o)=>t.post(`/events/${e}/drl/unlock`,{ly_do:o}),export:e=>t.get(`/events/${e}/drl/export`)};export{l as d};
