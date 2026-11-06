@@ -143,6 +143,23 @@ class AttendanceService
             throw new BusinessException('FORBIDDEN', 'Bạn không có quyền xem danh sách điểm danh.', null, 403);
         }
 
-        return DangKy::with('taiKhoan')->where('ma_su_kien', $eventId)->when($filters['q'] ?? null, fn ($q, $term) => $q->whereHas('taiKhoan', fn ($u) => $u->where('mssv', 'like', "%{$term}%")->orWhere('ho_ten', 'like', "%{$term}%")))->orderBy('ma_dang_ky')->paginate(min(max((int) ($filters['limit'] ?? 20), 1), 100));
+        return DangKy::with('taiKhoan')
+            ->where('ma_su_kien', $eventId)
+            ->when($filters['q'] ?? null, fn ($q, $term) => $q->whereHas('taiKhoan', fn ($u) => $u->where('mssv', 'like', "%{$term}%")->orWhere('ho_ten', 'like', "%{$term}%")))
+            ->when($filters['trang_thai'] ?? null, fn ($q, $status) => $q->where('trang_thai', $status))
+            ->when(
+                isset($filters['nghi_van_gian_lan']) && $filters['nghi_van_gian_lan'] !== '',
+                fn ($q) => $q->where('nghi_van_gian_lan', filter_var($filters['nghi_van_gian_lan'], FILTER_VALIDATE_BOOLEAN))
+            )
+            ->when(
+                isset($filters['vi_pham_no_show']) && $filters['vi_pham_no_show'] !== '',
+                fn ($q) => $q->where('vi_pham_no_show', filter_var($filters['vi_pham_no_show'], FILTER_VALIDATE_BOOLEAN))
+            )
+            ->when(
+                isset($filters['du_dieu_kien_drl']) && $filters['du_dieu_kien_drl'] !== '',
+                fn ($q) => $q->where('du_dieu_kien_drl', filter_var($filters['du_dieu_kien_drl'], FILTER_VALIDATE_BOOLEAN))
+            )
+            ->orderBy('ma_dang_ky')
+            ->paginate(min(max((int) ($filters['limit'] ?? 20), 1), 100));
     }
 }
