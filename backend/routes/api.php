@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\AttendanceOverrideController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\EventCatalogController;
@@ -10,9 +11,12 @@ use App\Http\Controllers\Api\EventOrganizerController;
 use App\Http\Controllers\Api\EventPublicDetailController;
 use App\Http\Controllers\Api\EventReviewController;
 use App\Http\Controllers\Api\EventShareController;
+use App\Http\Controllers\Api\KioskSessionController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomScheduleController;
+use App\Http\Controllers\Api\SelfAttendanceController;
+use App\Http\Controllers\Api\StaffAttendanceController;
 use App\Http\Controllers\Api\TicketCancelController;
 use App\Http\Controllers\Api\TicketController;
 use Illuminate\Support\Facades\DB;
@@ -160,8 +164,32 @@ $notificationRoutes = function () {
     });
 };
 
+// PKG-08: Kiosk, HMAC staff scanning and two-way attendance operations.
+$attendanceRoutes = function () {
+    Route::middleware(['auth:sanctum,web', 'role:ToChuc,Admin', 'password.changed'])->group(function () {
+        Route::post('/events/{id}/kiosk/start', [KioskSessionController::class, 'startKiosk'])->whereNumber('id');
+        Route::post('/events/{id}/kiosk/open-checkin', [KioskSessionController::class, 'openCheckIn'])->whereNumber('id');
+        Route::post('/events/{id}/kiosk/open-checkout', [KioskSessionController::class, 'openCheckOut'])->whereNumber('id');
+        Route::post('/events/{id}/kiosk/close-gates', [KioskSessionController::class, 'closeGates'])->whereNumber('id');
+        Route::get('/events/{id}/participants', [SelfAttendanceController::class, 'participants'])->whereNumber('id');
+        Route::get('/events/{id}/staff', [StaffAttendanceController::class, 'listStaff'])->whereNumber('id');
+        Route::post('/events/{id}/staff', [StaffAttendanceController::class, 'assignStaff'])->whereNumber('id');
+        Route::delete('/events/{id}/staff/{user_id}', [StaffAttendanceController::class, 'removeStaff'])->whereNumber('id')->whereNumber('user_id');
+        Route::post('/attendance/manual-override', [AttendanceOverrideController::class, 'manualOverride']);
+    });
+    Route::get('/kiosk/totp-stream', [KioskSessionController::class, 'totpStream']);
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien,ToChuc,Admin', 'password.changed'])->group(function () {
+        Route::get('/staff/my-events', [StaffAttendanceController::class, 'myStaffEvents']);
+        Route::post('/attendance/staff-scan', [StaffAttendanceController::class, 'staffScan']);
+    });
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
+        Route::post('/attendance/self-check-in', [SelfAttendanceController::class, 'selfCheckIn']);
+        Route::post('/attendance/self-check-out', [SelfAttendanceController::class, 'selfCheckOut']);
+    });
+};
+
 // Version 1 API routes (/api/v1/...)
-Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes) {
+Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes) {
     Route::prefix('auth')->group($authRoutes);
     Route::prefix('admin')->group($adminRoutes);
     Route::prefix('rooms')->group($roomRoutes);
@@ -169,6 +197,7 @@ Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRout
     Route::prefix('organizer')->name('v1.')->group($organizerRoutes);
     Route::prefix('tickets')->name('v1.tickets.')->group($ticketRoutes);
     Route::prefix('notifications')->name('v1.notifications.')->group($notificationRoutes);
+    $attendanceRoutes();
 });
 
 // Root API alias routes (/api/...)
@@ -179,3 +208,4 @@ Route::prefix('events')->group($eventRoutes);
 Route::prefix('organizer')->group($organizerRoutes);
 Route::prefix('tickets')->name('tickets.')->group($ticketRoutes);
 Route::prefix('notifications')->name('notifications.')->group($notificationRoutes);
+$attendanceRoutes();
