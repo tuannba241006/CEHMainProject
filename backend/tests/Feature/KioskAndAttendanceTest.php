@@ -95,7 +95,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_checkin_gate_opens_at_boundary_and_records_audit(): void
     {
-        $now = Carbon::parse('2026-11-05 10:00:00');
+        $now = now()->startOfMinute();
         Carbon::setTestNow($now);
         $this->event->update([
             'thoi_gian_bat_dau' => $now->copy()->addMinutes(30),
@@ -266,7 +266,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_staff_checkout_calculates_attendance_score_for_each_threshold(): void
     {
-        $start = Carbon::parse('2026-11-05 10:00:00');
+        $start = now()->startOfMinute();
         $end = $start->copy()->addHours(2);
         $this->event->update(['trang_thai' => 'HAPPENING', 'thoi_gian_bat_dau' => $start, 'thoi_gian_ket_thuc' => $end, 'cong_check_out_mo' => true]);
         NhanVienCheckIn::create(['ma_tai_khoan' => $this->student->ma_tai_khoan, 'ma_su_kien' => $this->event->ma_su_kien, 'nguoi_phan_cong' => $this->organizer->ma_tai_khoan]);
@@ -331,7 +331,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_early_checkout_gate_records_effective_event_end(): void
     {
-        $end = Carbon::parse('2026-11-05 12:00:00');
+        $end = now()->startOfMinute()->addHours(2);
         Carbon::setTestNow($end->copy()->subMinutes(15));
         $this->event->update(['thoi_gian_bat_dau' => $end->copy()->subHours(2), 'thoi_gian_ket_thuc' => $end]);
 
@@ -350,7 +350,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_checkout_gate_rejects_opening_before_boundary(): void
     {
-        $now = Carbon::parse('2026-11-05 10:00:00');
+        $now = now()->startOfMinute();
         Carbon::setTestNow($now);
         $this->event->update([
             'thoi_gian_bat_dau' => $now->copy()->subHours(1),
@@ -369,7 +369,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_fallback_command_opens_checkout_and_logs_automatically(): void
     {
-        $start = Carbon::parse('2026-11-05 10:00:00');
+        $start = now()->startOfMinute();
         $end = $start->copy()->addHours(2);
         Carbon::setTestNow($end->copy()->addSecond());
         $this->event->update(['trang_thai' => 'HAPPENING', 'thoi_gian_bat_dau' => $start, 'thoi_gian_ket_thuc' => $end]);
