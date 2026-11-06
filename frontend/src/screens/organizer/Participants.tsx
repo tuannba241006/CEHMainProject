@@ -105,8 +105,23 @@ export default function Participants({ onNavigate, onLogout }: Props) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {scopedEvents.map((event) => {
+          {scopedEvents.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center shadow-xs">
+              <span className="text-4xl mb-3 inline-block">👥</span>
+              <h2 className="text-lg font-bold text-slate-800">Chưa có sự kiện nào</h2>
+              <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                Đơn vị của bạn hiện chưa chủ trì sự kiện nào để xem danh sách người tham gia. Hãy tạo sự kiện mới hoặc kiểm tra tiến trình phê duyệt hồ sơ!
+              </p>
+              <button
+                onClick={() => onNavigate("org-event-form")}
+                className="mt-5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+              >
+                + Tạo sự kiện mới
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {scopedEvents.map((event) => {
               const eventTickets = tickets.filter((t) => t.eventId === event.id)
               const attended = eventTickets.filter(
                 (t) => t.status === "attended",
@@ -211,6 +226,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
               )
             })}
           </div>
+        )}
         </div>
       </OrgLayout>
     )

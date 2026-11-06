@@ -394,7 +394,28 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((event) => {
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex flex-col items-center justify-center text-slate-400">
+                        <span className="text-4xl mb-3">📅</span>
+                        <p className="text-base font-semibold text-slate-700">
+                          Chưa có sự kiện nào
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                          Đơn vị của bạn hiện chưa có sự kiện nào trong danh mục này. Hãy bấm "Tạo sự kiện mới" để bắt đầu lên kế hoạch!
+                        </p>
+                        <button
+                          onClick={() => onNavigate("org-event-form")}
+                          className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+                        >
+                          + Tạo sự kiện mới
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((event) => {
                   const eventStatus = computeStatus(event) as EventStatus
                   const sc = STATUS_COLORS[eventStatus] || STATUS_COLORS.open
                   const pct = Math.round(
@@ -583,7 +604,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                       </td>
                     </tr>
                   )
-                })}
+                }))}
               </tbody>
             </table>
           </div>
@@ -591,7 +612,20 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {filtered.map((event) => {
+          {filtered.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-sm">
+              <span className="text-3xl mb-2 inline-block">📅</span>
+              <p className="text-sm font-semibold text-slate-700">Chưa có sự kiện nào</p>
+              <p className="text-xs text-slate-400 mt-1">Đơn vị chưa có sự kiện trong danh mục này.</p>
+              <button
+                onClick={() => onNavigate("org-event-form")}
+                className="mt-3 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
+              >
+                + Tạo sự kiện mới
+              </button>
+            </div>
+          ) : (
+            filtered.map((event) => {
             const eventStatus = computeStatus(event) as EventStatus
             const sc = STATUS_COLORS[eventStatus] || STATUS_COLORS.open
             const pct = Math.round((event.registered / event.capacity) * 100)
@@ -705,7 +739,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                 </div>
               </div>
             )
-          })}
+          }))}
         </div>
       </div>
 

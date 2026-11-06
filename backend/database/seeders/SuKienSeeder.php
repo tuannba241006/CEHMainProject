@@ -51,7 +51,7 @@ class SuKienSeeder extends Seeder
             ],
             [
                 'ma_su_kien' => 102,
-                'ma_don_vi_to_chuc' => 8, // CLB WebDev
+                'ma_don_vi_to_chuc' => 9, // CLB WebDev
                 'ma_chuyen_de' => 1,
                 'ma_phong' => 5, // Hội trường E
                 'ten_su_kien' => 'Hội thảo Điện toán đám mây & Thực hành DevOps',
@@ -119,7 +119,7 @@ class SuKienSeeder extends Seeder
             ],
             [
                 'ma_su_kien' => 104,
-                'ma_don_vi_to_chuc' => 10, // Đoàn Thanh niên
+                'ma_don_vi_to_chuc' => 8, // Đoàn Thanh niên
                 'ma_chuyen_de' => 3, // Văn hóa & Nghệ thuật
                 'ma_phong' => 1, // Hội trường A
                 'ten_su_kien' => 'Lễ hội Âm nhạc Sinh viên & Đêm nhạc UIT 2026',

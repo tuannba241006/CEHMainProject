@@ -150,7 +150,28 @@ export default function Staff({ onNavigate, onLogout }: Props) {
               </tr>
             </thead>
             <tbody>
-              {scopedStaff.map((s) => {
+              {scopedStaff.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center text-slate-400">
+                      <span className="text-4xl mb-3">🧑‍💼</span>
+                      <p className="text-base font-semibold text-slate-700">
+                        Chưa có nhân viên nào
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                        Đơn vị của bạn hiện chưa phân quyền nhân sự điểm danh cho sự kiện nào. Bấm "Thêm nhân viên" để bắt đầu gán quyền!
+                      </p>
+                      <button
+                        onClick={() => setShowModal(true)}
+                        className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+                      >
+                        + Thêm nhân viên
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                scopedStaff.map((s) => {
                 const ss = ACCOUNT_STATUS[s.accountStatus]
                 return (
                   <tr
@@ -253,14 +274,27 @@ export default function Staff({ onNavigate, onLogout }: Props) {
                     </td>
                   </tr>
                 )
-              })}
+              }))}
             </tbody>
           </table>
         </div>
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {scopedStaff.map((s) => {
+          {scopedStaff.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-sm">
+              <span className="text-3xl mb-2 inline-block">🧑‍💼</span>
+              <p className="text-sm font-semibold text-slate-700">Chưa có nhân viên nào</p>
+              <p className="text-xs text-slate-400 mt-1">Đơn vị chưa phân quyền nhân sự điểm danh.</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="mt-3 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
+              >
+                + Thêm nhân viên
+              </button>
+            </div>
+          ) : (
+            scopedStaff.map((s) => {
             const ss = ACCOUNT_STATUS[s.accountStatus]
             return (
               <div
@@ -300,7 +334,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
                 </p>
               </div>
             )
-          })}
+          }))}
         </div>
       </div>
 
