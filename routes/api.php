@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\SelfAttendanceController;
 use App\Http\Controllers\Api\StaffAttendanceController;
 use App\Http\Controllers\Api\TicketCancelController;
 use App\Http\Controllers\Api\TicketController;
+use App\Http\Controllers\Api\WaitlistController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -164,6 +165,19 @@ $notificationRoutes = function () {
     });
 };
 
+// PKG-07: FIFO waitlist and offer claim routes (UC-BOOK-02, UC-BOOK-03).
+$waitlistRoutes = function () {
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
+        Route::post('/events/{id}/waitlist', [WaitlistController::class, 'join'])
+            ->whereNumber('id')->middleware('throttle:10,1')->name('waitlist.join');
+        Route::get('/waitlist/my-entries', [WaitlistController::class, 'index'])->name('waitlist.my-entries');
+        Route::post('/waitlist/{id}/claim', [WaitlistController::class, 'claim'])
+            ->whereNumber('id')->middleware('throttle:10,1')->name('waitlist.claim');
+        Route::post('/waitlist/{id}/decline', [WaitlistController::class, 'decline'])
+            ->whereNumber('id')->name('waitlist.decline');
+    });
+};
+
 // PKG-08: Kiosk, HMAC staff scanning and two-way attendance operations.
 $attendanceRoutes = function () {
     Route::middleware(['auth:sanctum,web', 'role:ToChuc,Admin', 'password.changed'])->group(function () {
@@ -189,7 +203,7 @@ $attendanceRoutes = function () {
 };
 
 // Version 1 API routes (/api/v1/...)
-Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes) {
+Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes, $waitlistRoutes) {
     Route::prefix('auth')->group($authRoutes);
     Route::prefix('admin')->group($adminRoutes);
     Route::prefix('rooms')->group($roomRoutes);
@@ -197,6 +211,7 @@ Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRout
     Route::prefix('organizer')->name('v1.')->group($organizerRoutes);
     Route::prefix('tickets')->name('v1.tickets.')->group($ticketRoutes);
     Route::prefix('notifications')->name('v1.notifications.')->group($notificationRoutes);
+    $waitlistRoutes();
     $attendanceRoutes();
 });
 
@@ -208,4 +223,5 @@ Route::prefix('events')->group($eventRoutes);
 Route::prefix('organizer')->group($organizerRoutes);
 Route::prefix('tickets')->name('tickets.')->group($ticketRoutes);
 Route::prefix('notifications')->name('notifications.')->group($notificationRoutes);
+$waitlistRoutes();
 $attendanceRoutes();
