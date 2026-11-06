@@ -17,13 +17,19 @@ class Pkg04DiscoveryFeatureTest extends TestCase
     use DatabaseTransactions;
 
     private SuKien $laravelEvent;
+
     private SuKien $pythonEvent;
+
     private SuKien $happeningEvent;
+
     private SuKien $completedEvent;
+
     private SuKien $draftEvent;
 
     private DonViToChuc $host;
+
     private ChuyenDe $topic;
+
     private PhongHoiTruong $room;
 
     protected function setUp(): void
