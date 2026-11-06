@@ -37,13 +37,18 @@ class TicketCancellationService
 
         // 1. Handle Idempotency Key if provided (OpenAPI contract, TTL 5 mins)
         $cacheKey = null;
+        // Thay đoạn đọc cache (khoảng dòng 40-53)
         if ($idempotencyKey) {
             $cacheKey = "idempotency:cancel_ticket:{$user->ma_tai_khoan}:{$ticketId}:{$idempotencyKey}";
             $cached = Cache::get($cacheKey);
 
             if ($cached) {
                 if (hash_equals($cached['payload_hash'], md5($reason))) {
-                    return $cached['response'];
+                    // Nạp lại từ DB, không unserialize model
+                    $ticket = DangKy::with(['suKien.phongHoiTruong', 'chungNhan'])
+                        ->findOrFail($cached['ma_dang_ky']);
+
+                    return ['ticket' => $ticket];
                 }
 
                 throw new BusinessException(
@@ -181,10 +186,11 @@ class TicketCancellationService
         ];
 
         // Cache idempotent response for 5 minutes (300 seconds)
+        // Thay đoạn ghi cache (khoảng dòng 183-189)
         if ($cacheKey) {
             Cache::put($cacheKey, [
                 'payload_hash' => md5($reason),
-                'response' => $response,
+                'ma_dang_ky' => $cancelledTicket->ma_dang_ky,
             ], 300);
         }
 
