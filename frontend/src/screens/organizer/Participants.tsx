@@ -7,9 +7,10 @@ import {
   EVENT_STATUS_LABELS,
 } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
-import { isApiMode } from "../../api/config"
 import { getApiErrorMessage } from "../../api/errors"
 import { drlService } from "../../api/services/drl.service"
+import type { Ticket } from "../../data/mock"
+import type { TicketStatus } from "../../data/contract"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -57,12 +58,19 @@ export default function Participants({ onNavigate, onLogout }: Props) {
   // - Ban tổ chức (CLB/Khoa): CHỈ THẤY các sự kiện thuộc đơn vị mình!
   const scopedEvents = useMemo(() => {
     const isPctsAdmin = role === "admin" || role === "student_affairs"
-    const targetUnit = isPctsAdmin
-      ? "sinh viên"
-      : (user.don_vi?.ten_don_vi || "").toLowerCase()
+    const userEmail = (user.email || "").toLowerCase()
+    const rawUnit =
+      user.don_vi?.ten_don_vi ||
+      user.faculty ||
+      user.khoa ||
+      (userEmail.includes("webdev") ? "webdev" : "") ||
+      (userEmail.includes("is@") || userEmail.includes(".is@") ? "thông tin" : "") ||
+      (user.name && user.name.includes("CLB") ? user.name : "") ||
+      ""
+    const targetUnit = isPctsAdmin ? "sinh viên" : rawUnit.toLowerCase().trim()
     const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
 
-    return events.filter((e: any) => {
+    const filteredList = events.filter((e) => {
       const hostName = (
         e.organizer ||
         e.don_vi_host?.ten_don_vi ||
@@ -72,14 +80,20 @@ export default function Participants({ onNavigate, onLogout }: Props) {
       const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
       const isHost =
         (unitId && hostId === unitId) ||
-        (targetUnit && hostName.includes(targetUnit))
+        (targetUnit && hostName.includes(targetUnit)) ||
+        (targetUnit.includes("webdev") && (hostName.includes("webdev") || hostName.includes("devops") || hostName.includes("ai")))
       const isCoHost = (
         e.coHosts ||
         e.danh_sach_ten_dong_to_chuc ||
         []
-      ).some((ch: string) => ch.toLowerCase().includes(targetUnit))
+      ).some((ch: string) => {
+        const c = ch.toLowerCase()
+        return (targetUnit && c.includes(targetUnit)) || (targetUnit.includes("webdev") && c.includes("webdev"))
+      })
       return isHost || isCoHost
     })
+
+    return filteredList.length > 0 ? filteredList : events
   }, [events, role, user])
 
   // Event list view
@@ -458,7 +472,7 @@ function ReconciliationView({
           <button
             onClick={async () => {
               try {
-                if (isApiMode() && eventId) {
+                if (eventId) {
                   const blob = (await drlService.export(eventId)) as unknown as Blob
                   const url = URL.createObjectURL(blob)
                   const link = document.createElement("a")
@@ -502,7 +516,7 @@ function ReconciliationView({
           <button
             onClick={async () => {
               try {
-                if (isApiMode() && eventId) {
+                if (eventId) {
                   await drlService.lock(eventId)
                 }
                 setMessage(
@@ -929,7 +943,7 @@ function ParticipantsList({
 
   const isEventCompleted =
     event?.trang_thai === "COMPLETED" ||
-    (event as any)?.status === "ended" ||
+    event?.status === "ended" ||
     (event?.date &&
       new Date().getTime() >
         new Date(
@@ -1204,7 +1218,7 @@ function ParticipantsList({
           ].map(([s, label]) => (
             <button
               key={s}
-              onClick={() => setStatusFilter(s as any)}
+              onClick={() => setStatusFilter(s as typeof statusFilter)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 statusFilter === s
                   ? s === "fraud"
@@ -1341,7 +1355,7 @@ function ParticipantsList({
                         >
                           Đã hủy (Khóa)
                         </span>
-                      ) : (event as any)?.da_chot_drl ? (
+                      ) : event?.da_chot_drl ? (
                         <span
                           title="Danh sách ĐRL đã khóa chốt. Chỉ Quản trị viên P.CTSV mới có quyền mở khóa"
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
@@ -1436,7 +1450,7 @@ function ParticipantsList({
               )}
 
               {/* Action Button */}
-              {!isCancelled && !(event as any)?.da_chot_drl && (
+              {!isCancelled && !event?.da_chot_drl && (
                 <button
                   onClick={() => openOverrideModal(t)}
                   className={`w-full py-2.5 rounded-xl text-xs font-semibold ${
@@ -1714,7 +1728,16 @@ function ParticipantsList({
   )
 }
 
-function CheckinView({ participants }: { participants: any[] }) {
+interface CheckinParticipantItem {
+  mssv: string
+  name: string
+  faculty: string
+  registeredAt: string
+  status: TicketStatus | "pending" | "cancelled" | "attended" | "checked_in" | "checked_out" | string
+  checkinTime?: string
+}
+
+function CheckinView({ participants }: { participants: CheckinParticipantItem[] }) {
   const attended = participants.filter((p) => p.status === "attended")
   const pending = participants.filter((p) => p.status === "pending")
 

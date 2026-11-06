@@ -6,6 +6,7 @@ import {
   DRL_RECORDS,
   type Ticket,
   type Topic,
+  type AgendaItem,
   type EventStatus as ContractEventStatus,
   type TicketStatus as ContractTicketStatus,
   type Certificate as ContractCertificate,
@@ -14,6 +15,12 @@ import {
   type WaitlistEntry,
   parseQrPayload,
 } from "../data/mock"
+import type {
+  OrganizationSummary,
+  Campus,
+  DrlRule,
+  SmartActionButton,
+} from "../data/contract"
 import {
   INITIAL_NOTIFICATIONS,
   type Notification,
@@ -78,14 +85,15 @@ export interface LiveEvent {
   diem_drl_du_kien: number
   gio_tinh_nguyen: number
   mo_ta: string
-  lo_trinh: any[]
+  lo_trinh: AgendaItem[]
   doi_tuong_tham_gia?: string | null
+  da_chot_drl?: boolean
 
   // Legacy & UI properties
   id: string
   title: string
   speaker: string
-  topic: Topic
+  topic: Topic | string
   description: string
   date: string
   time: string
@@ -100,6 +108,13 @@ export interface LiveEvent {
   organizer: string
   benefits: string[]
   schedule: { time: string; title: string }[]
+  don_vi_host?: OrganizationSummary
+  ma_don_vi_to_chuc?: number
+  coHosts?: string[]
+  status?: string
+  so_luong_da_dang_ky?: number
+  ly_do_tu_choi?: string | null
+  points?: number
 }
 
 export interface RegisterResult {
@@ -817,9 +832,113 @@ function adaptApiTicket(
   }
 }
 
-function adaptApiEvent(e: any): LiveEvent {
+interface RawApiEvent {
+  ma_su_kien?: number
+  id?: number | string
+  ten_su_kien?: string
+  title?: string
+  thoi_gian_bat_dau?: string
+  thoi_gian_ket_thuc?: string
+  so_luong_toi_da?: number
+  capacity?: number
+  so_ve_con_lai?: number
+  anh_bia?: string
+  banner?: string
+  dien_gia?: string
+  speaker?: string
+  ten_chuyen_de?: string
+  topic?: Topic | string
+  mo_ta?: string
+  description?: string
+  ten_phong?: string
+  room?: string
+  co_so?: Campus | string
+  location?: string
+  trang_thai?: ContractEventStatus
+  dieu_khoan_drl?: "KhongCo" | "Dieu3" | "Dieu4"
+  diem_drl_du_kien?: number
+  points?: number
+  gio_tinh_nguyen?: number
+  don_vi_host?: OrganizationSummary
+  organizer?: string
+  ten_don_vi_host?: string
+  danh_sach_dong_to_chuc?: OrganizationSummary[]
+  danh_sach_ten_dong_to_chuc?: string[]
+  coHosts?: string[]
+  lo_trinh?: AgendaItem[]
+  doi_tuong_tham_gia?: string | null
+  nut_bam_dieu_huong?: SmartActionButton
+  status?: string
+  khong_gioi_han_slot?: boolean
+}
+
+interface RawApiNotification {
+  id?: number | string
+  ma_thong_bao?: number | string
+  tieu_de?: string
+  title?: string
+  noi_dung?: string
+  description?: string
+  message?: string
+  thoi_gian_gui?: string
+  created_at?: string
+  loai_thong_bao?: string
+  type?: string
+  lien_ket?: string | null
+  link?: string | null
+  da_doc?: boolean
+  read?: boolean
+  action?: NotifAction
+  eventId?: string
+  ma_su_kien?: number | string
+  audience?: string
+}
+
+interface RawApiTicket {
+  id?: number | string
+  ma_dang_ky?: number
+  ma_ve_uuid?: string
+  eventId?: string
+  ma_su_kien?: number | string
+  eventTitle?: string
+  ten_su_kien?: string
+  thoi_gian_bat_dau?: string
+  thoi_gian_ket_thuc?: string
+  ten_phong?: string
+  co_so?: Campus
+  mssv?: string
+  studentId?: string
+  ho_ten?: string
+  studentName?: string
+  email?: string
+  studentEmail?: string
+  khoa?: string
+  faculty?: string
+  trang_thai?: ContractTicketStatus | string
+  status?: string
+  thoi_gian_check_in?: string
+  thoi_gian_check_out?: string
+  payload_qr?: string
+  qrCode?: string
+  thoi_gian_dang_ky?: string
+  han_chot_huy?: string
+  cho_phep_huy?: boolean
+  chu_ky_hmac?: string
+  yeu_cau_wake_lock?: boolean
+  da_feedback?: boolean
+  co_the_feedback?: boolean
+  du_dieu_kien_drl?: boolean
+  co_the_nhan_chung_nhan?: boolean
+  vi_pham_no_show?: boolean
+  nghi_van_gian_lan?: boolean
+  ti_le_drl?: number
+  diem_drl_du_kien?: number
+  [key: string]: unknown
+}
+
+function adaptApiEvent(e: RawApiEvent): LiveEvent {
   const id = String(e.ma_su_kien || e.id || 101)
-  const title = e.ten_su_kien || e.title || "Sự kiện học đường"
+  const title = String(e.ten_su_kien || e.title || "Sự kiện học đường")
   const startIso = e.thoi_gian_bat_dau || "2026-11-20T08:30:00+07:00"
   const endIso = e.thoi_gian_ket_thuc || "2026-11-20T11:30:00+07:00"
   const date = startIso.includes("T") ? startIso.split("T")[0] : startIso
@@ -880,10 +999,10 @@ function adaptApiEvent(e: any): LiveEvent {
   }
 }
 
-function adaptApiNotification(n: any): Notification {
-  const title = n.tieu_de || n.title || "Thông báo hệ thống"
-  const desc = n.noi_dung || n.description || n.message || ""
-  const time = n.thoi_gian_gui || n.created_at || new Date().toISOString()
+function adaptApiNotification(n: RawApiNotification): Notification {
+  const title = String(n.tieu_de || n.title || "Thông báo hệ thống")
+  const desc = String(n.noi_dung || n.description || n.message || "")
+  const time = String(n.thoi_gian_gui || n.created_at || new Date().toISOString())
   return {
     id: n.id || n.ma_thong_bao || newNotifId(),
     tieu_de: title,
@@ -903,12 +1022,12 @@ function adaptApiNotification(n: any): Notification {
   } as unknown as Notification
 }
 
-function adaptApiTicketSummary(ticket: any): Ticket {
+function adaptApiTicketSummary(ticket: RawApiTicket): Ticket {
   const id = String(
     ticket.ma_ve_uuid || ticket.id || ticket.ma_dang_ky || `TKT-${Date.now()}`,
   )
   const eventId = String(ticket.ma_su_kien || ticket.eventId || 101)
-  const title = ticket.ten_su_kien || ticket.eventTitle || "Sự kiện học đường"
+  const title = String(ticket.ten_su_kien || ticket.eventTitle || "Sự kiện học đường")
   const startIso = ticket.thoi_gian_bat_dau || "2026-11-20T08:30:00+07:00"
   const endIso = ticket.thoi_gian_ket_thuc || "2026-11-20T11:30:00+07:00"
   const date = startIso.includes("T") ? startIso.split("T")[0] : startIso
@@ -926,6 +1045,7 @@ function adaptApiTicketSummary(ticket: any): Ticket {
     ma_su_kien: Number(eventId),
     eventTitle: title,
     ten_su_kien: title,
+    trang_thai_su_kien: (ticket.trang_thai_su_kien as ContractEventStatus) || "PUBLISHED",
     eventDate: date,
     eventTime: time,
     thoi_gian_bat_dau: startIso,
@@ -936,8 +1056,7 @@ function adaptApiTicketSummary(ticket: any): Ticket {
     studentId: String(ticket.mssv || ticket.studentId || "22520000"),
     mssv: String(ticket.mssv || ticket.studentId || "22520000"),
     studentName: ticket.ho_ten || ticket.studentName || "Sinh viên UIT",
-    ho_ten: ticket.ho_ten || ticket.studentName || "Sinh viên UIT",
-    studentEmail: ticket.email || ticket.studentEmail || "sinhvien@uit.edu.vn",
+    studentEmail: String(ticket.email || ticket.studentEmail || "sinhvien@uit.edu.vn"),
     faculty: ticket.khoa || ticket.faculty || "Khoa Hệ thống Thông tin",
     status:
       ticket.trang_thai === "DaHuy"
@@ -945,10 +1064,23 @@ function adaptApiTicketSummary(ticket: any): Ticket {
         : ticket.trang_thai === "DaCheckOut"
           ? "attended"
           : "pending",
-    trang_thai: ticket.trang_thai || "DaDangKy",
+    trang_thai: (ticket.trang_thai as ContractTicketStatus) || "DaDangKy",
     checkinTime: ticket.thoi_gian_check_in?.slice(11, 19),
     checkoutTime: ticket.thoi_gian_check_out?.slice(11, 19),
     qrCode: ticket.payload_qr || ticket.qrCode || `CEH1.${id}`,
+    payload_qr: ticket.payload_qr || ticket.qrCode || `CEH1.${id}`,
+    chu_ky_hmac: ticket.chu_ky_hmac || "a8f5f167f44f4964e6c998dee827110c849f8a12c3e4b5a6c7d8e9f012345678",
+    yeu_cau_wake_lock: Boolean(ticket.yeu_cau_wake_lock ?? true),
+    han_chot_huy: ticket.han_chot_huy || startIso,
+    cho_phep_huy: Boolean(ticket.cho_phep_huy ?? true),
+    ti_le_drl: Number(ticket.ti_le_drl ?? 1.0),
+    diem_drl_du_kien: Number(ticket.diem_drl_du_kien ?? 5),
+    da_feedback: Boolean(ticket.da_feedback ?? false),
+    co_the_feedback: Boolean(ticket.co_the_feedback ?? false),
+    du_dieu_kien_drl: Boolean(ticket.du_dieu_kien_drl ?? false),
+    co_the_nhan_chung_nhan: Boolean(ticket.co_the_nhan_chung_nhan ?? false),
+    vi_pham_no_show: Boolean(ticket.vi_pham_no_show ?? false),
+    nghi_van_gian_lan: Boolean(ticket.nghi_van_gian_lan ?? false),
     registeredAt: ticket.thoi_gian_dang_ky || new Date().toISOString(),
     thoi_gian_dang_ky: ticket.thoi_gian_dang_ky || new Date().toISOString(),
   }
@@ -1148,7 +1280,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         Array.isArray(ticketRes.value.data) &&
         ticketRes.value.data.length > 0
       ) {
-        setTickets(ticketRes.value.data.map(adaptApiTicketSummary))
+        setTickets(ticketRes.value.data.map((t) => adaptApiTicketSummary(t as unknown as RawApiTicket)))
       }
     } catch (err) {
       setDataError(getApiErrorMessage(err))
@@ -1587,7 +1719,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         t.id === raw ||
         String(t.ma_dang_ky) === raw ||
         t.studentId === raw ||
-        (t as any).mssv === raw ||
+        t.mssv === raw ||
         t.ma_ve_uuid === raw,
     )
   }
@@ -2311,7 +2443,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: true, certificate: replacement }
   }
 
-  function verifyCertificate(code: string): any {
+  function verifyCertificate(
+    code: string,
+  ): (Certificate & { trang_thai: string; ho_ten_che_mo?: string | null; mssv_che_mo?: string | null }) | undefined {
     const q = code.trim().toLowerCase()
     const cert = certificates.find(
       (item) =>
@@ -2387,7 +2521,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const evt = events.find(
       (e) => e.id === ticket.eventId || e.ma_su_kien === ticket.ma_su_kien,
     )
-    if (evt && (evt as any).da_chot_drl) {
+    if (evt && evt.da_chot_drl) {
       return {
         success: false,
         error:

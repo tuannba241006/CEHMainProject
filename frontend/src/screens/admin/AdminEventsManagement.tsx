@@ -1,23 +1,54 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useNavigate } from "react-router"
-import { useApp } from "../../context/AppContext"
+import { useApp, type LiveEvent } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
-import { isApiMode } from "../../api/config"
 import { eventsService } from "../../api/services/events.service"
-import { ROOMS, EVENTS } from "../../data/mock"
-import type { OrganizationSummary, Topic } from "../../data/contract"
+import { ROOMS, EVENTS, type Event } from "../../data/mock"
+import type { DrlRule, EventStatus, OrganizationSummary, Topic } from "../../data/contract"
+
+export interface AdminEventItem extends Partial<Event>, Partial<LiveEvent> {
+  id: string
+  ma_su_kien: number
+  ten_su_kien: string
+  title?: string
+  ten_don_vi_host?: string
+  organizer?: string
+  ten_chuyen_de?: string
+  topic?: string
+  ten_phong?: string
+  room?: string
+  capacity?: number
+  so_luong_toi_da?: number
+  registered?: number
+  so_luong_da_dang_ky?: number
+  date?: string
+  time?: string
+  status?: string
+  trang_thai?: EventStatus
+  description?: string
+  mo_ta?: string
+  coHosts?: string[]
+  danh_sach_ten_dong_to_chuc?: string[]
+  banner?: string
+  points?: number
+  speaker?: string
+  dien_gia?: string
+  ly_do_tu_choi?: string | null
+}
+
+export type AdminManageEvent = Event | LiveEvent | AdminEventItem
 
 interface Props {
   initialMode?: "list" | "create" | "edit"
   orgs: OrganizationSummary[]
   topics: Topic[]
-  onOpenReconciliation: (evt: any) => void
+  onOpenReconciliation: (evt: AdminManageEvent) => void
 }
 
-const SEED_ADMIN_EVENTS: any[] = [
+const SEED_ADMIN_EVENTS: AdminManageEvent[] = [
   {
-    id: 991,
+    id: "991",
     ma_su_kien: 991,
     title: "Ngày hội Khởi nghiệp & Đổi mới Sáng tạo UIT 2026",
     ten_su_kien: "Ngày hội Khởi nghiệp & Đổi mới Sáng tạo UIT 2026",
@@ -45,7 +76,7 @@ const SEED_ADMIN_EVENTS: any[] = [
     banner: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop",
   },
   {
-    id: 992,
+    id: "992",
     ma_su_kien: 992,
     title: "Hội thảo An toàn Mạng & Kỹ thuật SOC Phòng thủ",
     ten_su_kien: "Hội thảo An toàn Mạng & Kỹ thuật SOC Phòng thủ",
@@ -73,7 +104,7 @@ const SEED_ADMIN_EVENTS: any[] = [
     banner: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&h=400&fit=crop",
   },
   {
-    id: 993,
+    id: "993",
     ma_su_kien: 993,
     title: "Hội thảo Chuyển đổi số & Điện toán đám mây UIT",
     ten_su_kien: "Hội thảo Chuyển đổi số & Điện toán đám mây UIT",
@@ -120,8 +151,8 @@ export default function AdminEventsManagement({
   )
 
   // Merged events list: include appEvents and ensure SEED_ADMIN_EVENTS (with cohosts & drafts) are prepended
-  const [localEvents, setLocalEvents] = useState<any[]>(() => {
-    const list = [...(appEvents && appEvents.length > 0 ? appEvents : EVENTS)]
+  const [localEvents, setLocalEvents] = useState<AdminManageEvent[]>(() => {
+    const list: AdminManageEvent[] = [...(appEvents && appEvents.length > 0 ? appEvents : EVENTS)]
     for (const seed of SEED_ADMIN_EVENTS) {
       if (!list.some((e) => e.id === seed.id || e.ma_su_kien === seed.ma_su_kien)) {
         list.unshift(seed)
@@ -129,6 +160,51 @@ export default function AdminEventsManagement({
     }
     return list
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadEvents() {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await eventsService.getEvents()
+        if (!cancelled && res.data && Array.isArray(res.data) && res.data.length > 0) {
+          setLocalEvents((prev) => {
+            const apiItems: AdminManageEvent[] = res.data.map((item) => ({
+              ...item,
+              id: String(item.ma_su_kien),
+              title: item.ten_su_kien,
+              date: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(0, 10) : "",
+              time: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(11, 16) : "",
+              status: item.trang_thai,
+              registered:
+                item.so_luong_toi_da && item.so_ve_con_lai != null
+                  ? Math.max(0, item.so_luong_toi_da - item.so_ve_con_lai)
+                  : 0,
+              capacity: item.so_luong_toi_da || 100,
+            }))
+            const merged = [...apiItems]
+            for (const p of prev) {
+              if (!merged.some((m) => m.ma_su_kien === p.ma_su_kien || m.id === p.id)) {
+                merged.push(p)
+              }
+            }
+            return merged
+          })
+        }
+      } catch (err) {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    loadEvents()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Filter & Search states
   const [search, setSearch] = useState("")
@@ -136,14 +212,14 @@ export default function AdminEventsManagement({
   const [statusFilter, setStatusFilter] = useState("all")
 
   // Target event being edited
-  const [editingEvent, setEditingEvent] = useState<any | null>(null)
+  const [editingEvent, setEditingEvent] = useState<AdminManageEvent | null>(null)
 
   // Action Modals (Emergency Room, Cancel, Withdraw, Reopen)
   type ActionModal =
-    | { kind: "changeRoom"; event: any }
-    | { kind: "cancel"; event: any }
-    | { kind: "withdraw"; event: any }
-    | { kind: "reopen"; event: any }
+    | { kind: "changeRoom"; event: AdminManageEvent }
+    | { kind: "cancel"; event: AdminManageEvent }
+    | { kind: "withdraw"; event: AdminManageEvent }
+    | { kind: "reopen"; event: AdminManageEvent }
     | null
 
   const [modal, setModal] = useState<ActionModal>(null)
@@ -192,7 +268,7 @@ export default function AdminEventsManagement({
     setViewMode(isDelegated ? "create-delegated" : "create")
   }
 
-  function openEditPage(evt: any) {
+  function openEditPage(evt: AdminManageEvent) {
     setEditingEvent(evt)
     setFormTitle(evt.title || evt.ten_su_kien || "")
     setFormUnitId(
@@ -284,7 +360,7 @@ export default function AdminEventsManagement({
     (e.organizer || e.ten_don_vi_host || "").includes("Sinh viên"),
   ).length
   const openCount = localEvents.filter(
-    (e) => e.status === "open" || e.status === "published",
+    (e) => (e.status as string) === "open" || (e.status as string) === "published",
   ).length
   const pendingCount = approvalCases.filter((c) =>
     c.status.includes("pending"),
@@ -322,15 +398,13 @@ export default function AdminEventsManagement({
         danh_sach_ten_dong_to_chuc: formCoHosts,
       }
 
-      if (isApiMode()) {
-        if (isEdit && editingEvent) {
-          await eventsService.updateDraft(editingEvent.id || editingEvent.ma_su_kien, payload)
-        } else {
-          await eventsService.createDraft(payload)
-        }
-        if (asSubmit && editingEvent) {
-          await eventsService.submitApproval(editingEvent.id || editingEvent.ma_su_kien)
-        }
+      if (isEdit && editingEvent) {
+        await eventsService.updateDraft(editingEvent.id || editingEvent.ma_su_kien, payload)
+      } else {
+        await eventsService.createDraft(payload)
+      }
+      if (asSubmit && editingEvent) {
+        await eventsService.submitApproval(editingEvent.id || editingEvent.ma_su_kien)
       }
 
       // Update local state
@@ -361,14 +435,14 @@ export default function AdminEventsManagement({
           ),
         )
       } else {
-        const newEvt: any = {
-          id: Date.now(),
+        const newEvt = {
+          id: String(Date.now()),
           ma_su_kien: Date.now(),
           title: formTitle.trim(),
           ten_su_kien: formTitle.trim(),
           organizer: targetUnit?.ten_don_vi || "Phòng Công tác Sinh viên (P.CTSV)",
           ten_don_vi_host: targetUnit?.ten_don_vi || "Phòng Công tác Sinh viên (P.CTSV)",
-          topic: formTopic,
+          topic: formTopic as Event["topic"],
           ten_chuyen_de: formTopic,
           room: formRoom,
           ten_phong: formRoom,
@@ -381,14 +455,14 @@ export default function AdminEventsManagement({
           dien_gia: formSpeaker.trim(),
           date: formDate.split("-").reverse().join("/"),
           time: `${formStartTime} - ${formEndTime}`,
-          status: asSubmit ? "pending" : "draft",
-          trang_thai: asSubmit ? "PENDING_ADMIN" : "DRAFT",
+          status: (asSubmit ? "pending" : "draft") as Event["status"],
+          trang_thai: (asSubmit ? "PENDING_ADMIN" : "DRAFT") as Event["trang_thai"],
           description: formDescription.trim(),
           mo_ta: formDescription.trim(),
           coHosts: formCoHosts,
           danh_sach_ten_dong_to_chuc: formCoHosts,
           banner: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop",
-        }
+        } as unknown as Event
         setLocalEvents((prev) => [newEvt, ...prev])
       }
 
@@ -417,12 +491,10 @@ export default function AdminEventsManagement({
     }
     setSubmitting(true)
     try {
-      if (isApiMode()) {
-        await eventsService.changeRoom(modal.event.id || modal.event.ma_su_kien, {
-          ma_phong_moi: newRoom,
-          ly_do: actionReason.trim(),
-        })
-      }
+      await eventsService.changeRoom(modal.event.id || modal.event.ma_su_kien, {
+        ma_phong_moi: newRoom,
+        ly_do: actionReason.trim(),
+      })
       setLocalEvents((prev) =>
         prev.map((e) =>
           e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
@@ -453,12 +525,10 @@ export default function AdminEventsManagement({
     }
     setSubmitting(true)
     try {
-      if (isApiMode()) {
-        await eventsService.emergencyCancel(
-          modal.event.id || modal.event.ma_su_kien,
-          actionReason.trim(),
-        )
-      }
+      await eventsService.emergencyCancel(
+        modal.event.id || modal.event.ma_su_kien,
+        actionReason.trim(),
+      )
       setLocalEvents((prev) =>
         prev.map((e) =>
           e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
@@ -488,12 +558,10 @@ export default function AdminEventsManagement({
     }
     setSubmitting(true)
     try {
-      if (isApiMode()) {
-        await eventsService.reopen(
-          modal.event.id || modal.event.ma_su_kien,
-          actionReason.trim(),
-        )
-      }
+      await eventsService.reopen(
+        modal.event.id || modal.event.ma_su_kien,
+        actionReason.trim(),
+      )
       setLocalEvents((prev) =>
         prev.map((e) =>
           e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
@@ -523,12 +591,10 @@ export default function AdminEventsManagement({
     }
     setSubmitting(true)
     try {
-      if (isApiMode()) {
-        await eventsService.withdraw(
-          modal.event.id || modal.event.ma_su_kien,
-          actionReason.trim(),
-        )
-      }
+      await eventsService.withdraw(
+        modal.event.id || modal.event.ma_su_kien,
+        actionReason.trim(),
+      )
       setLocalEvents((prev) =>
         prev.map((e) =>
           e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
@@ -849,7 +915,7 @@ export default function AdminEventsManagement({
                   </label>
                   <select
                     value={formDrlRule}
-                    onChange={(e) => setFormDrlRule(e.target.value as any)}
+                    onChange={(e) => setFormDrlRule(e.target.value as "Dieu3" | "Dieu4")}
                     className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white focus:outline-none focus:border-indigo"
                   >
                     <option value="Dieu3">Điều 3: Hoạt động học thuật, NCKH & Kỹ năng</option>

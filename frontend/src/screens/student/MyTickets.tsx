@@ -55,11 +55,11 @@ export default function MyTickets({
 
   // UC-TCK-01: Auto-request Screen Wake Lock when ticket QR is open
   useEffect(() => {
-    let sentinel: any = null
+    let sentinel: { release: () => Promise<void> } | null = null
     if (showQR && "wakeLock" in navigator) {
-      ;(navigator as any).wakeLock
+      ;(navigator as unknown as { wakeLock: { request: (type: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock
         .request("screen")
-        .then((s: any) => {
+        .then((s) => {
           sentinel = s
           setWakeLockActive(true)
         })

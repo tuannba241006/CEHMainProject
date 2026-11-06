@@ -4,10 +4,23 @@ import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { drlService } from "../../api/services/drl.service"
 import { feedbackService } from "../../api/services/feedback.service"
-import { isApiMode } from "../../api/config"
 import { getApiErrorMessage } from "../../api/errors"
+import type { Ticket } from "../../data/mock"
 
-type Ticket = any
+interface SurveyResponseItem {
+  id: string | number
+  ticketId: string | number
+  studentName: string
+  studentId: string
+  faculty: string
+  overall: number
+  content: number
+  organization: number
+  venue: number
+  useful: string
+  improvement: string
+  submittedAt: string
+}
 
 export default function AdminParticipants() {
   const navigate = useNavigate()
@@ -38,7 +51,7 @@ export default function AdminParticipants() {
     const unitLower = selectedUnit.toLowerCase()
     return events.filter((e) => {
       const host = (e.ten_don_vi_host || e.organizer || "").toLowerCase()
-      const coHosts = (((e as any).coHosts || e.danh_sach_ten_dong_to_chuc || []) as string[]).map((c: string) => c.toLowerCase())
+      const coHosts = ((e.coHosts || e.danh_sach_ten_dong_to_chuc || []) as string[]).map((c: string) => c.toLowerCase())
       if (selectedUnit === "pctsv") {
         return host.includes("sinh viên") || host.includes("ctsv")
       }
@@ -75,7 +88,7 @@ export default function AdminParticipants() {
         !search.trim() ||
         t.studentName.toLowerCase().includes(search.toLowerCase()) ||
         t.studentId.toLowerCase().includes(search.toLowerCase()) ||
-        ((t as any).ticketCode && String((t as any).ticketCode).toLowerCase().includes(search.toLowerCase()))
+        (Boolean(t.ticketCode) && String(t.ticketCode).toLowerCase().includes(search.toLowerCase()))
 
       const matchStatus =
         statusFilter === "all" ||
@@ -145,7 +158,7 @@ export default function AdminParticipants() {
         improvement: "Nên tổ chức định kỳ mỗi học kỳ một chuyên đề tương tự.",
         submittedAt: "17/10/2026 09:20",
       },
-    ] as any[]
+    ] as unknown as SurveyResponseItem[]
   }, [surveyResponses, selectedEventId, currentEvent])
 
   const surveyStats = useMemo(() => {
@@ -167,9 +180,7 @@ export default function AdminParticipants() {
     }
     setSubmittingGrace(true)
     try {
-      if (isApiMode()) {
-        await feedbackService.grantGrace(graceTicket.id || graceTicket.ma_dang_ky, graceReason.trim())
-      }
+      await feedbackService.grantGrace(graceTicket.id || graceTicket.ma_dang_ky, graceReason.trim())
       showToast(
         `Đã cấp ân hạn 24h nộp bài khảo sát cho sinh viên ${graceTicket.studentName} (${graceTicket.studentId}) - UC-FEED-01.`,
         "success",
@@ -614,7 +625,7 @@ export default function AdminParticipants() {
                               {t.faculty || "Công nghệ Thông tin"}
                             </td>
                             <td className="p-3.5 font-mono text-[11px] text-slate-500">
-                              {(t as any).ticketCode || `TICK-${t.id || t.ma_dang_ky}`}
+                              {t.ticketCode || `TICK-${t.id || t.ma_dang_ky}`}
                             </td>
                             <td className="p-3.5">
                               <div className="font-mono text-slate-700">
@@ -681,7 +692,7 @@ export default function AdminParticipants() {
                                 <button
                                   onClick={() => {
                                     setOverrideTicket(t)
-                                    setOverrideStatus(t.status as any)
+                                    setOverrideStatus(t.status === "attended" || t.status === "cancelled" ? t.status : "pending")
                                     setOverrideRate(t.ti_le_drl ?? 1.0)
                                     setOverrideReason("")
                                   }}
@@ -773,7 +784,7 @@ export default function AdminParticipants() {
                 </label>
                 <select
                   value={overrideStatus}
-                  onChange={(e) => setOverrideStatus(e.target.value as any)}
+                  onChange={(e) => setOverrideStatus(e.target.value as "attended" | "pending" | "cancelled")}
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo bg-white"
                 >
                   <option value="attended">✓ Đã điểm danh hợp lệ</option>

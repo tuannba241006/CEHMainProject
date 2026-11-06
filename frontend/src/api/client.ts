@@ -1,5 +1,6 @@
-import { apiConfig, tokenStore } from "./config"
+import { apiConfig, tokenStore, isApiMode } from "./config"
 import { ApiError, type ApiErrorPayload } from "./errors"
+import { handleMockRequest } from "./mockAdapter"
 
 type QueryValue = string | number | boolean | null | undefined
 
@@ -53,6 +54,14 @@ export async function request<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
+  // In demo mode, route directly to the service-level mock adapter without leaking into UI
+  if (!isApiMode()) {
+    const mockResponse = await handleMockRequest<T>(path, options)
+    if (mockResponse !== undefined) {
+      return mockResponse
+    }
+  }
+
   const controller = new AbortController()
   const timeout = window.setTimeout(
     () => controller.abort(),

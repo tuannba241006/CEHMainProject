@@ -3,6 +3,17 @@ import { useApp } from "../context/AppContext"
 import { CertificateBadge } from "./management/AffairsOperations"
 import { certificatesService } from "../api/services/certificates.service"
 
+export interface VerifiedCertificateDisplay {
+  id: string | number
+  code: string
+  eventTitle: string
+  studentName: string
+  studentId: string
+  issuedAt: string
+  organizer: string
+  status: string
+}
+
 export default function PublicCertificateVerify({
   onBack,
   initialCode = "CEH-2026-AI-7K9P2",
@@ -15,7 +26,7 @@ export default function PublicCertificateVerify({
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [connectionError, setConnectionError] = useState(false)
-  const [certificate, setCertificate] = useState<any>(undefined)
+  const [certificate, setCertificate] = useState<VerifiedCertificateDisplay | undefined>(undefined)
 
   const handleVerify = async (codeToVerify: string) => {
     const trimmed = codeToVerify.trim()
@@ -26,24 +37,47 @@ export default function PublicCertificateVerify({
     try {
       const res = await certificatesService.verify(trimmed).catch(() => null)
       if (res?.data) {
+        const d = res.data
         setCertificate({
-          id: (res.data as any).id || 1,
-          code: (res.data as any).code || (res.data as any).ma_tra_cuu || trimmed,
-          eventTitle: (res.data as any).event_title || (res.data as any).ten_su_kien || "Sự kiện học thuật",
-          studentName: (res.data as any).student_name || (res.data as any).ho_ten || "Sinh viên",
-          studentId: (res.data as any).student_id || (res.data as any).mssv || "",
-          issuedAt: (res.data as any).issued_at || (res.data as any).ngay_cap || new Date().toISOString(),
-          organizer: (res.data as any).organizer || "Đại học Công nghệ Thông tin",
-          status: ((res.data as any).status || (res.data as any).trang_thai || "issued").toLowerCase(),
+          id: 1,
+          code: trimmed,
+          eventTitle: d.ten_su_kien || "Sự kiện học thuật",
+          studentName: d.ho_ten_che_mo || "Sinh viên",
+          studentId: d.mssv_che_mo || "",
+          issuedAt: d.ngay_cap || new Date().toISOString(),
+          organizer: d.don_vi_to_chuc || "Đại học Công nghệ Thông tin",
+          status: d.da_thu_hoi ? "revoked" : (d.trang_thai?.toLowerCase() || "valid"),
         })
       } else {
         const local = verifyCertificate(trimmed)
-        setCertificate(local)
+        if (local) {
+          setCertificate({
+            id: local.id,
+            code: local.code,
+            eventTitle: local.eventTitle,
+            studentName: local.ho_ten_che_mo || local.recipientName || "Sinh viên",
+            studentId: local.mssv_che_mo || local.studentId || "",
+            issuedAt: local.issuedAt,
+            organizer: local.issuer || "Đại học Công nghệ Thông tin",
+            status: local.status,
+          })
+        } else {
+          setCertificate(undefined)
+        }
       }
     } catch {
       const local = verifyCertificate(trimmed)
       if (local) {
-        setCertificate(local)
+        setCertificate({
+          id: local.id,
+          code: local.code,
+          eventTitle: local.eventTitle,
+          studentName: local.ho_ten_che_mo || local.recipientName || "Sinh viên",
+          studentId: local.mssv_che_mo || local.studentId || "",
+          issuedAt: local.issuedAt,
+          organizer: local.issuer || "Đại học Công nghệ Thông tin",
+          status: local.status,
+        })
       } else {
         setCertificate(undefined)
       }

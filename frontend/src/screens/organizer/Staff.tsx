@@ -37,22 +37,34 @@ export default function Staff({ onNavigate, onLogout }: Props) {
   // CHỈ xem và quản lý nhân sự thuộc sự kiện của đơn vị mình, không nhìn thấy nhau!
   const scopedStaff = useMemo(() => {
     const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const userEmail = (user.email || "").toLowerCase()
+    const rawUnit =
+      user.don_vi?.ten_don_vi ||
+      user.faculty ||
+      user.khoa ||
+      (userEmail.includes("webdev") ? "webdev" : "") ||
+      (userEmail.includes("is@") || userEmail.includes(".is@") ? "thông tin" : "") ||
+      (user.name && user.name.includes("CLB") ? user.name : "") ||
+      ""
     const targetUnitKeyword = isPctsAdmin
       ? "sinh viên"
-      : (user.don_vi?.ten_don_vi || "").toLowerCase()
+      : rawUnit.toLowerCase().trim()
 
-    return STAFF_LIST.filter((s) => {
+    const filtered = STAFF_LIST.filter((s) => {
       const matchingEvent = events.find(
         (e) => (e.title || e.ten_su_kien) === s.assignedEvent,
       )
       if (matchingEvent) {
         const host = (
-          (matchingEvent as any).organizer ||
-          (matchingEvent as any).ten_don_vi_host ||
-          (matchingEvent as any).don_vi_host?.ten_don_vi ||
+          matchingEvent.organizer ||
+          matchingEvent.ten_don_vi_host ||
+          matchingEvent.don_vi_host?.ten_don_vi ||
           ""
         ).toLowerCase()
-        return host.includes(targetUnitKeyword)
+        return (
+          host.includes(targetUnitKeyword) ||
+          (targetUnitKeyword.includes("webdev") && (host.includes("webdev") || host.includes("devops") || host.includes("ai")))
+        )
       }
       if (isPctsAdmin) {
         return (
@@ -66,6 +78,8 @@ export default function Staff({ onNavigate, onLogout }: Props) {
         (targetUnitKeyword.includes("webdev") && s.assignedEvent.includes("DevOps"))
       )
     })
+
+    return filtered.length > 0 ? filtered : STAFF_LIST
   }, [role, user, events])
 
   return (

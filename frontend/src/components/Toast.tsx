@@ -54,7 +54,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ToastItem({ toast }: { toast: Toast; key?: any }) {
+function ToastItem({ toast }: { toast: Toast; key?: React.Key }) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {

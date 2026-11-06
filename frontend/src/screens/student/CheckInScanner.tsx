@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
-import { isApiMode } from "../../api/config"
 import { attendanceService } from "../../api/services/attendance.service"
 import { getApiErrorMessage } from "../../api/errors"
 
@@ -141,16 +140,14 @@ export default function CheckInScanner({ onNavigate }: Props) {
     const eventName = matchedEvent?.title || `Sự kiện #${targetEventId}`
 
     try {
-      if (isApiMode()) {
-        const payload = {
-          ma_su_kien: matchedEvent?.ma_su_kien || Number(targetEventId) || 0,
-          dynamic_totp_code: totpCode,
-        }
-        if (scanMode === "checkin") {
-          await attendanceService.selfCheckin(payload, deviceId)
-        } else {
-          await attendanceService.selfCheckout(payload, deviceId)
-        }
+      const payload = {
+        ma_su_kien: matchedEvent?.ma_su_kien || Number(targetEventId) || 0,
+        dynamic_totp_code: totpCode,
+      }
+      if (scanMode === "checkin") {
+        await attendanceService.selfCheckin(payload, deviceId)
+      } else {
+        await attendanceService.selfCheckout(payload, deviceId)
       }
 
       // Success processing in local context / mock

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router"
 import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { attendanceService } from "../../api/services/attendance.service"
-import { isApiMode } from "../../api/config"
 import { getApiErrorMessage } from "../../api/errors"
 
 export interface StaffAccount {
@@ -130,9 +129,7 @@ export default function AdminStaff() {
     )
     if (newStatus === "locked") {
       try {
-        if (isApiMode()) {
-          await attendanceService.revokeStaff(st.eventId, st.email)
-        }
+        await attendanceService.revokeStaff(st.eventId, st.email)
       } catch {
         // Silent catch for demo
       }

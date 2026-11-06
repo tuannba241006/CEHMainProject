@@ -4,7 +4,6 @@ import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { CONTRACT_TOPICS, ROOMS, ORGANIZATIONS } from "../../data/mock"
 import { formatCalendarDate } from "../../utils/date"
-import { isApiMode } from "../../api/config"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
 import { organizationsService } from "../../api/services/organizations.service"
@@ -120,18 +119,13 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
     setSaving(true)
     try {
       const title = form.title.trim() || "Bản nháp chưa đặt tên"
-      if (isApiMode()) {
-        if (
-          !form.eventDate ||
-          !form.startTime ||
-          !form.endTime ||
-          !form.topic ||
-          !form.room
-        ) {
-          throw new Error(
-            "Nhập ngày, giờ, chuyên đề và phòng trước khi gửi qua API.",
-          )
-        }
+      if (
+        form.eventDate &&
+        form.startTime &&
+        form.endTime &&
+        form.topic &&
+        form.room
+      ) {
         const payload = {
           ten_su_kien: title,
           mo_ta: form.description,
@@ -164,37 +158,32 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
             id?: number
           }
           const id = event.ma_su_kien ?? event.id
-          if (!id)
-            throw new Error(
-              "Đã lưu nháp nhưng backend chưa trả ID sự kiện để gửi duyệt.",
-            )
-          const approved = await eventsService.submitApproval(id)
-          if (!approved.success)
-            throw new Error(approved.message || "Không thể gửi duyệt")
+          if (id) {
+            await eventsService.submitApproval(id)
+          }
         }
-      } else {
-        saveApprovalDraft(
-          {
-            title,
-            eventDate: form.eventDate,
-            description: form.description,
-            plan: "Nội dung chương trình được lưu từ biểu mẫu sự kiện.",
-            proposedPoints: Number(form.proposedPoints) || 0,
-            maxPoints: Number(form.proposedPoints) || 0,
-            validMinutes: Number(form.validMinutes) || 0,
-            certificateCondition: form.certificateCondition,
-            ruleBasis: form.ruleBasis,
-            thresholds: [
-              {
-                ratio: 70,
-                points: Math.max(1, (Number(form.proposedPoints) || 0) - 2),
-              },
-              { ratio: 90, points: Number(form.proposedPoints) || 0 },
-            ],
-          },
-          submitForApproval,
-        )
       }
+      saveApprovalDraft(
+        {
+          title,
+          eventDate: form.eventDate,
+          description: form.description,
+          plan: "Nội dung chương trình được lưu từ biểu mẫu sự kiện.",
+          proposedPoints: Number(form.proposedPoints) || 0,
+          maxPoints: Number(form.proposedPoints) || 0,
+          validMinutes: Number(form.validMinutes) || 0,
+          certificateCondition: form.certificateCondition,
+          ruleBasis: form.ruleBasis,
+          thresholds: [
+            {
+              ratio: 70,
+              points: Math.max(1, (Number(form.proposedPoints) || 0) - 2),
+            },
+            { ratio: 90, points: Number(form.proposedPoints) || 0 },
+          ],
+        },
+        submitForApproval,
+      )
       showToast(
         submitForApproval ? "Đã gửi duyệt sự kiện." : "Đã lưu bản nháp.",
         "success",

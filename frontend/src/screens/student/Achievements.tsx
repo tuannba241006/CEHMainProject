@@ -28,7 +28,7 @@ export default function Achievements({ onBack, onVerify }: Props) {
       try {
         const certRes = await certificatesService.mine().catch(() => null)
         if (certRes?.data && Array.isArray(certRes.data) && active) {
-          setRemoteCertificates(certRes.data as any)
+          setRemoteCertificates(certRes.data as unknown as Certificate[])
         }
       } catch {
         // keep local context fallback

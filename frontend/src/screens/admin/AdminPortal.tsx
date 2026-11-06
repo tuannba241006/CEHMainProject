@@ -7,8 +7,7 @@ import {
   ORGANIZATIONS,
   type Ticket,
 } from "../../data/mock"
-import type { OrganizationSummary, Topic } from "../../data/contract"
-import { isApiMode } from "../../api/config"
+import type { OrganizationSummary, Topic, User } from "../../data/contract"
 import { adminService } from "../../api/services/admin.service"
 import { feedbackService } from "../../api/services/feedback.service"
 import { useCollection } from "../../hooks/useCollection"
@@ -20,7 +19,7 @@ import FormDialog, { ConfirmDialog, type FieldSpec } from "./FormDialog"
 import { useApp } from "../../context/AppContext"
 import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
 import { Certificates } from "../management/AffairsOperations"
-import AdminEventsManagement from "./AdminEventsManagement"
+import AdminEventsManagement, { type AdminManageEvent } from "./AdminEventsManagement"
 import AdminParticipants from "./AdminParticipants"
 import AdminStaff from "./AdminStaff"
 import AdminCohostInvitations from "./AdminCohostInvitations"
@@ -149,8 +148,9 @@ export default function AdminPortal({ section }: { section: Section }) {
     {
       list: async () => {
         try {
-          const res = (await adminService.users()) as { data: any[] }
-          const mapped: AdminUser[] = (res.data || []).map((u: any) => ({
+          const res = await adminService.users()
+          const rawUsers = (res.data || []) as Array<Partial<User> & { ma_nguoi_dung?: number; bi_khoa?: boolean; ma_don_vi?: number | null }>
+          const mapped: AdminUser[] = rawUsers.map((u) => ({
             ma_nguoi_dung: Number(u.ma_tai_khoan ?? u.ma_nguoi_dung),
             ho_ten: u.ho_ten || "",
             email: u.email || "",
@@ -217,7 +217,7 @@ export default function AdminPortal({ section }: { section: Section }) {
     | { kind: "lock"; item: AdminUser }
     | { kind: "delTopic"; item: Topic }
     | { kind: "ticketLookup"; student: AdminUser }
-    | { kind: "eventReconciliation"; event: typeof EVENTS[0] }
+    | { kind: "eventReconciliation"; event: AdminManageEvent }
     | { kind: "noShowGrace"; violation: NoShowViolation }
     | null
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -264,7 +264,7 @@ export default function AdminPortal({ section }: { section: Section }) {
         </button>
       </div>
     ) : null
-  const run = async (fn: () => Promise<any>, ok: string) => {
+  const run = async (fn: () => Promise<unknown>, ok: string) => {
     try {
       await fn()
       showToast(ok, "success")
@@ -1152,7 +1152,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                         <button
                           onClick={async () => {
                             try {
-                              if (isApiMode() && t.ma_dang_ky) {
+                              if (t.ma_dang_ky) {
                                 await feedbackService.grantGrace(
                                   t.ma_dang_ky,
                                   `Admin phê duyệt ân hạn khảo sát 24h cho sinh viên ${dialog.student.ho_ten}`,
@@ -1306,15 +1306,13 @@ export default function AdminPortal({ section }: { section: Section }) {
                 onClick={async () => {
                   setNoShowSubmitting(true)
                   try {
-                    if (isApiMode()) {
-                      await attendanceService.manualOverride({
-                        ma_dang_ky: dialog.violation.ma_dang_ky,
-                        trang_thai_moi:
-                          noShowRate > 0 ? "DaCheckOut" : "DaCheckIn",
-                        ti_le_drl_moi: noShowRate,
-                        ly_do: noShowReason.trim(),
-                      })
-                    }
+                    await attendanceService.manualOverride({
+                      ma_dang_ky: dialog.violation.ma_dang_ky,
+                      trang_thai_moi:
+                        noShowRate > 0 ? "DaCheckOut" : "DaCheckIn",
+                      ti_le_drl_moi: noShowRate,
+                      ly_do: noShowReason.trim(),
+                    })
                     setNoShowList((prev) =>
                       prev.map((row) =>
                         row.mssv === dialog.violation.mssv
@@ -1362,7 +1360,7 @@ function AdminEventReconciliationDialog({
   event,
   onClose,
 }: {
-  event: typeof EVENTS[0]
+  event: AdminManageEvent
   onClose: () => void
 }) {
   const { tickets, manualOverrideAttendance } = useApp()
@@ -1392,8 +1390,8 @@ function AdminEventReconciliationDialog({
   )
 
   const isEventCompleted =
-    event.status === "closed" ||
-    (event as any).trang_thai === "COMPLETED" ||
+    (event.status as string) === "closed" ||
+    event.trang_thai === "COMPLETED" ||
     new Date().getTime() >
       new Date(
         `${event.date}T${event.endTime?.split(" ")[0] || "11:30"}:00+07:00`,
@@ -1642,7 +1640,7 @@ function AdminEventReconciliationDialog({
             ].map(([f, label]) => (
               <button
                 key={f}
-                onClick={() => setFilter(f as any)}
+                onClick={() => setFilter(f as typeof filter)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                   filter === f
                     ? f === "fraud"

@@ -14,9 +14,9 @@ import type { Ticket } from "../data/mock"
 import SystemState from "../screens/SystemState"
 
 // Safe lazy import with auto-retry and cache-busting recovery
-function lazyImport<T extends React.ComponentType<any>>(
-  factory: () => Promise<{ default: T }>,
-) {
+function lazyImport<P>(
+  factory: () => Promise<{ default: React.ComponentType<P> }>,
+): React.LazyExoticComponent<React.ComponentType<P>> {
   return lazy(async () => {
     try {
       return await factory()

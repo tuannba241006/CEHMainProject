@@ -9,7 +9,6 @@ import { useToast } from "../../components/Toast"
 import { ManagementLayout } from "./ManagementLayout"
 import { useUser } from "../../context/UserContext"
 import { formatCalendarDate, inDateRange } from "../../utils/date"
-import { isApiMode } from "../../api/config"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
 import { ROOMS } from "../../data/mock"
@@ -453,48 +452,41 @@ function ApprovalDetail({
     if (busy) return
     setBusy(true)
     try {
-      if (isApiMode()) {
-        if (action === "withdraw") {
-          await eventsService.withdraw(item.eventId, reason.trim())
-        } else if (action === "reopen") {
-          await eventsService.reopen(item.eventId, reason.trim())
-        } else {
-          const hanh_dong =
-            action === "faculty_approve"
-              ? "APPROVE_FACULTY"
-              : action === "faculty_approve_by_admin"
-                ? "APPROVE_FACULTY_BY_ADMIN"
-                : action === "affairs_approve"
-                  ? "APPROVE_ADMIN"
-                  : action === "request_revision"
-                    ? "REQUEST_EDIT"
-                    : role === "faculty_manager"
-                      ? "REJECT_FACULTY"
-                      : "REJECT_ADMIN"
-          await eventsService.review(item.eventId, {
-            hanh_dong,
-            ...(reason.trim() ? { ly_do: reason.trim() } : {}),
-          })
-        }
-        showToast(
-          "Backend đã tiếp nhận quyết định. Vui lòng tải lại danh sách.",
-          "success",
-        )
+      if (action === "withdraw") {
+        await eventsService.withdraw(item.eventId, reason.trim())
+      } else if (action === "reopen") {
+        await eventsService.reopen(item.eventId, reason.trim())
       } else {
-        const result = updateApproval(item.id, action, reason)
-        if (!result.success)
-          throw new Error(result.error || "Không thể xử lý hồ sơ.")
-        showToast(
-          action.includes("approve")
-            ? "Đã duyệt hồ sơ thành công."
-            : action === "withdraw"
-              ? "Đã rút đề xuất cưỡng chế về DRAFT (giải phóng phòng)."
-              : action === "reopen"
-                ? "Đã tái mở bản nháp để chỉnh sửa."
-                : "Đã cập nhật trạng thái hồ sơ.",
-          "success",
-        )
+        const hanh_dong =
+          action === "faculty_approve"
+            ? "APPROVE_FACULTY"
+            : action === "faculty_approve_by_admin"
+              ? "APPROVE_FACULTY_BY_ADMIN"
+              : action === "affairs_approve"
+                ? "APPROVE_ADMIN"
+                : action === "request_revision"
+                  ? "REQUEST_EDIT"
+                  : role === "faculty_manager"
+                    ? "REJECT_FACULTY"
+                    : "REJECT_ADMIN"
+        await eventsService.review(item.eventId, {
+          hanh_dong,
+          ...(reason.trim() ? { ly_do: reason.trim() } : {}),
+        })
       }
+      const result = updateApproval(item.id, action, reason)
+      if (!result.success)
+        throw new Error(result.error || "Không thể xử lý hồ sơ.")
+      showToast(
+        action.includes("approve")
+          ? "Đã duyệt hồ sơ thành công."
+          : action === "withdraw"
+            ? "Đã rút đề xuất cưỡng chế về DRAFT (giải phóng phòng)."
+            : action === "reopen"
+              ? "Đã tái mở bản nháp để chỉnh sửa."
+              : "Đã cập nhật trạng thái hồ sơ.",
+        "success",
+      )
       setDialog(null)
       setReason("")
     } catch (error) {

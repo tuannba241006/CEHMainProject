@@ -100,6 +100,70 @@ export interface OrganizationSummary {
   ma_don_vi_cha?: number | null
 }
 
+/** Chi tiết đơn vị tổ chức (UC-ADM-01) */
+export interface Organization extends OrganizationSummary {
+  mo_ta?: string | null
+  hoat_dong: boolean
+  thoi_gian_tao: string
+  thoi_gian_cap_nhat?: string
+}
+
+/** Trạng thái lời mời đồng tổ chức */
+export interface CohostInvitationStatus {
+  id: number
+  ma_su_kien: number
+  ten_su_kien: string
+  don_vi_host: OrganizationSummary
+  don_vi_dong_to_chuc: OrganizationSummary
+  trang_thai_xac_nhan: "CHO_XAC_NHAN" | "DONG_Y" | "TU_CHOI"
+  ly_do_tu_choi?: string | null
+  thoi_gian_tao: string
+  thoi_gian_bat_dau?: string
+  thoi_gian_ket_thuc?: string
+  ten_phong?: string
+}
+
+/** Payload tạo bản nháp sự kiện */
+export interface EventCreateDraftPayload {
+  ten_su_kien: string
+  ma_chuyen_de?: number
+  mo_ta?: string
+  thoi_gian_bat_dau: string
+  thoi_gian_ket_thuc: string
+  ma_phong?: number | null
+  danh_sach_ma_dong_to_chuc?: number[]
+  khong_gioi_han_slot?: boolean
+  so_luong_toi_da?: number | null
+  dieu_khoan_drl?: DrlRule | string
+  diem_drl_du_kien?: number
+  gio_tinh_nguyen?: number
+  anh_bia?: string | null
+  dien_gia?: string | null
+  doi_tuong_tham_gia?: string | null
+  lo_trinh?: AgendaItem[] | null
+  danh_sach_co_host_ids?: number[]
+  ngay_cong_bo?: string
+  [key: string]: unknown
+}
+
+/** Payload cập nhật bản nháp sự kiện */
+export type EventUpdateDraftPayload = Partial<EventCreateDraftPayload>
+
+/** Payload thẩm định sự kiện */
+export interface EventReviewPayload {
+  trang_thai?: "APPROVED" | "REJECTED" | string
+  ly_do_tu_choi?: string
+  ghi_chu?: string
+  hanh_dong?: string
+  [key: string]: unknown
+}
+
+/** Payload đổi phòng khẩn cấp */
+export interface EventChangeRoomPayload {
+  ma_phong_moi: number | string
+  ly_do: string
+}
+
 /** Thông tin phòng ốc công khai */
 export interface RoomPublic {
   ma_phong: number

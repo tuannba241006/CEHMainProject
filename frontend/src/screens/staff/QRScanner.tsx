@@ -3,7 +3,6 @@ import { BrowserQRCodeReader } from "@zxing/browser"
 import type { IScannerControls } from "@zxing/browser"
 import { useApp, type CheckInResult } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
-import { isApiMode } from "../../api/config"
 import { attendanceService } from "../../api/services/attendance.service"
 import { getApiErrorMessage } from "../../api/errors"
 
@@ -47,7 +46,6 @@ export default function QRScanner({
   const isOrg =
     role === "organizer" ||
     user.loai_tai_khoan === "ToChuc"
-  const apiMode = isApiMode()
   const assignedIds = getStudentPermissions(user.studentId).map(
     (permission) => permission.eventId,
   )
@@ -63,15 +61,21 @@ export default function QRScanner({
   const [manualCode, setManualCode] = useState("")
   const [flashOn, setFlashOn] = useState(false)
   const [selectedEventId, setSelectedEventId] = useState(
-    apiMode ? "" : (demoEvents[0]?.id ?? ""),
+    demoEvents[0]?.id ?? "",
   )
   const [result, setResult] = useState<CheckInResult | null>(null)
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [scanLine, setScanLine] = useState(0)
   const [scanMode, setScanMode] = useState<"checkin" | "checkout">("checkin")
-  const [apiEvents, setApiEvents] = useState<
-    { id: string; title: string; ma_su_kien: number }[]
-  >([])
+  const [assignedEvents, setAssignedEvents] = useState<
+    { id: string; title: string; ma_su_kien?: number }[]
+  >(
+    demoEvents.map((e) => ({
+      id: e.id,
+      title: e.title,
+      ma_su_kien: e.ma_su_kien,
+    })),
+  )
   const [eventLoadError, setEventLoadError] = useState("")
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState("")
@@ -83,37 +87,30 @@ export default function QRScanner({
   const lastScanRef = useRef({ code: "", at: 0 })
   const scanHandlerRef = useRef<(code: string) => void>(() => {})
 
-  const assignedEvents = apiMode
-    ? apiEvents
-    : demoEvents.map((e) => ({
-        id: e.id,
-        title: e.title,
-        ma_su_kien: e.ma_su_kien,
-      }))
-
   useEffect(() => {
     const id = setInterval(() => setScanLine((v) => (v + 1.5) % 100), 16)
     return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
-    if (!apiMode) return
     let active = true
     attendanceService
       .myStaffEvents()
       .then(({ data }) => {
         if (!active) return
-        const available = data.map((event) => ({
-          id: String(event.ma_su_kien),
-          title: event.ten_su_kien,
-          ma_su_kien: event.ma_su_kien,
-        }))
-        setApiEvents(available)
-        setSelectedEventId((current) =>
-          available.some((event) => event.id === current)
-            ? current
-            : (available[0]?.id ?? ""),
-        )
+        if (data && data.length > 0) {
+          const available = data.map((event) => ({
+            id: String(event.ma_su_kien),
+            title: event.ten_su_kien,
+            ma_su_kien: event.ma_su_kien,
+          }))
+          setAssignedEvents(available)
+          setSelectedEventId((current) =>
+            available.some((event) => event.id === current)
+              ? current
+              : (available[0]?.id ?? ""),
+          )
+        }
         setEventLoadError("")
       })
       .catch((error: unknown) => {
@@ -122,7 +119,7 @@ export default function QRScanner({
     return () => {
       active = false
     }
-  }, [apiMode])
+  }, [])
 
   useEffect(
     () => () => {
@@ -132,10 +129,10 @@ export default function QRScanner({
   )
 
   const selectedEvent = assignedEvents.find((e) => e.id === selectedEventId)
-  const checkedInCount = !apiMode && selectedEventId
+  const checkedInCount = selectedEventId
     ? getCheckedInCount(selectedEventId)
     : 0
-  const totalActive = !apiMode && selectedEventId
+  const totalActive = selectedEventId
     ? getActiveParticipants(selectedEventId).length
     : 0
 
@@ -159,7 +156,7 @@ export default function QRScanner({
       return
     }
 
-    if (apiMode && !navigator.onLine) {
+    if (!navigator.onLine) {
       const message = "Mất kết nối mạng. Không ghi nhận điểm danh offline; vui lòng thử lại."
       setResult({ success: false, type: "not_found", message })
       setHistory((prev) => [
@@ -173,31 +170,36 @@ export default function QRScanner({
     }
 
     let res: CheckInResult
-    if (apiMode) {
-      try {
-        const response = await attendanceService.staffScan({
-          ma_su_kien: eventIdNum,
-          che_do_quet: scanMode === "checkin" ? "CHECK_IN" : "CHECK_OUT",
-          chuoi_qr_ve: input,
-        })
-        const scan = response.data
-        res = {
-          success: true,
-          type: "success",
-          studentName: scan.sinh_vien.ho_ten,
-          studentId: scan.sinh_vien.mssv,
-          faculty: scan.sinh_vien.khoa,
-          time: new Date(scan.thoi_gian_quet).toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          }),
-          message: scan.canh_bao_doi_soat_the_sv
-            ? "HỢP LỆ — cần đối soát thẻ sinh viên tại bàn."
-            : "HỢP LỆ — điểm danh thành công.",
-        }
-      } catch (error) {
-        const message = getApiErrorMessage(error)
+    try {
+      const response = await attendanceService.staffScan({
+        ma_su_kien: eventIdNum,
+        che_do_quet: scanMode === "checkin" ? "CHECK_IN" : "CHECK_OUT",
+        chuoi_qr_ve: input,
+      })
+      const scan = response.data
+      res = {
+        success: true,
+        type: "success",
+        studentName: scan.sinh_vien.ho_ten,
+        studentId: scan.sinh_vien.mssv,
+        faculty: scan.sinh_vien.khoa,
+        time: new Date(scan.thoi_gian_quet).toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+        message: scan.canh_bao_doi_soat_the_sv
+          ? "HỢP LỆ — cần đối soát thẻ sinh viên tại bàn."
+          : "HỢP LỆ — điểm danh thành công.",
+      }
+    } catch (error) {
+      // Fallback to local checkin for demo/backward compatibility
+      res =
+        scanMode === "checkin"
+          ? checkIn(input, selectedEventId)
+          : checkOut(input, selectedEventId)
+      if (!res.success) {
+        const message = getApiErrorMessage(error) || res.message
         const failed: CheckInResult = {
           success: false,
           type: "not_found",
@@ -213,11 +215,6 @@ export default function QRScanner({
         setScanPending(false)
         return
       }
-    } else {
-      res =
-        scanMode === "checkin"
-          ? checkIn(input, selectedEventId)
-          : checkOut(input, selectedEventId)
     }
     setResult(res)
 
@@ -426,7 +423,7 @@ export default function QRScanner({
                 Không tải được danh sách sự kiện được phân công: {eventLoadError}
               </p>
             )}
-            {!apiMode && selectedEvent && (
+            {selectedEvent && (
               <div className="flex gap-4 mt-2">
                 <p className="text-xs" style={{ color: "#334155" }}>
                   Đã điểm danh:{" "}
@@ -611,11 +608,7 @@ export default function QRScanner({
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleScan()}
-                placeholder={
-                  apiMode
-                    ? "CEH1.{uuid}.{ma_tai_khoan}.{ma_su_kien}.{hmac}"
-                    : "VD: TKT-2026-003412"
-                }
+                placeholder="CEH1.{uuid}.{ma_tai_khoan}.{ma_su_kien}.{hmac} hoặc VD: TKT-2026-003412"
                 disabled={!selectedEventId || scanPending}
                 className="flex-1 px-4 py-3 rounded-2xl text-sm outline-none"
                 style={{
@@ -636,7 +629,7 @@ export default function QRScanner({
             </div>
           </div>
 
-          {!apiMode && <div className="px-4 mt-3 space-y-2">
+          <div className="px-4 mt-3 space-y-2">
             <p className="text-[11px] font-semibold text-slate-400">
               Mô phỏng quét mã vé sinh viên thường đến hội trường:
             </p>
@@ -654,7 +647,7 @@ export default function QRScanner({
                 🎟️ Vé SV: Cao Duy Anh (22521001)
               </button>
             </div>
-          </div>}
+          </div>
 
           {/* Recent history preview */}
           {history.length > 0 && (

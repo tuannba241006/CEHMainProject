@@ -1,7 +1,6 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
-import { isApiMode } from "../../api/config"
 import { getApiErrorMessage } from "../../api/errors"
 
 export interface AdminCohostInvitation {
@@ -91,6 +90,44 @@ export default function AdminCohostInvitations() {
   const [invitations, setInvitations] = useState<AdminCohostInvitation[]>(INITIAL_INVITATIONS)
   const [selectedUnit, setSelectedUnit] = useState<string>("all")
   const [filter, setFilter] = useState<"all" | "pending" | "accepted" | "declined">("all")
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadInvitations() {
+      try {
+        setLoading(true)
+        const res = await eventsService.getCohostInvitations()
+        if (!cancelled && res.data && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped: AdminCohostInvitation[] = res.data.map((inv, idx) => ({
+            id: `api-cohost-${inv.id || idx}`,
+            eventId: inv.ma_su_kien,
+            eventTitle: inv.ten_su_kien,
+            topic: "Đồng tổ chức",
+            hostUnit: inv.don_vi_host.ten_don_vi,
+            hostContact: "contact@uit.edu.vn",
+            invitedUnit: inv.don_vi_dong_to_chuc.ten_don_vi,
+            time: inv.thoi_gian_tao || "2026-11-01",
+            location: "Hội trường UIT",
+            roleDescription: "Phối hợp tổ chức sự kiện và điều phối sinh viên.",
+            drlPoints: 5,
+            status: inv.trang_thai_xac_nhan === "DONG_Y" ? "accepted" : inv.trang_thai_xac_nhan === "TU_CHOI" ? "declined" : "pending",
+            softHoldRemainingHours: inv.trang_thai_xac_nhan === "CHO_XAC_NHAN" ? 48 : 0,
+            declineReason: inv.ly_do_tu_choi || undefined,
+          }))
+          setInvitations(mapped)
+        }
+      } catch {
+        // Fall back to INITIAL_INVITATIONS silently
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    loadInvitations()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Decline modal state
   const [selectedDecline, setSelectedDecline] = useState<AdminCohostInvitation | null>(null)
@@ -132,12 +169,10 @@ export default function AdminCohostInvitations() {
   async function handleAccept(inv: AdminCohostInvitation) {
     setSubmitting(true)
     try {
-      if (isApiMode()) {
-        await eventsService.cohostRespond(inv.eventId, {
-          trang_thai_xac_nhan: "DONG_Y",
-          ten_don_vi_dai_dien: inv.invitedUnit,
-        })
-      }
+      await eventsService.cohostRespond(inv.eventId, {
+        trang_thai_xac_nhan: "DONG_Y",
+        ten_don_vi_dai_dien: inv.invitedUnit,
+      })
       setInvitations((prev) =>
         prev.map((item) => (item.id === inv.id ? { ...item, status: "accepted" } : item)),
       )
@@ -161,13 +196,11 @@ export default function AdminCohostInvitations() {
     }
     setSubmitting(true)
     try {
-      if (isApiMode()) {
-        await eventsService.cohostRespond(selectedDecline.eventId, {
-          trang_thai_xac_nhan: "TU_CHOI",
-          ghi_chu_tu_choi: declineReason.trim(),
-          ten_don_vi_dai_dien: selectedDecline.invitedUnit,
-        })
-      }
+      await eventsService.cohostRespond(selectedDecline.eventId, {
+        trang_thai_xac_nhan: "TU_CHOI",
+        ghi_chu_tu_choi: declineReason.trim(),
+        ten_don_vi_dai_dien: selectedDecline.invitedUnit,
+      })
       setInvitations((prev) =>
         prev.map((item) =>
           item.id === selectedDecline.id
@@ -258,7 +291,7 @@ export default function AdminCohostInvitations() {
         ].map(([val, label]) => (
           <button
             key={val}
-            onClick={() => setFilter(val as any)}
+            onClick={() => setFilter(val as typeof filter)}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               filter === val
                 ? "bg-navy text-white shadow-2xs"

@@ -14,7 +14,7 @@ export interface FieldSpec {
 type Values = Record<string, string | number | boolean | null | undefined>
 
 interface Props {
-  key?: any
+  key?: React.Key
   open: boolean
   title: string
   description?: string

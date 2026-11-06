@@ -9,7 +9,6 @@ import { ManagementLayout } from "./ManagementLayout"
 import { drlService } from "../../api/services/drl.service"
 import { certificatesService } from "../../api/services/certificates.service"
 import { feedbackService } from "../../api/services/feedback.service"
-import { isApiMode } from "../../api/config"
 import { getApiErrorMessage } from "../../api/errors"
 
 interface Props {
@@ -73,9 +72,7 @@ function Results() {
 
   async function handleLockDrl() {
     try {
-      if (isApiMode()) {
-        await drlService.lock(selectedEventId)
-      }
+      await drlService.lock(selectedEventId)
       setIsDrlLocked(true)
       setLockModalOpen(false)
       showToast(
@@ -96,9 +93,7 @@ function Results() {
       return
     }
     try {
-      if (isApiMode()) {
-        await drlService.unlock(selectedEventId, unlockReason.trim())
-      }
+      await drlService.unlock(selectedEventId, unlockReason.trim())
       setIsDrlLocked(false)
       setUnlockModalOpen(false)
       setUnlockReason("")
@@ -137,9 +132,7 @@ function Results() {
       return
     }
     try {
-      if (isApiMode()) {
-        await feedbackService.grantGrace(graceStudent.id, graceReason.trim())
-      }
+      await feedbackService.grantGrace(graceStudent.id, graceReason.trim())
       showToast(
         `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${graceStudent.studentName} (${graceStudent.studentId}) - UC-FEED-01.`,
         "success",
@@ -643,7 +636,7 @@ function ResultRow({
   onRecognize: () => void
   onRevision: () => void
   onGrace: () => void
-  key?: any
+  key?: React.Key
 }) {
   return (
     <tr className="border-t border-slate-100">
@@ -904,7 +897,7 @@ export function Certificates({ embedded = false }: {
   )
 }
 
-export function CertificateBadge({ status }: { status: any }) {
+export function CertificateBadge({ status }: { status: string }) {
   const map: Record<string, [string, string]> = {
     ineligible: ["Chưa đủ điều kiện", "bg-slate-100 text-slate-600"],
     pending: ["Chờ phát hành", "bg-amber-50 text-amber-700"],

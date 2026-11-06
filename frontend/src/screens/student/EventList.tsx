@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { TOPIC_LABELS, type Topic } from "../../data/mock"
+import type { WaitlistEntry } from "../../data/contract"
 import { useUser } from "../../context/UserContext"
 import {
   useApp,
@@ -389,10 +390,10 @@ function EventCard({
 }: {
   event: LiveEvent
   isRegistered: boolean
-  waitlistEntry?: any
+  waitlistEntry?: WaitlistEntry
   isGuest: boolean
   onSelect: () => void
-  key?: any
+  key?: React.Key
 }) {
   const { computeStatus } = useApp()
   const status = computeStatus(event)
@@ -637,7 +638,7 @@ function Chip({
   active: boolean
   onClick: () => void
   color: string
-  key?: any
+  key?: React.Key
 }) {
   return (
     <button

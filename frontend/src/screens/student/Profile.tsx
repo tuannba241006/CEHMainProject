@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
-import { isApiMode } from "../../api/config"
 import { authService } from "../../api/services/auth.service"
 import { getApiErrorMessage } from "../../api/errors"
 
@@ -38,13 +37,11 @@ export default function Profile({ onNavigate, onLogout }: Props) {
 
     setChangingPass(true)
     try {
-      if (isApiMode()) {
-        await authService.changePassword({
-          mat_khau_hien_tai: currentPassword,
-          mat_khau_moi: newPassword,
-          xac_nhan_mat_khau: confirmPassword,
-        })
-      }
+      await authService.changePassword({
+        mat_khau_hien_tai: currentPassword,
+        mat_khau_moi: newPassword,
+        xac_nhan_mat_khau: confirmPassword,
+      })
       showToast(
         "Đã đổi mật khẩu thành công. Các phiên làm việc khác đã được thu hồi bảo mật.",
         "success",
@@ -63,12 +60,10 @@ export default function Profile({ onNavigate, onLogout }: Props) {
     if (saving) return
     setSaving(true)
     try {
-      if (isApiMode()) {
-        await authService.updateProfile({
-          so_dien_thoai: draft.phone,
-          avatar_url: user.avatar_url,
-        })
-      }
+      await authService.updateProfile({
+        so_dien_thoai: draft.phone,
+        avatar_url: user.avatar_url,
+      })
       updateUser({ phone: draft.phone })
       setEditMode(false)
       showToast("Đã cập nhật thông tin hồ sơ thành công.", "success")

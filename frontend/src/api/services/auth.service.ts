@@ -2,11 +2,32 @@ import { api } from "../client"
 import { tokenStore } from "../config"
 import type { User } from "../../data/contract"
 
+export interface PaginationMeta {
+  trang_hien_tai?: number
+  tong_so_trang?: number
+  tong_so_ban_ghi?: number
+  kich_thuoc_trang?: number
+  current_page?: number
+  last_page?: number
+  per_page?: number
+  total?: number
+  from?: number | null
+  to?: number | null
+  so_luong_chua_doc?: number
+  [key: string]: unknown
+}
+
 export interface ApiEnvelope<T> {
   success: boolean
   data: T
   message?: string
   server_time?: string
+  meta?: PaginationMeta
+  error?: {
+    code: string
+    message: string
+    details?: unknown
+  }
 }
 
 export const authService = {

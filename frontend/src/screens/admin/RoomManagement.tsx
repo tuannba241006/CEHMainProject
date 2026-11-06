@@ -28,8 +28,9 @@ export default function RoomManagement({
   const col = useCollection<RoomPublic>("admin_rooms", ROOMS, "ma_phong", {
     list: async () => {
       try {
-        const res = (await roomsService.list()) as { data: any[] }
-        const mapped: RoomPublic[] = (res.data || []).map((r: any) => ({
+        const res = await roomsService.list()
+        const rawList = (res.data || []) as Array<Partial<RoomPublic> & { suc_chua_toi_da?: number; trang_thiet_bi?: { may_chieu?: boolean; am_thanh?: boolean; wifi?: boolean } }>
+        const mapped: RoomPublic[] = rawList.map((r) => ({
           ma_phong: Number(r.ma_phong),
           ten_phong: r.ten_phong || "Hội trường",
           suc_chua: Number(r.suc_chua_toi_da ?? r.suc_chua ?? 100),

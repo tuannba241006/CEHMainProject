@@ -3,7 +3,6 @@ import { QRCodeSVG } from "qrcode.react"
 import { getApiErrorMessage } from "../../api/errors"
 import { useNavigate, useParams } from "react-router"
 import { attendanceService } from "../../api/services/attendance.service"
-import { isApiMode } from "../../api/config"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
 
@@ -26,7 +25,7 @@ export default function KioskPortal() {
   const [totp, setTotp] = useState("")
   const [qrPayload, setQrPayload] = useState("")
   const [kioskToken, setKioskToken] = useState("")
-  const [loading, setLoading] = useState(isApiMode())
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [gate, setGate] = useState<"closed" | "checkin" | "checkout">("closed")
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -123,39 +122,35 @@ export default function KioskPortal() {
         }
       }
     }
-    if (isApiMode()) {
-      setLoading(true)
-      attendanceService
-        .startKiosk(eventId)
-        .then((response) => {
-          if (!active) return
-          const token = response.data.kiosk_token
-          if (!token) throw new Error("Không nhận được Kiosk Token.")
-          activeKioskToken = token
-          setKioskToken(token)
-          return fetchKioskCode(token)
-        })
-        .catch((e) => {
-          if (active) {
-            setError(getApiErrorMessage(e))
-            setTotp("")
-            setQrPayload("")
-          }
-        })
-        .finally(() => {
-          if (active) setLoading(false)
-        })
-    } else {
-      const code = makeDemoCode()
-      setTotp(code)
-      setQrPayload(`CEH1K.${event?.ma_su_kien || eventId}.${code}`)
-    }
+    setLoading(true)
+    attendanceService
+      .startKiosk(eventId)
+      .then((response) => {
+        if (!active) return
+        const token = response.data.kiosk_token
+        if (!token) throw new Error("Không nhận được Kiosk Token.")
+        activeKioskToken = token
+        setKioskToken(token)
+        return fetchKioskCode(token)
+      })
+      .catch((e) => {
+        if (active) {
+          setError(getApiErrorMessage(e))
+          const code = makeDemoCode()
+          setTotp(code)
+          setQrPayload(`CEH1K.${event?.ma_su_kien || eventId}.${code}`)
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
     const timer = window.setInterval(() => {
       if (!active) return
       setSeconds((value) => {
         if (value <= 1) {
-          if (isApiMode()) {
-            if (activeKioskToken) void fetchKioskCode(activeKioskToken)
+          if (activeKioskToken) {
+            void fetchKioskCode(activeKioskToken)
           } else {
             const code = makeDemoCode()
             setTotp(code)
@@ -177,12 +172,10 @@ export default function KioskPortal() {
     payload?: { confirm?: string },
   ) {
     try {
-      if (isApiMode()) {
-        if (next === "checkin") await attendanceService.openCheckin(eventId)
-        if (next === "checkout")
-          await attendanceService.openCheckout(eventId, payload)
-        if (next === "closed") await attendanceService.closeGates(eventId)
-      }
+      if (next === "checkin") await attendanceService.openCheckin(eventId)
+      if (next === "checkout")
+        await attendanceService.openCheckout(eventId, payload)
+      if (next === "closed") await attendanceService.closeGates(eventId)
       setGate(next)
       setError("")
     } catch (e) {
@@ -299,7 +292,7 @@ export default function KioskPortal() {
       </header>
 
       {/* Simulation Controls are intentionally unavailable against the API. */}
-      {!isApiMode() && <div className="my-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="my-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 text-slate-400">
           <span className="font-semibold text-slate-300">
             ⏱️ DEMO — Giả lập trạng thái thời gian:
@@ -325,7 +318,7 @@ export default function KioskPortal() {
             </button>
           ))}
         </div>
-      </div>}
+      </div>
 
       {/* Main Content */}
       <main className="flex-1 grid lg:grid-cols-3 gap-8 items-center max-w-6xl mx-auto w-full py-6">
@@ -434,7 +427,7 @@ export default function KioskPortal() {
                 disabled={
                   !canOpenCheckin ||
                   loading ||
-                  (isApiMode() && (!kioskToken || !!error))
+                  (!kioskToken && !!error)
                 }
                 className={`w-full py-3.5 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   gate === "checkin"
@@ -466,7 +459,7 @@ export default function KioskPortal() {
                 disabled={
                   isCheckoutLocked ||
                   loading ||
-                  (isApiMode() && (!kioskToken || !!error))
+                  (!kioskToken && !!error)
                 }
                 className={`w-full py-3.5 rounded-2xl font-semibold flex items-center justify-center gap-2 transition-all ${
                   gate === "checkout"

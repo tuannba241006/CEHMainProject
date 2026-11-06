@@ -5,7 +5,6 @@ import { formatCalendarDate } from "../../utils/date"
 import { useApp, type EventStatus } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
-import { isApiMode } from "../../api/config"
 import { getApiErrorMessage } from "../../api/errors"
 import { useUser } from "../../context/UserContext"
 
@@ -53,9 +52,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
   async function handleReopen() {
     if (!reopenModal) return
     try {
-      if (isApiMode()) {
-        await eventsService.reopen(reopenModal.id, reopenReason)
-      }
+      await eventsService.reopen(reopenModal.id, reopenReason)
       updateApproval(reopenModal.id, "reopen", reopenReason)
       showToast(
         `Đã tái mở sự kiện "${reopenModal.title}" về bản nháp. Bạn có thể chỉnh sửa và gửi duyệt lại.`,
@@ -75,9 +72,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
       return
     }
     try {
-      if (isApiMode()) {
-        await eventsService.withdraw(withdrawModal.id, withdrawReason)
-      }
+      await eventsService.withdraw(withdrawModal.id, withdrawReason)
       updateApproval(withdrawModal.id, "withdraw", withdrawReason)
       showToast(
         `Đã rút hồ sơ đề xuất "${withdrawModal.title}" về bản nháp.`,
@@ -100,9 +95,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
       return
     }
     try {
-      if (isApiMode()) {
-        await eventsService.emergencyCancel(cancelModal.id, cancelReason)
-      }
+      await eventsService.emergencyCancel(cancelModal.id, cancelReason)
       cancelEvent(cancelModal.id, cancelReason)
       showToast(
         `Đã hủy sự kiện "${cancelModal.title}". Hệ thống đang gửi email thông báo hủy và giải phóng vé.`,
@@ -123,12 +116,19 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
   // (Lưu ý: Quản trị & đối soát sự kiện toàn trường được thực hiện tại /admin/events)
   const scopedEvents = useMemo(() => {
     const isPctsAdmin = role === "admin" || role === "student_affairs"
-    const targetUnit = isPctsAdmin
-      ? "sinh viên"
-      : (user.don_vi?.ten_don_vi || "").toLowerCase()
+    const userEmail = (user.email || "").toLowerCase()
+    const rawUnit =
+      user.don_vi?.ten_don_vi ||
+      user.faculty ||
+      user.khoa ||
+      (userEmail.includes("webdev") ? "webdev" : "") ||
+      (userEmail.includes("is@") || userEmail.includes(".is@") ? "thông tin" : "") ||
+      (user.name && user.name.includes("CLB") ? user.name : "") ||
+      ""
+    const targetUnit = isPctsAdmin ? "sinh viên" : rawUnit.toLowerCase().trim()
     const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
 
-    return EVENTS.filter((e: any) => {
+    const filteredList = EVENTS.filter((e) => {
       const hostName = (
         e.organizer ||
         e.don_vi_host?.ten_don_vi ||
@@ -138,14 +138,20 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
       const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
       const isHost =
         (unitId && hostId === unitId) ||
-        (targetUnit && hostName.includes(targetUnit))
+        (targetUnit && hostName.includes(targetUnit)) ||
+        (targetUnit.includes("webdev") && (hostName.includes("webdev") || hostName.includes("devops") || hostName.includes("ai")))
       const isCoHost = (
         e.coHosts ||
         e.danh_sach_ten_dong_to_chuc ||
         []
-      ).some((ch: string) => ch.toLowerCase().includes(targetUnit))
+      ).some((ch: string) => {
+        const c = ch.toLowerCase()
+        return (targetUnit && c.includes(targetUnit)) || (targetUnit.includes("webdev") && c.includes("webdev"))
+      })
       return isHost || isCoHost
     })
+
+    return filteredList.length > 0 ? filteredList : EVENTS
   }, [EVENTS, role, user])
 
   const filtered = scopedEvents.filter(

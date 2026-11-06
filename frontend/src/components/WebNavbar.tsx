@@ -74,7 +74,7 @@ export default function WebNavbar({
   }, [])
 
   function handleNotifClick(notif: Notification) {
-    markNotificationRead(notif.id)
+    markNotificationRead(String(notif.id))
     setNotifOpen(false)
     if (notif.action === "tickets" || notif.action === "ticket-confirm") {
       onNavigate("tickets")
