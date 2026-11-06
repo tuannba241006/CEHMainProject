@@ -132,18 +132,21 @@ export default function AdminEventsManagement({
   // Target event being edited
   const [editingEvent, setEditingEvent] = useState<any | null>(null)
 
-  // Action Modals (Emergency Room, Cancel, Withdraw, Reopen)
+  // Action Modals (Emergency Room, Cancel, Withdraw, Reopen, Cohost Respond)
   type ActionModal =
     | { kind: "changeRoom"; event: any }
     | { kind: "cancel"; event: any }
     | { kind: "withdraw"; event: any }
     | { kind: "reopen"; event: any }
+    | { kind: "cohostRespond"; event: any }
     | null
 
   const [modal, setModal] = useState<ActionModal>(null)
   const [submitting, setSubmitting] = useState(false)
   const [actionReason, setActionReason] = useState("")
   const [newRoom, setNewRoom] = useState("")
+  const [cohostAction, setCohostAction] = useState<"DONG_Y" | "TU_CHOI">("DONG_Y")
+  const [selectedCohostUnit, setSelectedCohostUnit] = useState<string>("")
 
   // Form field states for full creation/edit page
   const [formTitle, setFormTitle] = useState("")
@@ -534,6 +537,52 @@ export default function AdminEventsManagement({
         "Đã rút đề xuất cưỡng chế về DRAFT. Phòng hội trường giữ chỗ đã được giải phóng.",
         "success",
       )
+      setModal(null)
+      setActionReason("")
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Phản hồi Đồng tổ chức thay thế (Admin Override - UC-EVT-02.AC.1 & AC.2)
+  async function handleCohostRespond() {
+    if (!modal || modal.kind !== "cohostRespond") return
+    if (cohostAction === "TU_CHOI" && (!actionReason.trim() || actionReason.trim().length < 5)) {
+      showToast("Vui lòng nhập lý do từ chối đồng tổ chức thay thế (tối thiểu 5 ký tự theo quy chuẩn).", "error")
+      return
+    }
+    setSubmitting(true)
+    try {
+      if (isApiMode()) {
+        await eventsService.cohostRespond(
+          modal.event.id || modal.event.ma_su_kien,
+          {
+            trang_thai_xac_nhan: cohostAction,
+            ...(cohostAction === "TU_CHOI" ? { ghi_chu_tu_choi: actionReason.trim() } : {}),
+            ten_don_vi_dai_dien: selectedCohostUnit,
+          },
+        )
+      }
+      if (cohostAction === "DONG_Y") {
+        showToast(
+          `Đã xác nhận ĐỒNG Ý (DONG_Y) thay cho đơn vị "${selectedCohostUnit || 'Đồng tổ chức'}". Khi đủ 100% đồng thuận, hệ thống sẽ xóa giới hạn giữ phòng tạm 48h và chuyển sự kiện lên hàng đợi duyệt.`,
+          "success",
+        )
+      } else {
+        setLocalEvents((prev) =>
+          prev.map((e) =>
+            e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
+              ? { ...e, status: "rejected", trang_thai: "COHOST_REJECTED" }
+              : e,
+          ),
+        )
+        showToast(
+          `Đã ghi nhận TỪ CHỐI (TU_CHOI) thay cho đơn vị "${selectedCohostUnit || 'Đồng tổ chức'}". Sự kiện chuyển sang COHOST_REJECTED và phòng hội trường đã được tự động giải phóng an toàn.`,
+          "info",
+        )
+      }
       setModal(null)
       setActionReason("")
     } catch (err) {
@@ -1315,6 +1364,26 @@ export default function AdminEventsManagement({
                           </button>
                         )}
 
+                        {/* DUYỆT THAY CO-HOST (UC-EVT-02.AC.1 & AC.2) */}
+                        {((evt.coHosts && evt.coHosts.length > 0) ||
+                          (evt.danh_sach_ten_dong_to_chuc && evt.danh_sach_ten_dong_to_chuc.length > 0) ||
+                          status === "waiting_cohost_confirm" ||
+                          (evt as any).trang_thai === "CHO_DONG_TO_CHUC_XAC_NHAN") && (
+                          <button
+                            onClick={() => {
+                              const units = evt.coHosts || evt.danh_sach_ten_dong_to_chuc || []
+                              setSelectedCohostUnit(units[0] || "Đơn vị đồng tổ chức")
+                              setCohostAction("DONG_Y")
+                              setActionReason("")
+                              setModal({ kind: "cohostRespond", event: evt })
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-semibold cursor-pointer border border-purple-200 shadow-2xs transition-colors"
+                            title="Xác nhận hoặc từ chối lời mời phối hợp thay cho đơn vị đồng tổ chức trong tình huống đặc biệt (UC-EVT-02.AC.1 & AC.2)"
+                          >
+                            🤝 Duyệt thay Co-host
+                          </button>
+                        )}
+
                         {/* EMERGENCY ACTIONS FOR APPROVED/PUBLISHED (NO SỬA BUTTON!) */}
                         {isLiveOrApproved && (
                           <>
@@ -1575,6 +1644,126 @@ export default function AdminEventsManagement({
                 className="flex-1 py-2.5 rounded-xl bg-indigo hover:bg-indigo-700 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer shadow-xs"
               >
                 {submitting ? "Đang khôi phục..." : "Xác nhận tái mở"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* COHOST RESPOND OVERRIDE MODAL (UC-EVT-02.AC.1 & AC.2) */}
+      {modal?.kind === "cohostRespond" && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100">
+            <h2 className="font-display font-bold text-lg text-navy flex items-center gap-2">
+              <span>🤝</span> Phản hồi Đồng tổ chức thay thế
+            </h2>
+            <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
+              Thực thi quyền hạn Admin (<b>UC-EVT-02.AC.1 & AC.2</b>): Xác nhận hoặc từ chối lời mời phối hợp thay cho đơn vị đồng tổ chức trong các tình huống phối hợp đặc biệt hoặc đơn vị chưa kịp phản hồi trong thời hạn Soft Hold 48h.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Sự kiện mục tiêu
+                </label>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-800 font-medium">
+                  {modal.event.title || modal.event.ten_su_kien}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Đơn vị đồng tổ chức đại diện *
+                </label>
+                {modal.event.coHosts && modal.event.coHosts.length > 0 ? (
+                  <select
+                    value={selectedCohostUnit}
+                    onChange={(e) => setSelectedCohostUnit(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-purple-500 bg-white"
+                  >
+                    {modal.event.coHosts.map((c: string) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={selectedCohostUnit}
+                    onChange={(e) => setSelectedCohostUnit(e.target.value)}
+                    placeholder="Tên đơn vị đồng tổ chức (VD: CLB Tin học, Đoàn Khoa HTTT...)"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-purple-500"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Quyết định phê duyệt *
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCohostAction("DONG_Y")}
+                    className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                      cohostAction === "DONG_Y"
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-xs"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>✅</span> Đồng ý (DONG_Y)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCohostAction("TU_CHOI")}
+                    className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                      cohostAction === "TU_CHOI"
+                        ? "border-rose-500 bg-rose-50 text-rose-800 shadow-xs"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>❌</span> Từ chối (TU_CHOI)
+                  </button>
+                </div>
+              </div>
+
+              {cohostAction === "DONG_Y" ? (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 leading-relaxed">
+                  💡 <b>Quy chế xử lý:</b> Khi xác nhận đồng ý, nếu tất cả đơn vị đồng tổ chức đều đã xác nhận, hệ thống sẽ tự động giải tỏa hạn giữ phòng tạm 48h (<code>han_giu_cho_tam = NULL</code>) và chuyển hồ sơ lên hàng đợi phê duyệt chính thức.
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-rose-700 mb-1">
+                    Lý do từ chối (Bắt buộc tối thiểu 5 ký tự) *
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={actionReason}
+                    onChange={(e) => setActionReason(e.target.value)}
+                    placeholder="Nhập lý do đơn vị không thể phối hợp tổ chức..."
+                    className="w-full p-2.5 rounded-xl border border-rose-200 text-xs focus:outline-none focus:border-rose-500"
+                  />
+                  <p className="text-[11px] text-rose-600 mt-1">
+                    ⚠️ Khi từ chối, sự kiện sẽ chuyển thành COHOST_REJECTED và phòng hội trường được giải phóng ngay lập tức.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2.5 mt-6">
+              <button
+                type="button"
+                onClick={() => setModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={handleCohostRespond}
+                disabled={submitting || (cohostAction === "TU_CHOI" && actionReason.trim().length < 5)}
+                className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer shadow-xs"
+              >
+                {submitting ? "Đang xử lý..." : "Xác nhận duyệt thay"}
               </button>
             </div>
           </div>
