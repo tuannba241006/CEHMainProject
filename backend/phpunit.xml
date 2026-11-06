@@ -24,11 +24,17 @@
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
         <env name="DB_CONNECTION" value="mysql" force="true"/>
+        <server name="DB_CONNECTION" value="mysql"/>
         <env name="DB_HOST" value="db" force="true"/>
+        <server name="DB_HOST" value="db"/>
         <env name="DB_PORT" value="3306" force="true"/>
+        <server name="DB_PORT" value="3306"/>
         <env name="DB_DATABASE" value="ceh_test" force="true"/>
+        <server name="DB_DATABASE" value="ceh_test"/>
         <env name="DB_USERNAME" value="ceh_user" force="true"/>
+        <server name="DB_USERNAME" value="ceh_user"/>
         <env name="DB_PASSWORD" value="ceh_local_password" force="true"/>
+        <server name="DB_PASSWORD" value="ceh_local_password"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
