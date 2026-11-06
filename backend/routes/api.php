@@ -182,7 +182,7 @@ $attendanceRoutes = function () {
         Route::get('/staff/my-events', [StaffAttendanceController::class, 'myStaffEvents']);
         Route::post('/attendance/staff-scan', [StaffAttendanceController::class, 'staffScan']);
     });
-    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed', 'throttle:10,1,attendance:'])->group(function () {
         Route::post('/attendance/self-check-in', [SelfAttendanceController::class, 'selfCheckIn']);
         Route::post('/attendance/self-check-out', [SelfAttendanceController::class, 'selfCheckOut']);
     });

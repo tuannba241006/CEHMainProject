@@ -1,10 +1,26 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { OrgLayout } from "./OrgLayout"
 import {
   useApp,
   computeEventStatus,
   EVENT_STATUS_LABELS,
+  type LiveEvent,
+  type ManualOverrideInput,
+  type ManualOverrideResult,
 } from "../../context/AppContext"
+import { isApiMode } from "../../api/config"
+import { getApiErrorMessage } from "../../api/errors"
+import { eventsService } from "../../api/services/events.service"
+import {
+  attendanceService,
+  type ParticipantAttendanceData,
+} from "../../api/services/attendance.service"
+import {
+  EVENT_STATUS_LABELS as API_EVENT_STATUS_LABELS,
+  type EventCard,
+  type TicketStatus,
+} from "../../data/contract"
+import type { Ticket } from "../../data/mock"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -24,9 +40,129 @@ const PERM_STATUS_MAP = {
   expired: { bg: "#f1f5f9", text: "#94a3b8", label: "Hết hạn" },
 }
 
+type ParticipantEvent = Pick<
+  LiveEvent,
+  "id" | "ma_su_kien" | "title" | "date" | "location" | "trang_thai" | "thoi_gian_ket_thuc"
+> & {
+  banner?: string | null
+  statusLabel: string
+  da_chot_drl?: boolean
+}
+
+type ParticipantTicket = Pick<
+  Ticket,
+  | "id"
+  | "ma_dang_ky"
+  | "studentId"
+  | "studentName"
+  | "faculty"
+  | "registeredAt"
+  | "trang_thai"
+  | "checkinTime"
+  | "ti_le_drl"
+  | "nghi_van_gian_lan"
+  | "ma_thiet_bi_nghi_van"
+  | "vi_pham_no_show"
+> & { status: "attended" | "pending" | "cancelled" }
+
+function ticketStatus(status: TicketStatus): ParticipantTicket["status"] {
+  if (status === "DaHuy") return "cancelled"
+  return status === "DaDangKy" ? "pending" : "attended"
+}
+
+function toParticipantTicket(row: ParticipantAttendanceData): ParticipantTicket {
+  return {
+    id: String(row.ma_dang_ky),
+    ma_dang_ky: row.ma_dang_ky,
+    studentId: row.sinh_vien.mssv ?? "",
+    studentName: row.sinh_vien.ho_ten ?? "",
+    faculty: row.sinh_vien.khoa ?? "",
+    registeredAt: "",
+    trang_thai: row.trang_thai_ve,
+    status: ticketStatus(row.trang_thai_ve),
+    checkinTime: row.trang_thai_ve === "DaCheckIn" ? row.thoi_gian_quet ?? undefined : undefined,
+    ti_le_drl: row.ti_le_drl ?? 0,
+    nghi_van_gian_lan: row.canh_bao_doi_soat_the_sv,
+    vi_pham_no_show: row.vi_pham_no_show,
+  }
+}
+
+async function fetchAllPages<T>(
+  load: (page: number) => Promise<{ data: T[]; meta: { last_page: number } }>,
+): Promise<T[]> {
+  const first = await load(1)
+  const rows = [...first.data]
+  for (let page = 2; page <= first.meta.last_page; page++) {
+    rows.push(...(await load(page)).data)
+  }
+  return rows
+}
+
+function useApiParticipants(eventId: string | null) {
+  const [events, setEvents] = useState<EventCard[]>([])
+  const [eventError, setEventError] = useState("")
+  const [eventsLoading, setEventsLoading] = useState(isApiMode())
+  const [selected, setSelected] = useState<{
+    id: string
+    tickets: ParticipantTicket[]
+    details?: Pick<ParticipantEvent, "trang_thai" | "da_chot_drl">
+    error?: string
+  } | null>(null)
+
+  useEffect(() => {
+    if (!isApiMode()) return
+    let active = true
+    void fetchAllPages((page) =>
+      eventsService.organizerList({ vai_tro_don_vi: "HOST", page, limit: 100 }),
+    )
+      .then((rows) => { if (active) setEvents(rows) })
+      .catch((error: unknown) => { if (active) setEventError(getApiErrorMessage(error)) })
+      .finally(() => { if (active) setEventsLoading(false) })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!isApiMode() || !eventId) return
+    let active = true
+    void Promise.all([
+      fetchAllPages((page) => attendanceService.participants(eventId, { page, limit: 100 })),
+      eventsService.organizerDetail(eventId),
+    ])
+      .then(([rows, { data }]) => {
+        if (active) setSelected({ id: eventId, tickets: rows.map(toParticipantTicket), details: data })
+      })
+      .catch((error: unknown) => {
+        if (active) setSelected({ id: eventId, tickets: [], error: getApiErrorMessage(error) })
+      })
+    return () => { active = false }
+  }, [eventId])
+
+  function applyOverride(result: ManualOverrideResult) {
+    if (!result.success || !result.data) return
+    const updated = result.data
+    setSelected((current) => current?.id === eventId ? {
+      ...current,
+      tickets: current.tickets.map((ticket) => ticket.ma_dang_ky === updated.ma_dang_ky ? {
+        ...ticket,
+        ...updated,
+        status: ticketStatus(updated.trang_thai),
+        checkinTime: updated.thoi_gian_check_in ?? undefined,
+      } : ticket),
+    } : current)
+  }
+
+  return {
+    events,
+    eventsLoading,
+    eventError,
+    selected: selected?.id === eventId ? selected : null,
+    applyOverride,
+  }
+}
+
 export default function Participants({ onNavigate, onLogout }: Props) {
   const {
-    events,
+    events: demoEvents,
     tickets,
     getEventPermissions,
     grantCheckinPermission,
@@ -45,6 +181,24 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     useState<"participants" | "checkin" | "reconciliation" | "survey" | "certificates" | "staff">(
       "participants",
     )
+  const apiMode = isApiMode()
+  const remote = useApiParticipants(selectedEventId)
+  const events: ParticipantEvent[] = apiMode
+    ? remote.events.map((event) => ({
+        id: String(event.ma_su_kien),
+        ma_su_kien: event.ma_su_kien,
+        title: event.ten_su_kien,
+        banner: event.anh_bia,
+        date: event.thoi_gian_bat_dau,
+        location: event.ten_phong,
+        trang_thai: event.trang_thai,
+        thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
+        statusLabel: API_EVENT_STATUS_LABELS[event.trang_thai],
+      }))
+    : demoEvents.map((event) => ({
+        ...event,
+        statusLabel: EVENT_STATUS_LABELS[computeEventStatus(event)],
+      }))
 
   // Event list view
   if (!selectedEventId) {
@@ -67,6 +221,11 @@ export default function Participants({ onNavigate, onLogout }: Props) {
             </p>
           </div>
 
+          {apiMode && remote.eventsLoading && <p role="status">Đang tải sự kiện…</p>}
+          {apiMode && remote.eventError && <p role="alert">{remote.eventError}</p>}
+          {apiMode && !remote.eventsLoading && !remote.eventError && events.length === 0 && (
+            <p>Không có sự kiện để xem danh sách người tham gia.</p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {events.map((event) => {
               const eventTickets = tickets.filter((t) => t.eventId === event.id)
@@ -76,20 +235,18 @@ export default function Participants({ onNavigate, onLogout }: Props) {
               const total = eventTickets.filter(
                 (t) => t.status !== "cancelled",
               ).length
-              const status = computeEventStatus(event)
-
               return (
                 <div
                   key={event.id}
                   className="bg-white rounded-2xl shadow-sm border overflow-hidden"
                   style={{ borderColor: "#f1f5f9" }}
                 >
-                  <div className="relative h-28 overflow-hidden">
-                    <img
+                  <div className="relative h-28 overflow-hidden bg-slate-200">
+                    {event.banner && <img
                       src={event.banner}
                       alt={event.title}
                       className="w-full h-full object-cover"
-                    />
+                    />}
                     <div
                       className="absolute inset-0"
                       style={{
@@ -106,7 +263,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
                           backdropFilter: "blur(4px)",
                         }}
                       >
-                        {EVENT_STATUS_LABELS[status]}
+                        {event.statusLabel}
                       </span>
                     </div>
                   </div>
@@ -125,7 +282,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
                       })}{" "}
                       · {event.location}
                     </p>
-                    <div className="flex items-center justify-between mb-3">
+                    {!apiMode && <div className="flex items-center justify-between mb-3">
                       <div className="text-xs" style={{ color: "#64748b" }}>
                         <span
                           className="font-semibold"
@@ -157,7 +314,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
                           {Math.round((attended / total) * 100)}%
                         </span>
                       )}
-                    </div>
+                    </div>}
                     <button
                       onClick={() => {
                         setSelectedEventId(event.id)
@@ -179,13 +336,14 @@ export default function Participants({ onNavigate, onLogout }: Props) {
   }
 
   // Participant detail view
-  const event = events.find(
+  const selectedEvent = events.find(
     (e) =>
       e.id === selectedEventId ||
       String(e.ma_su_kien) === String(selectedEventId) ||
       `EVT${e.ma_su_kien}` === selectedEventId,
   )
-  const allTickets = tickets.filter(
+  const event = selectedEvent && { ...selectedEvent, ...remote.selected?.details }
+  const allTickets = apiMode ? remote.selected?.tickets ?? [] : tickets.filter(
     (t) =>
       t.eventId === selectedEventId ||
       String(t.ma_su_kien) === String(selectedEventId) ||
@@ -200,6 +358,12 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     checkinTime: t.checkinTime ?? "",
   }))
   const eventPerms = getEventPermissions(selectedEventId)
+
+  async function handleManualOverride(payload: ManualOverrideInput) {
+    const result = await manualOverrideAttendance(payload)
+    if (apiMode) remote.applyOverride(result)
+    return result
+  }
 
   return (
     <OrgLayout
@@ -286,11 +450,13 @@ export default function Participants({ onNavigate, onLogout }: Props) {
           ))}
         </div>
 
-        {activeTab === "participants" && (
+        {apiMode && !remote.selected && <p role="status">Đang tải danh sách người tham gia…</p>}
+        {apiMode && remote.selected?.error && <p role="alert">{remote.selected.error}</p>}
+        {activeTab === "participants" && (!apiMode || (remote.selected && !remote.selected.error)) && (
           <ParticipantsList
             event={event}
             allTickets={allTickets}
-            onManualOverride={manualOverrideAttendance}
+            onManualOverride={handleManualOverride}
           />
         )}
         {activeTab === "checkin" && <CheckinView participants={participants} />}
@@ -812,16 +978,9 @@ function ParticipantsList({
   allTickets,
   onManualOverride,
 }: {
-  event?: import("../../context/AppContext").LiveEvent
-  allTickets: import("../../data/mock").Ticket[]
-  onManualOverride: (payload: {
-    ma_dang_ky?: number
-    ticketId?: string
-    trang_thai_moi: "DaCheckIn" | "DaCheckOut"
-    ti_le_drl_moi: number
-    ly_do: string
-    da_doi_soat_the?: boolean
-  }) => Promise<{ success: boolean; error?: string }>
+  event?: ParticipantEvent
+  allTickets: ParticipantTicket[]
+  onManualOverride: (payload: ManualOverrideInput) => Promise<ManualOverrideResult>
 }) {
   const [statusFilter, setStatusFilter] =
     useState<"all" | "pending" | "checkin" | "checkout" | "cancelled" | "fraud" | "noshow">(
@@ -830,8 +989,7 @@ function ParticipantsList({
   const [search, setSearch] = useState("")
 
   // UC-OPS-04 Modal State
-  const [overrideTicket, setOverrideTicket] =
-    useState<import("../../data/mock").Ticket | null>(null)
+  const [overrideTicket, setOverrideTicket] = useState<ParticipantTicket | null>(null)
   const [newStatus, setNewStatus] = useState<"DaCheckIn" | "DaCheckOut">(
     "DaCheckOut",
   )
@@ -844,12 +1002,7 @@ function ParticipantsList({
 
   const isEventCompleted =
     event?.trang_thai === "COMPLETED" ||
-    (event as any)?.status === "ended" ||
-    (event?.date &&
-      new Date().getTime() >
-        new Date(
-          `${event.date}T${event.endTime?.split(" ")[0] || "11:30"}:00+07:00`,
-        ).getTime())
+    (!isApiMode() && !!event && Date.now() > Date.parse(event.thoi_gian_ket_thuc))
 
   // Quick reason presets
   const REASON_PRESETS = [
@@ -858,7 +1011,7 @@ function ParticipantsList({
     "Sinh viên gặp sự cố mạng, đã đối chiếu thẻ sinh viên vật lý hợp lệ",
   ]
 
-  function openOverrideModal(ticket: import("../../data/mock").Ticket) {
+  function openOverrideModal(ticket: ParticipantTicket) {
     setOverrideTicket(ticket)
     setOverrideError("")
     setOverrideSuccess("")
@@ -945,7 +1098,7 @@ function ParticipantsList({
       return t.trang_thai === "DaDangKy" || t.status === "pending"
     if (statusFilter === "checkin") return t.trang_thai === "DaCheckIn"
     if (statusFilter === "checkout")
-      return t.trang_thai === "DaCheckOut" || t.status === "attended"
+      return t.trang_thai === "DaCheckOut" || (t.trang_thai !== "DaCheckIn" && t.status === "attended")
     if (statusFilter === "cancelled")
       return t.trang_thai === "DaHuy" || t.status === "cancelled"
     if (statusFilter === "fraud") return Boolean(t.nghi_van_gian_lan)
@@ -1167,7 +1320,7 @@ function ParticipantsList({
                   t.trang_thai === "DaHuy" || t.status === "cancelled"
                 const isCheckin = t.trang_thai === "DaCheckIn"
                 const isCheckout =
-                  t.trang_thai === "DaCheckOut" || t.status === "attended"
+                  t.trang_thai === "DaCheckOut" || (!isCheckin && t.status === "attended")
 
                 return (
                   <tr
@@ -1187,7 +1340,7 @@ function ParticipantsList({
                       {t.faculty}
                     </td>
                     <td className="px-4 py-3.5 text-xs font-mono text-slate-400 whitespace-nowrap">
-                      {t.registeredAt}
+                      {t.registeredAt || "—"}
                     </td>
 
                     {/* Status Badge */}
@@ -1256,7 +1409,7 @@ function ParticipantsList({
                         >
                           Đã hủy (Khóa)
                         </span>
-                      ) : (event as any)?.da_chot_drl ? (
+                      ) : event?.da_chot_drl ? (
                         <span
                           title="Danh sách ĐRL đã khóa chốt. Chỉ Quản trị viên P.CTSV mới có quyền mở khóa"
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
@@ -1351,7 +1504,7 @@ function ParticipantsList({
               )}
 
               {/* Action Button */}
-              {!isCancelled && !(event as any)?.da_chot_drl && (
+              {!isCancelled && !event?.da_chot_drl && (
                 <button
                   onClick={() => openOverrideModal(t)}
                   className={`w-full py-2.5 rounded-xl text-xs font-semibold ${
@@ -1440,14 +1593,10 @@ function ParticipantsList({
                       Phát hiện nghi vấn gian lận thiết bị
                     </h4>
                     <p className="text-xs text-red-700 mt-0.5 leading-relaxed">
-                      Thiết bị{" "}
-                      <code className="bg-red-200/60 px-1 py-0.5 rounded font-mono font-bold text-red-900">
-                        {overrideTicket.ma_thiet_bi_nghi_van ||
-                          "DEV_SCANNER_712"}
-                      </code>{" "}
-                      đã quét cho nhiều tài khoản trong cùng sự kiện. Ban tổ
-                      chức phải đối soát Thẻ sinh viên vật lý trước khi giải tỏa
-                      cờ.
+                      Phát hiện quét thiết bị trùng cho nhiều tài khoản trong cùng sự kiện.
+                      {overrideTicket.ma_thiet_bi_nghi_van && (
+                        <> Mã thiết bị: <code>{overrideTicket.ma_thiet_bi_nghi_van}</code>.</>
+                      )} Ban tổ chức phải đối soát Thẻ sinh viên vật lý trước khi giải tỏa cờ.
                     </p>
                   </div>
                 </div>
