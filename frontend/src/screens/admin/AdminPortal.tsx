@@ -21,6 +21,9 @@ import { useApp } from "../../context/AppContext"
 import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
 import { Certificates } from "../management/AffairsOperations"
 import AdminEventsManagement from "./AdminEventsManagement"
+import AdminParticipants from "./AdminParticipants"
+import AdminStaff from "./AdminStaff"
+import AdminCohostInvitations from "./AdminCohostInvitations"
 import { attendanceService } from "../../api/services/attendance.service"
 
 export type Section =
@@ -34,6 +37,9 @@ export type Section =
   | "reports"
   | "no-show"
   | "certificates"
+  | "participants"
+  | "staff"
+  | "cohost-invitations"
 
 export interface NoShowViolation {
   ma_dang_ky: number
@@ -309,6 +315,18 @@ export default function AdminPortal({ section }: { section: Section }) {
     certificates: [
       "Quản trị chứng nhận",
       "Danh sách phát hành và thu hồi có kiểm soát.",
+    ],
+    participants: [
+      "Quản trị người tham gia",
+      "Giám sát người tham gia và đối soát điểm danh toàn trường.",
+    ],
+    staff: [
+      "Nhân viên & CTV điểm danh",
+      "Phân quyền nhân sự quét vé và vận hành sự kiện toàn trường.",
+    ],
+    "cohost-invitations": [
+      "Lời mời đồng tổ chức",
+      "Giám sát và duyệt thay lời mời phối hợp đồng tổ chức cấp trường.",
     ],
   }
   const [title, description] = titles[section]
@@ -820,6 +838,12 @@ export default function AdminPortal({ section }: { section: Section }) {
           </div>
         ) : section === "certificates" ? (
           <Certificates embedded />
+        ) : section === "participants" ? (
+          <AdminParticipants />
+        ) : section === "staff" ? (
+          <AdminStaff />
+        ) : section === "cohost-invitations" ? (
+          <AdminCohostInvitations />
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 p-8">
             <p className="text-sm text-slate-500">

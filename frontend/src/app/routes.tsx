@@ -632,6 +632,18 @@ export const router = createBrowserRouter([
           { path: "admin/reports", element: <AdminPortal section="reports" /> },
           { path: "admin/no-show", element: <AdminPortal section="no-show" /> },
           {
+            path: "admin/participants",
+            element: <AdminPortal section="participants" />,
+          },
+          {
+            path: "admin/staff",
+            element: <AdminPortal section="staff" />,
+          },
+          {
+            path: "admin/cohost-invitations",
+            element: <AdminPortal section="cohost-invitations" />,
+          },
+          {
             path: "admin/certificates",
             element: <AdminPortal section="certificates" />,
           },

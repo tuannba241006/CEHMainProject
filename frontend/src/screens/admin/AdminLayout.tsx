@@ -15,11 +15,11 @@ const navGroups = [
     ],
   },
   {
-    category: "Vận hành sự kiện (P.CTSV)",
+    category: "Vận hành sự kiện (Toàn trường & P.CTSV)",
     items: [
-      { path: "/organizer/participants", label: "Người tham gia sự kiện", icon: "👥" },
-      { path: "/organizer/staff", label: "Nhân viên & CTV điểm danh", icon: "🧑‍💼" },
-      { path: "/organizer/cohost-invitations", label: "Lời mời đồng tổ chức", icon: "🤝" },
+      { path: "/admin/participants", label: "Người tham gia sự kiện", icon: "👥" },
+      { path: "/admin/staff", label: "Nhân viên & CTV điểm danh", icon: "🧑‍💼" },
+      { path: "/admin/cohost-invitations", label: "Lời mời đồng tổ chức", icon: "🤝" },
     ],
   },
   {

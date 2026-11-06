@@ -119,9 +119,15 @@ export default function AdminEventsManagement({
     initialMode === "create" ? "create" : initialMode === "edit" ? "edit" : "list",
   )
 
-  // Merged events list
+  // Merged events list: include appEvents and ensure SEED_ADMIN_EVENTS (with cohosts & drafts) are prepended
   const [localEvents, setLocalEvents] = useState<any[]>(() => {
-    return (appEvents && appEvents.length > 0 ? appEvents : SEED_ADMIN_EVENTS) as any[]
+    const list = [...(appEvents && appEvents.length > 0 ? appEvents : EVENTS)]
+    for (const seed of SEED_ADMIN_EVENTS) {
+      if (!list.some((e) => e.id === seed.id || e.ma_su_kien === seed.ma_su_kien)) {
+        list.unshift(seed)
+      }
+    }
+    return list
   })
 
   // Filter & Search states
@@ -1365,24 +1371,24 @@ export default function AdminEventsManagement({
                         )}
 
                         {/* DUYỆT THAY CO-HOST (UC-EVT-02.AC.1 & AC.2) */}
-                        {((evt.coHosts && evt.coHosts.length > 0) ||
-                          (evt.danh_sach_ten_dong_to_chuc && evt.danh_sach_ten_dong_to_chuc.length > 0) ||
-                          status === "waiting_cohost_confirm" ||
-                          (evt as any).trang_thai === "CHO_DONG_TO_CHUC_XAC_NHAN") && (
-                          <button
-                            onClick={() => {
-                              const units = evt.coHosts || evt.danh_sach_ten_dong_to_chuc || []
-                              setSelectedCohostUnit(units[0] || "Đơn vị đồng tổ chức")
-                              setCohostAction("DONG_Y")
-                              setActionReason("")
-                              setModal({ kind: "cohostRespond", event: evt })
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-semibold cursor-pointer border border-purple-200 shadow-2xs transition-colors"
-                            title="Xác nhận hoặc từ chối lời mời phối hợp thay cho đơn vị đồng tổ chức trong tình huống đặc biệt (UC-EVT-02.AC.1 & AC.2)"
-                          >
-                            🤝 Duyệt thay Co-host
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            const units = evt.coHosts || evt.danh_sach_ten_dong_to_chuc || []
+                            const defaultUnit =
+                              units[0] ||
+                              (organizer.includes("Khoa")
+                                ? "CLB WebDev UIT"
+                                : "Khoa Hệ thống Thông tin")
+                            setSelectedCohostUnit(defaultUnit)
+                            setCohostAction("DONG_Y")
+                            setActionReason("")
+                            setModal({ kind: "cohostRespond", event: evt })
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-semibold cursor-pointer border border-purple-200 shadow-2xs transition-colors"
+                          title="Xác nhận hoặc từ chối lời mời phối hợp thay cho đơn vị đồng tổ chức trong tình huống đặc biệt (UC-EVT-02.AC.1 & AC.2)"
+                        >
+                          🤝 Duyệt thay Co-host
+                        </button>
 
                         {/* EMERGENCY ACTIONS FOR APPROVED/PUBLISHED (NO SỬA BUTTON!) */}
                         {isLiveOrApproved && (
