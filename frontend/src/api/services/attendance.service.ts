@@ -55,13 +55,29 @@ interface SelfCheckOutData {
   ti_le_drl: 0 | 0.5 | 1
 }
 
-export type ParticipantAttendanceData = Omit<
-  StaffScanData,
-  "trang_thai_ve" | "sinh_vien"
-> & {
-  trang_thai_ve: TicketStatus
-  sinh_vien: { [K in keyof StaffScanData["sinh_vien"]]: string | null }
+export interface ParticipantAttendanceData {
+  ma_dang_ky: number
+  ma_tai_khoan: number
+  mssv: string | null
+  ho_ten: string
+  lop_sinh_hoat: string | null
+  khoa: string | null
+  trang_thai: TicketStatus
+  da_check_in: boolean
+  da_check_out: boolean
+  thoi_gian_dang_ky: string | null
+  thoi_gian_check_in: string | null
+  thoi_gian_check_out: string | null
+  thoi_luong_tham_du_phut: number | null
+  ty_le_tham_du_pct: number | null
+  ti_le_drl: number
+  da_feedback: boolean
+  han_an_han_feedback: string | null
+  du_dieu_kien_drl: boolean
+  nghi_van_gian_lan: boolean
+  ma_thiet_bi_nghi_van: string | null
   vi_pham_no_show: boolean
+  ghi_chu: string | null
 }
 
 export interface ManualOverridePayload {
