@@ -13,9 +13,15 @@ import FormDialog from "./FormDialog"
 
 interface Props {
   readOnly?: boolean
+  onNavigate?: (screen: string) => void
+  onLogout?: () => void
 }
 
-export default function RoomManagement({ readOnly = false }: Props) {
+export default function RoomManagement({
+  readOnly = false,
+  onNavigate,
+  onLogout,
+}: Props) {
   const navigate = useNavigate()
   const { logout } = useUser()
   const { showToast } = useToast()
@@ -297,27 +303,34 @@ export default function RoomManagement({ readOnly = false }: Props) {
     )
 
   if (readOnly) {
+    const defaultOrgPaths: Record<string, string> = {
+      "org-dashboard": "/organizer/dashboard",
+      "org-events": "/organizer/events",
+      "org-event-form": "/organizer/events/create",
+      "org-participants": "/organizer/participants",
+      "org-staff": "/organizer/staff",
+      "org-cohost": "/organizer/cohost-invitations",
+      "org-rooms": "/organizer/rooms",
+      "org-scanner": "/staff/scanner",
+      "staff-scanner": "/staff/scanner",
+      "org-settings": "/organizer/settings",
+      "faculty-inbox": "/faculty/approvals",
+      "affairs-inbox": "/affairs/approvals",
+      "affairs-results": "/affairs/drl",
+      "affairs-certificates": "/affairs/certificates",
+      "admin-dashboard": "/admin/dashboard",
+      "admin-rooms": "/admin/rooms",
+    }
+    const handleOrgNavigate =
+      onNavigate || ((screen: string) => navigate(defaultOrgPaths[screen] || screen))
+    const handleLogout =
+      onLogout || (() => void logout().finally(() => navigate("/login")))
+
     return (
       <OrgLayout
         current="org-rooms"
-        onNavigate={(screen) =>
-          navigate(
-            screen === "org-dashboard"
-              ? "/organizer/dashboard"
-              : screen === "org-events"
-                ? "/organizer/events"
-                : screen === "org-participants"
-                  ? "/organizer/participants"
-                  : screen === "org-staff"
-                    ? "/organizer/staff"
-                    : screen === "org-cohost"
-                      ? "/organizer/cohost-invitations"
-                      : screen === "org-rooms"
-                        ? "/organizer/rooms"
-                        : "/organizer/settings",
-          )
-        }
-        onLogout={() => void logout().finally(() => navigate("/login"))}
+        onNavigate={handleOrgNavigate}
+        onLogout={handleLogout}
       >
         {content}
       </OrgLayout>

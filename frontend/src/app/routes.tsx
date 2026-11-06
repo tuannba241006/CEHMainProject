@@ -459,6 +459,22 @@ function CohostRoute() {
   return <CohostInvitations onNavigate={onNavigate} onLogout={onLogout} />
 }
 
+function OrganizerSettingsRoute() {
+  const navigate = useNavigate()
+  const { logout } = useUser()
+  const onNavigate = useLegacyNavigation()
+  const onLogout = () => void logout().finally(() => navigate("/login"))
+  return <OrganizerSettings onNavigate={onNavigate} onLogout={onLogout} />
+}
+
+function OrganizerRoomsRoute() {
+  const navigate = useNavigate()
+  const { logout } = useUser()
+  const onNavigate = useLegacyNavigation()
+  const onLogout = () => void logout().finally(() => navigate("/login"))
+  return <RoomManagement readOnly onNavigate={onNavigate} onLogout={onLogout} />
+}
+
 function FacultyRoute() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -634,7 +650,7 @@ export const router = createBrowserRouter([
           { path: "organizer/staff", element: <OrganizerRoute page="staff" /> },
           {
             path: "organizer/settings",
-            element: <SuspenseWrap><OrganizerSettings /></SuspenseWrap>,
+            element: <SuspenseWrap><OrganizerSettingsRoute /></SuspenseWrap>,
           },
           {
             path: "organizer/reports",
@@ -650,7 +666,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "organizer/rooms",
-            element: <SuspenseWrap><RoomManagement readOnly /></SuspenseWrap>,
+            element: <SuspenseWrap><OrganizerRoomsRoute /></SuspenseWrap>,
           },
         ],
       },
