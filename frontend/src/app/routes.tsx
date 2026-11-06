@@ -343,12 +343,9 @@ function StudentAchievementsRoute() {
 
 function OrganizerRoute({ page }: { page: string }) {
   const navigate = useNavigate()
-  const { logout, role } = useUser()
+  const { logout } = useUser()
   const onNavigate = useLegacyNavigation()
   const onLogout = () => void logout().finally(() => navigate("/login"))
-  if (role === "admin" || role === "student_affairs") {
-    return <Navigate to="/admin/dashboard" replace />
-  }
   if (page === "events")
     return <EventsManage onNavigate={onNavigate} onLogout={onLogout} />
   if (page === "form")
@@ -362,12 +359,9 @@ function OrganizerRoute({ page }: { page: string }) {
 
 function CohostRoute() {
   const navigate = useNavigate()
-  const { logout, role } = useUser()
+  const { logout } = useUser()
   const onNavigate = useLegacyNavigation()
   const onLogout = () => void logout().finally(() => navigate("/login"))
-  if (role === "admin" || role === "student_affairs") {
-    return <Navigate to="/admin/dashboard" replace />
-  }
   return <CohostInvitations onNavigate={onNavigate} onLogout={onLogout} />
 }
 
@@ -521,7 +515,7 @@ export const router = createBrowserRouter([
       {
         element: (
           <ProtectedRoute
-            roles={["organizer", "faculty_manager"]}
+            roles={["organizer", "faculty_manager", "admin", "student_affairs"]}
           />
         ),
         errorElement: <RouteErrorBoundary />,

@@ -177,3 +177,4 @@ class SuKienSeeder extends Seeder
         }
     }
 }
+

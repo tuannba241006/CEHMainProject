@@ -209,7 +209,9 @@ export function OrgLayout({ children, current, onNavigate, onLogout }: Props) {
         <header className="hidden lg:flex items-center justify-between px-8 py-3.5 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
-              Không gian Ban tổ chức
+              {role === "admin" || role === "student_affairs"
+                ? "Không gian Vận hành P.CTSV"
+                : "Không gian Ban tổ chức"}
             </span>
             <span className="text-slate-300">/</span>
             <span className="text-sm font-semibold text-slate-800">
@@ -232,6 +234,16 @@ export function OrgLayout({ children, current, onNavigate, onLogout }: Props) {
           </div>
 
           <div className="flex items-center gap-3">
+            {(role === "admin" || role === "student_affairs") && (
+              <button
+                onClick={() => onNavigate("/admin/dashboard")}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors cursor-pointer"
+                title="Chuyển sang Cổng Quản trị Admin - P.CTSV"
+              >
+                <span>🏛️</span>
+                <span>Cổng Quản trị Admin</span>
+              </button>
+            )}
             <div className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-200">
               {roleLabel}
             </div>
@@ -291,11 +303,30 @@ function SidebarContent({
               Campus Event Hub
             </div>
             <div className="text-[11px] truncate" style={{ color: "#94a3b8" }}>
-              Ban tổ chức (CLB / Khoa)
+              {role === "admin" || role === "student_affairs"
+                ? "P.CTSV · Đơn vị cấp Trường"
+                : "Ban tổ chức (CLB / Khoa)"}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Admin Quick Switch back to Admin Portal */}
+      {(role === "admin" || role === "student_affairs") && (
+        <div className="px-3 pt-3 pb-1 border-b border-slate-100">
+          <button
+            onClick={() => onNavigate("/admin/dashboard")}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors shadow-2xs cursor-pointer"
+            title="Quay lại Cổng Quản trị Admin - P.CTSV"
+          >
+            <span className="flex items-center gap-2 truncate">
+              <span>🏛️</span>
+              <span className="truncate">Cổng Quản trị Admin</span>
+            </span>
+            <span className="text-indigo-400">→</span>
+          </button>
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">

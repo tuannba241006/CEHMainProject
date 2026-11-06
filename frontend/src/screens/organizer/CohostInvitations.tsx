@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { OrgLayout } from "./OrgLayout"
 import { useToast } from "../../components/Toast"
+import { useUser } from "../../context/UserContext"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -80,6 +81,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
 ]
 
 export default function CohostInvitations({ onNavigate, onLogout }: Props) {
+  const { role } = useUser()
   const { showToast } = useToast()
   const [invitations, setInvitations] =
     useState<CohostInvitation[]>(INITIAL_INVITATIONS)
@@ -135,10 +137,18 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-slate-400 mb-4">
           <button
-            onClick={() => onNavigate("org-dashboard")}
+            onClick={() =>
+              onNavigate(
+                role === "admin" || role === "student_affairs"
+                  ? "/admin/dashboard"
+                  : "org-dashboard",
+              )
+            }
             className="hover:text-indigo-600 cursor-pointer"
           >
-            Ban tổ chức
+            {role === "admin" || role === "student_affairs"
+              ? "Quản trị viên"
+              : "Ban tổ chức"}
           </button>
           <span>/</span>
           <span className="text-slate-700 font-medium">
