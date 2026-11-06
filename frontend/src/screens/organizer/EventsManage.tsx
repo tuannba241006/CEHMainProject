@@ -117,15 +117,18 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
 
   const { user, role } = useUser()
 
-  // Data scoping: Ban tổ chức chỉ xem được sự kiện của đơn vị mình
+  // Data scoping cô lập tuyệt đối:
+  // - Admin (P.CTSV): CHỈ xem các sự kiện do P.CTSV tổ chức/đồng tổ chức!
+  // - Ban tổ chức (CLB/Khoa): CHỈ xem các sự kiện thuộc đơn vị mình!
+  // (Lưu ý: Quản trị & đối soát sự kiện toàn trường được thực hiện tại /admin/events)
   const scopedEvents = useMemo(() => {
-    if (role === "admin" || role === "student_affairs") {
-      return EVENTS
-    }
-    const unitName = (user.don_vi?.ten_don_vi || "").toLowerCase()
+    const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const targetUnit = isPctsAdmin
+      ? "sinh viên"
+      : (user.don_vi?.ten_don_vi || "").toLowerCase()
     const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
+
     return EVENTS.filter((e: any) => {
-      if (!unitName && !unitId) return true
       const hostName = (
         e.organizer ||
         e.don_vi_host?.ten_don_vi ||
@@ -135,12 +138,12 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
       const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
       const isHost =
         (unitId && hostId === unitId) ||
-        (unitName && hostName.includes(unitName))
+        (targetUnit && hostName.includes(targetUnit))
       const isCoHost = (
         e.coHosts ||
         e.danh_sach_ten_dong_to_chuc ||
         []
-      ).some((ch: string) => ch.toLowerCase().includes(unitName))
+      ).some((ch: string) => ch.toLowerCase().includes(targetUnit))
       return isHost || isCoHost
     })
   }, [EVENTS, role, user])

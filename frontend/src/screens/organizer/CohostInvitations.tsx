@@ -24,6 +24,7 @@ export interface CohostInvitation {
   hoursLeft: number
   status: "pending" | "accepted" | "declined" | "expired"
   declineReason?: string
+  invitedUnit?: string
 }
 
 const INITIAL_INVITATIONS: CohostInvitation[] = [
@@ -32,6 +33,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     eventId: "evt-01",
     eventTitle: "UIT AI & Cloud Computing Workshop 2026",
     hostUnit: "CLB WebDev UIT (Host A)",
+    invitedUnit: "Phòng Công tác Sinh viên (P.CTSV)",
     hostContact: "Nguyễn Văn An · bch.webdev@uit.edu.vn",
     topic: "Học thuật & Trí tuệ nhân tạo",
     eventDate: "2026-11-15",
@@ -49,6 +51,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     eventId: "evt-02",
     eventTitle: "Chung kết Hackathon UIT Code Sprint 2026",
     hostUnit: "Khoa Hệ thống Thông tin (Host A)",
+    invitedUnit: "CLB WebDev UIT",
     hostContact: "TS. Nguyễn Minh Hải · bql.httt@uit.edu.vn",
     topic: "Kỹ năng mềm & Công nghệ",
     eventDate: "2026-11-20",
@@ -66,6 +69,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     eventId: "evt-03",
     eventTitle: "Ngày hội Sách và Văn hóa Đọc Sinh viên",
     hostUnit: "Đoàn Thanh niên - Hội Sinh viên (Host A)",
+    invitedUnit: "Khoa Hệ thống Thông tin",
     hostContact: "Đ/c Lê Thanh Tùng · doanthanhnien@uit.edu.vn",
     topic: "Văn hóa & Nghệ thuật",
     eventDate: "2026-12-01",
@@ -91,15 +95,18 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     useState<CohostInvitation | null>(null)
   const [declineReason, setDeclineReason] = useState("")
 
-  // Data scoping: Ban tổ chức chỉ thấy thư mời gửi đến đơn vị mình (không tự nhận thư mời do mình phát đi)
+  // Data scoping cô lập tuyệt đối: Chỉ hiển thị lời mời gửi đích danh đến đơn vị của người dùng!
   const scopedInvitations = useMemo(() => {
-    if (role === "admin" || role === "student_affairs") {
-      return invitations
-    }
-    const unitName = (user.don_vi?.ten_don_vi || "").toLowerCase()
+    const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const targetKeyword = isPctsAdmin
+      ? "sinh viên"
+      : (user.don_vi?.ten_don_vi || "").toLowerCase()
+
     return invitations.filter((inv) => {
-      if (!unitName) return true
-      return !inv.hostUnit.toLowerCase().includes(unitName)
+      const target = (inv.invitedUnit || "").toLowerCase()
+      if (target) return target.includes(targetKeyword)
+      if (isPctsAdmin) return inv.id === "cohost-01"
+      return !inv.hostUnit.toLowerCase().includes(targetKeyword)
     })
   }, [invitations, role, user])
 

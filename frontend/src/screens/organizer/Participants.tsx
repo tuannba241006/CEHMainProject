@@ -51,32 +51,36 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     useState<"participants" | "checkin" | "reconciliation" | "survey" | "certificates" | "staff">(
       "participants",
     )
-  const [filterUnit, setFilterUnit] = useState<"all" | "my_unit">("all")
 
-  // Data scoping: Ban tổ chức chỉ xem được sự kiện thuộc đơn vị mình; Admin xem toàn trường hoặc lọc cấp trường
+  // Data scoping cô lập tuyệt đối:
+  // - Admin (P.CTSV): CHỈ THẤY các sự kiện thuộc P.CTSV! Tuyệt đối không lẫn lộn sự kiện của các CLB khác.
+  // - Ban tổ chức (CLB/Khoa): CHỈ THẤY các sự kiện thuộc đơn vị mình!
   const scopedEvents = useMemo(() => {
-    if (role === "admin" || role === "student_affairs") {
-      if (filterUnit === "my_unit") {
-        return events.filter((e: any) => {
-          const hostName = (e.organizer || e.don_vi_host?.ten_don_vi || e.ten_don_vi_host || "").toLowerCase()
-          return hostName.includes("công tác sinh viên") || hostName.includes("ctsv")
-        })
-      }
-      return events
-    }
-    const unitName = user.don_vi?.ten_don_vi?.toLowerCase() || ""
+    const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const targetUnit = isPctsAdmin
+      ? "sinh viên"
+      : (user.don_vi?.ten_don_vi || "").toLowerCase()
     const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
+
     return events.filter((e: any) => {
-      if (!unitName && !unitId) return true
-      const hostName = (e.organizer || e.don_vi_host?.ten_don_vi || e.ten_don_vi_host || "").toLowerCase()
+      const hostName = (
+        e.organizer ||
+        e.don_vi_host?.ten_don_vi ||
+        e.ten_don_vi_host ||
+        ""
+      ).toLowerCase()
       const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
-      const isHost = (unitId && hostId === unitId) || (unitName && hostName.includes(unitName))
-      const isCoHost = (e.coHosts || e.danh_sach_ten_dong_to_chuc || []).some((ch: string) =>
-        ch.toLowerCase().includes(unitName),
-      )
+      const isHost =
+        (unitId && hostId === unitId) ||
+        (targetUnit && hostName.includes(targetUnit))
+      const isCoHost = (
+        e.coHosts ||
+        e.danh_sach_ten_dong_to_chuc ||
+        []
+      ).some((ch: string) => ch.toLowerCase().includes(targetUnit))
       return isHost || isCoHost
     })
-  }, [events, role, user, filterUnit])
+  }, [events, role, user])
 
   // Event list view
   if (!selectedEventId) {
@@ -87,45 +91,18 @@ export default function Participants({ onNavigate, onLogout }: Props) {
         onLogout={onLogout}
       >
         <div className="p-6 lg:p-8 max-w-screen-xl">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div>
-              <h1
-                className="font-display font-bold text-2xl"
-                style={{ color: "#1a1a2e" }}
-              >
-                Người tham gia
-              </h1>
-              <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-                {role === "admin" || role === "student_affairs"
-                  ? "Xem và quản lý danh sách sinh viên tham gia sự kiện toàn trường hoặc cấp Trường (P.CTSV)"
-                  : `Danh sách người tham gia các sự kiện thuộc đơn vị: ${user.don_vi?.ten_don_vi || "Ban tổ chức"}`}
-              </p>
-            </div>
-
-            {(role === "admin" || role === "student_affairs") && (
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
-                <button
-                  onClick={() => setFilterUnit("all")}
-                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-colors ${
-                    filterUnit === "all"
-                      ? "bg-white text-indigo shadow-2xs font-bold"
-                      : "text-slate-600 hover:text-navy"
-                  }`}
-                >
-                  🌐 Tất cả sự kiện
-                </button>
-                <button
-                  onClick={() => setFilterUnit("my_unit")}
-                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-colors ${
-                    filterUnit === "my_unit"
-                      ? "bg-white text-indigo shadow-2xs font-bold"
-                      : "text-slate-600 hover:text-navy"
-                  }`}
-                >
-                  🏛️ Chỉ sự kiện P.CTSV
-                </button>
-              </div>
-            )}
+          <div className="mb-6">
+            <h1
+              className="font-display font-bold text-2xl"
+              style={{ color: "#1a1a2e" }}
+            >
+              Người tham gia
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "#64748b" }}>
+              {role === "admin" || role === "student_affairs"
+                ? "Danh sách sinh viên tham gia các sự kiện do Phòng Công tác Sinh viên (P.CTSV) chủ trì"
+                : `Danh sách người tham gia các sự kiện thuộc đơn vị: ${user.don_vi?.ten_don_vi || "Ban tổ chức"}`}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
