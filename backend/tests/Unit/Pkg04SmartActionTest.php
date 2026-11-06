@@ -17,7 +17,7 @@ class Pkg04SmartActionTest extends TestCase
     {
         parent::setUp();
 
-        $this->service = new EventSmartActionService();
+        $this->service = new EventSmartActionService;
     }
 
     private function event(array $changes = []): SuKien
