@@ -1,6 +1,8 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { STAFF_LIST } from "../../data/mock"
 import { OrgLayout } from "./OrgLayout"
+import { useUser } from "../../context/UserContext"
+import { useApp } from "../../context/AppContext"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -14,9 +16,12 @@ const ACCOUNT_STATUS = {
 }
 
 export default function Staff({ onNavigate, onLogout }: Props) {
+  const { user, role } = useUser()
+  const { events } = useApp()
   const [showModal, setShowModal] = useState(false)
   const [activationModal, setActivationModal] = useState(false)
   const [token, setToken] = useState("")
+  const [filterUnit, setFilterUnit] = useState<"all" | "my_unit">("all")
 
   function generateToken() {
     const t =
@@ -28,6 +33,53 @@ export default function Staff({ onNavigate, onLogout }: Props) {
     setActivationModal(true)
     setShowModal(false)
   }
+
+  // Data scoping: Ban tổ chức chỉ thấy nhân sự trực thuộc sự kiện của đơn vị mình
+  const scopedStaff = useMemo(() => {
+    if (role === "admin" || role === "student_affairs") {
+      if (filterUnit === "my_unit") {
+        return STAFF_LIST.filter((s) => {
+          const matchingEvent = events.find(
+            (e) => (e.title || e.ten_su_kien) === s.assignedEvent,
+          )
+          if (!matchingEvent) {
+            return (
+              s.assignedEvent.toLowerCase().includes("nghề nghiệp") ||
+              s.assignedEvent.toLowerCase().includes("uit")
+            )
+          }
+          const host = (
+            (matchingEvent as any).organizer ||
+            (matchingEvent as any).ten_don_vi_host ||
+            (matchingEvent as any).don_vi_host?.ten_don_vi ||
+            ""
+          ).toLowerCase()
+          return host.includes("công tác sinh viên") || host.includes("ctsv")
+        })
+      }
+      return STAFF_LIST
+    }
+    const unitName = (user.don_vi?.ten_don_vi || "").toLowerCase()
+    return STAFF_LIST.filter((s) => {
+      if (!unitName) return true
+      const matchingEvent = events.find(
+        (e) => (e.title || e.ten_su_kien) === s.assignedEvent,
+      )
+      if (!matchingEvent) {
+        return (
+          s.assignedEvent.toLowerCase().includes(unitName) ||
+          (unitName.includes("webdev") && s.assignedEvent.includes("DevOps"))
+        )
+      }
+      const host = (
+        (matchingEvent as any).organizer ||
+        (matchingEvent as any).ten_don_vi_host ||
+        (matchingEvent as any).don_vi_host?.ten_don_vi ||
+        ""
+      ).toLowerCase()
+      return host.includes(unitName)
+    })
+  }, [role, user, events, filterUnit])
 
   return (
     <OrgLayout current="org-staff" onNavigate={onNavigate} onLogout={onLogout}>
@@ -41,10 +93,36 @@ export default function Staff({ onNavigate, onLogout }: Props) {
               Quản lý nhân viên
             </h1>
             <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-              Phân quyền tài khoản nhân viên điểm danh
+              {role === "admin" || role === "student_affairs"
+                ? "Phân quyền và quản lý tài khoản nhân viên / CTV điểm danh toàn trường"
+                : `Phân quyền nhân viên điểm danh cho các sự kiện thuộc đơn vị: ${user.don_vi?.ten_don_vi || "Ban tổ chức"}`}
             </p>
           </div>
           <div className="flex items-center gap-2.5">
+            {(role === "admin" || role === "student_affairs") && (
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs mr-2">
+                <button
+                  onClick={() => setFilterUnit("all")}
+                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-colors ${
+                    filterUnit === "all"
+                      ? "bg-white text-indigo shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-navy"
+                  }`}
+                >
+                  🌐 Toàn trường
+                </button>
+                <button
+                  onClick={() => setFilterUnit("my_unit")}
+                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-colors ${
+                    filterUnit === "my_unit"
+                      ? "bg-white text-indigo shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-navy"
+                  }`}
+                >
+                  🏛️ Chỉ sự kiện P.CTSV
+                </button>
+              </div>
+            )}
             <button
               onClick={() => onNavigate("staff-scanner")}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
@@ -109,7 +187,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
               </tr>
             </thead>
             <tbody>
-              {STAFF_LIST.map((s) => {
+              {scopedStaff.map((s) => {
                 const ss = ACCOUNT_STATUS[s.accountStatus]
                 return (
                   <tr
@@ -219,7 +297,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {STAFF_LIST.map((s) => {
+          {scopedStaff.map((s) => {
             const ss = ACCOUNT_STATUS[s.accountStatus]
             return (
               <div

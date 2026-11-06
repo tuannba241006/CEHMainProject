@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { STATUS_LABELS, TOPIC_LABELS } from "../../data/mock"
 import { OrgLayout } from "./OrgLayout"
 import { formatCalendarDate } from "../../utils/date"
@@ -7,6 +7,7 @@ import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
 import { isApiMode } from "../../api/config"
 import { getApiErrorMessage } from "../../api/errors"
+import { useUser } from "../../context/UserContext"
 
 const STATUS_COLORS: Record<EventStatus, { bg: string; text: string }> = {
   open: { bg: "#dcfce7", text: "#15803d" },
@@ -114,7 +115,37 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
     }
   }
 
-  const filtered = EVENTS.filter(
+  const { user, role } = useUser()
+
+  // Data scoping: Ban tổ chức chỉ xem được sự kiện của đơn vị mình
+  const scopedEvents = useMemo(() => {
+    if (role === "admin" || role === "student_affairs") {
+      return EVENTS
+    }
+    const unitName = (user.don_vi?.ten_don_vi || "").toLowerCase()
+    const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
+    return EVENTS.filter((e: any) => {
+      if (!unitName && !unitId) return true
+      const hostName = (
+        e.organizer ||
+        e.don_vi_host?.ten_don_vi ||
+        e.ten_don_vi_host ||
+        ""
+      ).toLowerCase()
+      const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
+      const isHost =
+        (unitId && hostId === unitId) ||
+        (unitName && hostName.includes(unitName))
+      const isCoHost = (
+        e.coHosts ||
+        e.danh_sach_ten_dong_to_chuc ||
+        []
+      ).some((ch: string) => ch.toLowerCase().includes(unitName))
+      return isHost || isCoHost
+    })
+  }, [EVENTS, role, user])
+
+  const filtered = scopedEvents.filter(
     (e) =>
       (statusFilter === "all" || computeStatus(e) === statusFilter) &&
       (e.title.toLowerCase().includes(search.toLowerCase()) ||

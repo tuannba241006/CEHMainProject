@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { OrgLayout } from "./OrgLayout"
+import { useUser } from "../../context/UserContext"
 import {
   useApp,
   computeEventStatus,
@@ -44,11 +45,38 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     certificates,
     manualOverrideAttendance,
   } = useApp()
+  const { user, role } = useUser()
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [activeTab, setActiveTab] =
     useState<"participants" | "checkin" | "reconciliation" | "survey" | "certificates" | "staff">(
       "participants",
     )
+  const [filterUnit, setFilterUnit] = useState<"all" | "my_unit">("all")
+
+  // Data scoping: Ban tổ chức chỉ xem được sự kiện thuộc đơn vị mình; Admin xem toàn trường hoặc lọc cấp trường
+  const scopedEvents = useMemo(() => {
+    if (role === "admin" || role === "student_affairs") {
+      if (filterUnit === "my_unit") {
+        return events.filter((e: any) => {
+          const hostName = (e.organizer || e.don_vi_host?.ten_don_vi || e.ten_don_vi_host || "").toLowerCase()
+          return hostName.includes("công tác sinh viên") || hostName.includes("ctsv")
+        })
+      }
+      return events
+    }
+    const unitName = user.don_vi?.ten_don_vi?.toLowerCase() || ""
+    const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
+    return events.filter((e: any) => {
+      if (!unitName && !unitId) return true
+      const hostName = (e.organizer || e.don_vi_host?.ten_don_vi || e.ten_don_vi_host || "").toLowerCase()
+      const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
+      const isHost = (unitId && hostId === unitId) || (unitName && hostName.includes(unitName))
+      const isCoHost = (e.coHosts || e.danh_sach_ten_dong_to_chuc || []).some((ch: string) =>
+        ch.toLowerCase().includes(unitName),
+      )
+      return isHost || isCoHost
+    })
+  }, [events, role, user, filterUnit])
 
   // Event list view
   if (!selectedEventId) {
@@ -59,20 +87,49 @@ export default function Participants({ onNavigate, onLogout }: Props) {
         onLogout={onLogout}
       >
         <div className="p-6 lg:p-8 max-w-screen-xl">
-          <div className="mb-6">
-            <h1
-              className="font-display font-bold text-2xl"
-              style={{ color: "#1a1a2e" }}
-            >
-              Người tham gia
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-              Chọn sự kiện để xem danh sách người tham gia
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h1
+                className="font-display font-bold text-2xl"
+                style={{ color: "#1a1a2e" }}
+              >
+                Người tham gia
+              </h1>
+              <p className="text-sm mt-1" style={{ color: "#64748b" }}>
+                {role === "admin" || role === "student_affairs"
+                  ? "Xem và quản lý danh sách sinh viên tham gia sự kiện toàn trường hoặc cấp Trường (P.CTSV)"
+                  : `Danh sách người tham gia các sự kiện thuộc đơn vị: ${user.don_vi?.ten_don_vi || "Ban tổ chức"}`}
+              </p>
+            </div>
+
+            {(role === "admin" || role === "student_affairs") && (
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
+                <button
+                  onClick={() => setFilterUnit("all")}
+                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-colors ${
+                    filterUnit === "all"
+                      ? "bg-white text-indigo shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-navy"
+                  }`}
+                >
+                  🌐 Tất cả sự kiện
+                </button>
+                <button
+                  onClick={() => setFilterUnit("my_unit")}
+                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-colors ${
+                    filterUnit === "my_unit"
+                      ? "bg-white text-indigo shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-navy"
+                  }`}
+                >
+                  🏛️ Chỉ sự kiện P.CTSV
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {events.map((event) => {
+            {scopedEvents.map((event) => {
               const eventTickets = tickets.filter((t) => t.eventId === event.id)
               const attended = eventTickets.filter(
                 (t) => t.status === "attended",

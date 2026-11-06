@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { OrgLayout } from "./OrgLayout"
 import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
@@ -81,7 +81,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
 ]
 
 export default function CohostInvitations({ onNavigate, onLogout }: Props) {
-  const { role } = useUser()
+  const { user, role } = useUser()
   const { showToast } = useToast()
   const [invitations, setInvitations] =
     useState<CohostInvitation[]>(INITIAL_INVITATIONS)
@@ -91,7 +91,19 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     useState<CohostInvitation | null>(null)
   const [declineReason, setDeclineReason] = useState("")
 
-  const filtered = invitations.filter(
+  // Data scoping: Ban tổ chức chỉ thấy thư mời gửi đến đơn vị mình (không tự nhận thư mời do mình phát đi)
+  const scopedInvitations = useMemo(() => {
+    if (role === "admin" || role === "student_affairs") {
+      return invitations
+    }
+    const unitName = (user.don_vi?.ten_don_vi || "").toLowerCase()
+    return invitations.filter((inv) => {
+      if (!unitName) return true
+      return !inv.hostUnit.toLowerCase().includes(unitName)
+    })
+  }, [invitations, role, user])
+
+  const filtered = scopedInvitations.filter(
     (inv) => filter === "all" || inv.status === filter,
   )
 
@@ -129,7 +141,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     setDeclineReason("")
   }
 
-  const pendingCount = invitations.filter((i) => i.status === "pending").length
+  const pendingCount = scopedInvitations.filter((i) => i.status === "pending").length
 
   return (
     <OrgLayout current="org-cohost" onNavigate={onNavigate} onLogout={onLogout}>
@@ -196,7 +208,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
             <div className="p-3.5 rounded-2xl bg-slate-50">
               <p className="text-xs text-slate-500">Tổng lời mời</p>
               <p className="font-display font-bold text-xl text-navy mt-0.5">
-                {invitations.length}
+                {scopedInvitations.length}
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-100">
@@ -208,13 +220,13 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
             <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100">
               <p className="text-xs text-emerald-700">Đã đồng ý (DONG_Y)</p>
               <p className="font-display font-bold text-xl text-emerald-900 mt-0.5">
-                {invitations.filter((i) => i.status === "accepted").length}
+                {scopedInvitations.filter((i) => i.status === "accepted").length}
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100">
               <p className="text-xs text-rose-700">Đã từ chối (TU_CHOI)</p>
               <p className="font-display font-bold text-xl text-rose-900 mt-0.5">
-                {invitations.filter((i) => i.status === "declined").length}
+                {scopedInvitations.filter((i) => i.status === "declined").length}
               </p>
             </div>
           </div>
