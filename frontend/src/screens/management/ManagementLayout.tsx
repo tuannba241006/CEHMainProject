@@ -97,11 +97,6 @@ export function ManagementLayout({
           label: "Tổ chức sự kiện Khoa (Host A)",
           icon: icons.event,
         },
-        {
-          id: "staff-scanner",
-          label: "Máy quét soát vé (Camera)",
-          icon: icons.camera,
-        },
       ]
     : [
         {
