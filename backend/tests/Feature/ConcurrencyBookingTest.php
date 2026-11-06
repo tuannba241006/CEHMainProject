@@ -11,6 +11,7 @@ use App\Models\SuKien;
 use App\Models\User;
 use App\Services\BookingService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -25,6 +26,8 @@ use Tests\TestCase;
  */
 class ConcurrencyBookingTest extends TestCase
 {
+    public function beginDatabaseTransaction(): void {}
+
     protected array $studentIds = [];
 
     protected int $eventId;
@@ -38,6 +41,12 @@ class ConcurrencyBookingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        if (DB::connection()->getDatabaseName() !== 'ceh_test') {
+            $this->fail('Concurrency test may only reset the ceh_test database.');
+        }
+
+        Artisan::call('migrate:fresh', ['--seed' => true]);
 
         // 1. Chuẩn bị dữ liệu cơ sở
         $club = DonViToChuc::where('loai_don_vi', 'CLB')->first()
