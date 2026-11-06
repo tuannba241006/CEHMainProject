@@ -30,8 +30,33 @@ export interface ApiEnvelope<T> {
   }
 }
 
+export interface RegisterPayload {
+  ho_ten: string
+  mssv: string
+  email: string
+  so_dien_thoai?: string
+  lop_sinh_hoat: string
+  ma_khoa: number
+  mat_khau: string
+  xac_nhan_mat_khau: string
+  dong_y_nghi_dinh_13: boolean
+}
+
+export interface ChangePasswordPayload {
+  mat_khau_hien_tai?: string
+  mat_khau_moi: string
+  xac_nhan_mat_khau: string
+}
+
+export interface ResetPasswordPayload {
+  email: string
+  otp: string
+  mat_khau: string
+  xac_nhan_mat_khau: string
+}
+
 export const authService = {
-  register: (payload: unknown) =>
+  register: (payload: RegisterPayload) =>
     api.post<ApiEnvelope<{ email: string }>>("/auth/register", payload),
   resendRegistrationOtp: (email: string) =>
     api.post<ApiEnvelope<null>>("/auth/resend-registration-otp", { email }),
@@ -62,10 +87,10 @@ export const authService = {
   me: () => api.get<ApiEnvelope<User>>("/auth/me"),
   updateProfile: (payload: Pick<User, "so_dien_thoai" | "avatar_url">) =>
     api.put<ApiEnvelope<User>>("/auth/profile", payload),
-  changePassword: (payload: unknown) =>
+  changePassword: (payload: ChangePasswordPayload) =>
     api.post<ApiEnvelope<null>>("/auth/change-password", payload),
   forgotPassword: (email: string) =>
     api.post<ApiEnvelope<null>>("/auth/forgot-password", { email }),
-  resetPassword: (payload: unknown) =>
+  resetPassword: (payload: ResetPasswordPayload) =>
     api.post<ApiEnvelope<null>>("/auth/reset-password", payload),
 }

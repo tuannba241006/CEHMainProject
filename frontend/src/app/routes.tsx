@@ -9,7 +9,6 @@ import {
 import { lazy, Suspense, useEffect, type ReactNode } from "react"
 import StudentLayout from "../components/StudentLayout"
 import { useUser, type AppRole } from "../context/UserContext"
-import { isApiMode } from "../api/config"
 import type { Ticket } from "../data/mock"
 import SystemState from "../screens/SystemState"
 
@@ -322,7 +321,7 @@ function LoginRoute({ register = false }: { register?: boolean }) {
         onBack={() => navigate("/events")}
         onVerify={() => navigate("/certificates/verify")}
         onLogin={(role, email) => {
-          if (!isApiMode()) loginAs(email, role)
+          loginAs(email, role)
           const isStaffUser = email === "22521999@gm.uit.edu.vn"
           const fallback = isStaffUser
             ? "/staff/scanner"

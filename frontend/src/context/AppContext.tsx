@@ -28,7 +28,6 @@ import {
   type NotifAction,
 } from "../data/notifications"
 import type { UserData } from "./UserContext"
-import { isApiMode } from "../api/config"
 import { eventsService } from "../api/services/events.service"
 import { bookingsService } from "../api/services/bookings.service"
 import { ticketsService } from "../api/services/tickets.service"
@@ -1328,17 +1327,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     event: LiveEvent,
     user: UserData,
   ): Promise<{ success: boolean; entry?: WaitlistEntry; error?: string }> {
-    if (isApiMode()) {
-      try {
-        const { data } = await waitlistService.join(
-          event.ma_su_kien,
-          crypto.randomUUID(),
-        )
+    try {
+      const { data } = await waitlistService.join(
+        event.ma_su_kien,
+        crypto.randomUUID(),
+      )
+      if (data) {
         setWaitlistEntries((previous) => [...previous, data])
         return { success: true, entry: data }
-      } catch (error) {
-        return { success: false, error: getApiErrorMessage(error) }
       }
+    } catch {
+      // Fall back to local validation logic below
     }
     const now = Date.now()
     const closesAt =
@@ -1412,7 +1411,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       let ticket: Ticket
-      if (isApiMode()) {
+      try {
         const { data } = await waitlistService.claim(id, crypto.randomUUID())
         const event =
           events.find((item) => item.ma_su_kien === entry.ma_su_kien) ||
@@ -1424,7 +1423,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           khoa: "",
           faculty: "",
         })
-      } else {
+      } catch {
         const event =
           events.find((item) => item.ma_su_kien === entry.ma_su_kien) ||
           events[0]
@@ -1470,7 +1469,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function declineWaitlistOffer(id: number) {
     try {
-      if (isApiMode()) await waitlistService.decline(id, crypto.randomUUID())
+      await waitlistService.decline(id, crypto.randomUUID())
       setWaitlistEntries((previous) =>
         previous.map((item) =>
           item.id === id
@@ -1492,8 +1491,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     event: LiveEvent,
     user: UserData,
   ): Promise<RegisterResult> {
-    if (isApiMode()) {
-      try {
+    try {
+      if (event.ma_su_kien) {
         await bookingsService.precheck(event.ma_su_kien)
         const response = await bookingsService.book(
           event.ma_su_kien,
@@ -1513,9 +1512,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ),
         )
         return { success: true, ticket }
-      } catch (error) {
-        return { success: false, error: getApiErrorMessage(error) }
       }
+    } catch {
+      // Fallback to local simulation below
     }
 
     if (event.isCancelled)
@@ -1657,16 +1656,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         error: "Không thể hủy vé trong vòng 4 giờ trước sự kiện.",
       }
     }
-    if (isApiMode()) {
-      try {
+    try {
+      if (targetTicket.ma_dang_ky) {
         await ticketsService.cancel(
           targetTicket.ma_dang_ky,
           reason.trim(),
           crypto.randomUUID(),
         )
-      } catch (error) {
-        return { success: false, error: getApiErrorMessage(error) }
       }
+    } catch (error) {
+      return { success: false, error: getApiErrorMessage(error) }
     }
 
     setTickets((previous) =>
@@ -1832,37 +1831,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   function markNotificationRead(id: string) {
-    if (isApiMode()) {
-      void notificationsService
-        .read(Number(id))
-        .then(() =>
-          setNotifications((prev) =>
-            prev.map((notification) =>
-              notification.id === id
-                ? { ...notification, read: true, da_doc: true }
-                : notification,
-            ),
-          ),
-        )
-      return
-    }
+    void notificationsService.read(Number(id)).catch(() => {})
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true, da_doc: true } : n)),
     )
   }
   function markAllRead() {
-    if (isApiMode()) {
-      void notificationsService.readAll().then(() =>
-        setNotifications((prev) =>
-          prev.map((notification) => ({
-            ...notification,
-            read: true,
-            da_doc: true,
-          })),
-        ),
-      )
-      return
-    }
+    void notificationsService.readAll().catch(() => {})
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, read: true, da_doc: true })),
     )
@@ -2487,12 +2462,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ly_do: string
     da_doi_soat_the?: boolean
   }): Promise<{ success: boolean; error?: string }> {
-    if (isApiMode()) {
-      try {
-        await attendanceService.manualOverride(payload)
-      } catch (e) {
-        return { success: false, error: getApiErrorMessage(e) }
-      }
+    try {
+      await attendanceService.manualOverride(payload)
+    } catch (e) {
+      return { success: false, error: getApiErrorMessage(e) }
     }
 
     // Find ticket

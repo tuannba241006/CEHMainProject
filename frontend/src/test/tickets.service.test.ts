@@ -90,3 +90,4 @@ describe("TicketsService Unit Tests (frontend/src/api/services/tickets.service.t
     expect(result.success).toBe(true)
   })
 })
+

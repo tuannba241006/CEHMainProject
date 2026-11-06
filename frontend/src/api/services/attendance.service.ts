@@ -1,4 +1,5 @@
 import { api } from "../client"
+import type { Participant, StaffAssignment } from "../../data/contract"
 import type { ApiEnvelope } from "./auth.service"
 
 export interface KioskTotpData {
@@ -57,27 +58,34 @@ export const attendanceService = {
     che_do_quet: "CHECK_IN" | "CHECK_OUT"
     chuoi_qr_ve: string
   }) => api.post<ApiEnvelope<StaffScanData>>("/attendance/staff-scan", payload),
-  selfCheckin: (payload: unknown, deviceId: string) =>
-    api.post<ApiEnvelope<unknown>>("/attendance/self-check-in", payload, {
+  selfCheckin: (payload: { ma_su_kien: number; dynamic_totp_code: string }, deviceId: string) =>
+    api.post<ApiEnvelope<{ status: string; thoi_gian_checkin?: string }>>("/attendance/self-check-in", payload, {
       headers: { "X-Device-Id": deviceId },
     }),
-  selfCheckout: (payload: unknown, deviceId: string) =>
-    api.post<ApiEnvelope<unknown>>("/attendance/self-check-out", payload, {
+  selfCheckout: (payload: { ma_su_kien: number; dynamic_totp_code: string }, deviceId: string) =>
+    api.post<ApiEnvelope<{ status: string; thoi_luong_tham_du_phut?: number; ti_le_drl?: number }>>("/attendance/self-check-out", payload, {
       headers: { "X-Device-Id": deviceId },
     }),
   participants: (
     eventId: number | string,
     query?: Record<string, string | number>,
   ) =>
-    api.get<ApiEnvelope<unknown[]>>(`/events/${eventId}/participants`, {
+    api.get<ApiEnvelope<Participant[]>>(`/events/${eventId}/participants`, {
       query,
     }),
-  manualOverride: (payload: unknown) =>
-    api.post<ApiEnvelope<unknown>>("/attendance/manual-override", payload),
+  manualOverride: (payload: {
+    ma_dang_ky?: number
+    ticketId?: string
+    trang_thai_moi: "DaCheckIn" | "DaCheckOut"
+    ti_le_drl_moi?: number
+    ly_do: string
+    da_doi_soat_the?: boolean
+  }) =>
+    api.post<ApiEnvelope<{ thanh_cong: boolean }>>("/attendance/manual-override", payload),
   staff: (eventId: number | string) =>
-    api.get<ApiEnvelope<unknown[]>>(`/events/${eventId}/staff`),
+    api.get<ApiEnvelope<StaffAssignment[]>>(`/events/${eventId}/staff`),
   assignStaff: (eventId: number | string, danh_sach_mssv: string[]) =>
-    api.post<ApiEnvelope<unknown[]>>(`/events/${eventId}/staff`, {
+    api.post<ApiEnvelope<StaffAssignment[]>>(`/events/${eventId}/staff`, {
       danh_sach_mssv,
     }),
   revokeStaff: (eventId: number | string, userId: number | string) =>

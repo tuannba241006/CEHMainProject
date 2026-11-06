@@ -179,6 +179,67 @@ export interface RoomPublic {
   }
 }
 
+/** Lịch đặt phòng */
+export interface RoomScheduleEntry {
+  ma_dat_phong?: number
+  ma_su_kien: number
+  ten_su_kien: string
+  thoi_gian_bat_dau: string
+  thoi_gian_ket_thuc: string
+  trang_thai: string
+}
+
+/** Kết quả kiểm tra tình trạng trống của phòng */
+export interface RoomAvailabilityCheck {
+  ma_phong: number
+  trong_lich: boolean
+  xung_dot?: {
+    ma_su_kien: number
+    ten_su_kien: string
+    thoi_gian_bat_dau: string
+    thoi_gian_ket_thuc: string
+  } | null
+}
+
+/** Payload bài đánh giá sự kiện */
+export interface FeedbackPayload {
+  ma_su_kien?: number
+  diem_noi_dung?: number
+  diem_dien_gia?: number
+  diem_to_chuc?: number
+  gop_y?: string
+  content?: number
+  organization?: number
+  venue?: number
+  overall?: number
+  useful?: string
+  improvement?: string
+  joinAgain?: boolean
+}
+
+/** Thống kê vĩ mô cấp trường */
+export interface MacroAnalytics {
+  tong_so_su_kien: number
+  tong_luot_sinh_vien_tham_gia: number
+  ty_le_checkin_tb: number
+  ty_le_no_show_tb: number
+  su_kien_theo_chuyen_de?: Record<string, number>
+}
+
+/** Hồ sơ sinh viên vi phạm No-show */
+export interface NoShowViolationItem {
+  ma_tai_khoan: number
+  mssv: string
+  ho_ten: string
+  lop_sinh_hoat: string
+  so_lan_vi_pham: number
+  danh_sach_su_kien_no_show?: {
+    ma_su_kien: number
+    ten_su_kien: string
+    ngay_dien_ra: string
+  }[]
+}
+
 /** Hạng mục trong lộ trình sự kiện */
 export interface AgendaItem {
   thoi_gian_bat_dau: string

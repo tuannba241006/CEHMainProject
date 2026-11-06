@@ -73,3 +73,4 @@ describe("AdminService Unit Tests (frontend/src/api/services/admin.service.ts)",
     expect(deleteResult.success).toBe(true)
   })
 })
+

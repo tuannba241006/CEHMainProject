@@ -179,3 +179,4 @@ describe("EventsService Unit Tests (frontend/src/api/services/events.service.ts)
     expect(result.success).toBe(true)
   })
 })
+

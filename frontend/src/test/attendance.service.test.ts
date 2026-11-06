@@ -119,3 +119,4 @@ describe("AttendanceService Unit Tests (frontend/src/api/services/attendance.ser
     expect(result.data).toHaveLength(1)
   })
 })
+
