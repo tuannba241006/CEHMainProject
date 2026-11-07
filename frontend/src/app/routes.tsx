@@ -322,7 +322,10 @@ function LoginRoute({ register = false }: { register?: boolean }) {
         onVerify={() => navigate("/certificates/verify")}
         onLogin={(role, email) => {
           loginAs(email, role)
-          const isStaffUser = email === "22521999@gm.uit.edu.vn"
+          const isStaffUser =
+            email === "22521999@gm.uit.edu.vn" ||
+            email === "checkin@demo.edu.vn" ||
+            email === "22520099@gm.uit.edu.vn"
           const fallback = isStaffUser
             ? "/staff/scanner"
             : role === "student"

@@ -178,7 +178,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       })
       return
     }
-    if (email === "checkin@demo.edu.vn" || email === "22520099@gm.uit.edu.vn") {
+    if (
+      email === "checkin@demo.edu.vn" ||
+      email === "22521999@gm.uit.edu.vn" ||
+      email === "22520099@gm.uit.edu.vn"
+    ) {
       setUser({
         ma_tai_khoan: 2,
         ho_ten: "Trần Minh Phúc",
