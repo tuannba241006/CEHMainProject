@@ -13,14 +13,46 @@ import FormDialog from "./FormDialog"
 
 interface Props {
   readOnly?: boolean
+  onNavigate?: (screen: string) => void
+  onLogout?: () => void
 }
 
-export default function RoomManagement({ readOnly = false }: Props) {
+export default function RoomManagement({
+  readOnly = false,
+  onNavigate,
+  onLogout,
+}: Props) {
   const navigate = useNavigate()
   const { logout } = useUser()
   const { showToast } = useToast()
   const col = useCollection<RoomPublic>("admin_rooms", ROOMS, "ma_phong", {
-    list: () => roomsService.list() as Promise<{ data: unknown[] }>,
+    list: async () => {
+      try {
+        const res = await roomsService.list()
+        const rawList = (res.data || []) as Array<Partial<RoomPublic> & { suc_chua_toi_da?: number; trang_thiet_bi?: { may_chieu?: boolean; am_thanh?: boolean; wifi?: boolean } }>
+        const mapped: RoomPublic[] = rawList.map((r) => ({
+          ma_phong: Number(r.ma_phong),
+          ten_phong: r.ten_phong || "Hội trường",
+          suc_chua: Number(r.suc_chua_toi_da ?? r.suc_chua ?? 100),
+          co_so: (r.co_so === "CoSo2" ? "CoSo2" : "CoSo1") as RoomPublic["co_so"],
+          toa_nha: r.toa_nha || (r.co_so === "CoSo2" ? "Tòa B" : "Tòa A"),
+          vi_tri_tang: Number(r.vi_tri_tang ?? 1),
+          thiet_bi: {
+            may_chieu: Boolean(
+              r.trang_thiet_bi?.may_chieu ?? r.thiet_bi?.may_chieu ?? true,
+            ),
+            am_thanh: Boolean(
+              r.trang_thiet_bi?.am_thanh ?? r.thiet_bi?.am_thanh ?? true,
+            ),
+            wifi: Boolean(r.trang_thiet_bi?.wifi ?? r.thiet_bi?.wifi ?? true),
+          },
+        }))
+        return { data: mapped }
+      } catch (err) {
+        console.warn("Failed to fetch rooms from backend, using seed fallback:", err)
+        return { data: ROOMS }
+      }
+    },
     create: (i) => roomsService.create(i),
     update: (id, i) => roomsService.update(id, i),
     remove: (id) => roomsService.remove(id),
@@ -272,27 +304,34 @@ export default function RoomManagement({ readOnly = false }: Props) {
     )
 
   if (readOnly) {
+    const defaultOrgPaths: Record<string, string> = {
+      "org-dashboard": "/organizer/dashboard",
+      "org-events": "/organizer/events",
+      "org-event-form": "/organizer/events/create",
+      "org-participants": "/organizer/participants",
+      "org-staff": "/organizer/staff",
+      "org-cohost": "/organizer/cohost-invitations",
+      "org-rooms": "/organizer/rooms",
+      "org-scanner": "/staff/scanner",
+      "staff-scanner": "/staff/scanner",
+      "org-settings": "/organizer/settings",
+      "faculty-inbox": "/faculty/approvals",
+      "affairs-inbox": "/affairs/approvals",
+      "affairs-results": "/affairs/drl",
+      "affairs-certificates": "/affairs/certificates",
+      "admin-dashboard": "/admin/dashboard",
+      "admin-rooms": "/admin/rooms",
+    }
+    const handleOrgNavigate =
+      onNavigate || ((screen: string) => navigate(defaultOrgPaths[screen] || screen))
+    const handleLogout =
+      onLogout || (() => void logout().finally(() => navigate("/login")))
+
     return (
       <OrgLayout
         current="org-rooms"
-        onNavigate={(screen) =>
-          navigate(
-            screen === "org-dashboard"
-              ? "/organizer/dashboard"
-              : screen === "org-events"
-                ? "/organizer/events"
-                : screen === "org-participants"
-                  ? "/organizer/participants"
-                  : screen === "org-staff"
-                    ? "/organizer/staff"
-                    : screen === "org-cohost"
-                      ? "/organizer/cohost-invitations"
-                      : screen === "org-rooms"
-                        ? "/organizer/rooms"
-                        : "/organizer/settings",
-          )
-        }
-        onLogout={() => void logout().finally(() => navigate("/login"))}
+        onNavigate={handleOrgNavigate}
+        onLogout={handleLogout}
       >
         {content}
       </OrgLayout>

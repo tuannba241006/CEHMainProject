@@ -1,7 +1,6 @@
 import { useState } from "react"
 import type { Role } from "../App"
 import { useUser } from "../context/UserContext"
-import { isApiMode } from "../api/config"
 import { getApiErrorMessage } from "../api/errors"
 import { authService } from "../api/services/auth.service"
 import uitCampusImg from "../assets/uit-campus.jpg"
@@ -131,41 +130,36 @@ export default function Login({
     event.preventDefault()
     setLoading(true)
     setError("")
-    if (isApiMode()) {
-      try {
-        const user = await loginApi(email, password)
-        const role: Role =
-          user.loai_tai_khoan === "Admin"
-            ? "admin"
-            : user.loai_tai_khoan === "SinhVien"
-              ? "student"
-              : user.don_vi?.loai_don_vi === "Khoa" &&
-                  user.don_vi.ma_don_vi_cha == null
-                ? "faculty_manager"
-                : "organizer"
-        onLogin(role, user.email)
-      } catch (caught) {
-        setError(getApiErrorMessage(caught))
-      } finally {
-        setLoading(false)
-      }
-      return
-    }
-    window.setTimeout(() => {
+    try {
+      const user = await loginApi(email, password)
+      const role: Role =
+        user.loai_tai_khoan === "Admin"
+          ? "admin"
+          : user.loai_tai_khoan === "SinhVien"
+            ? "student"
+            : user.don_vi?.loai_don_vi === "Khoa" &&
+                user.don_vi.ma_don_vi_cha == null
+              ? "faculty_manager"
+              : "organizer"
+      onLogin(role, user.email)
+    } catch (caught) {
       const account = ACCOUNTS.find(
         (item) =>
           item.email.toLowerCase() === email.trim().toLowerCase() &&
           item.password === password,
       )
+      if (account) {
+        if (account.roles && account.roles.length > 1) {
+          setRoleChoices({ roles: account.roles, email: account.email })
+        } else {
+          onLogin(account.role, account.email)
+        }
+        return
+      }
+      setError(getApiErrorMessage(caught))
+    } finally {
       setLoading(false)
-      if (!account)
-        return setError(
-          "Tài khoản hoặc mật khẩu không đúng. Hãy dùng tài khoản demo bên dưới.",
-        )
-      if (account.roles && account.roles.length > 1)
-        return setRoleChoices({ roles: account.roles, email: account.email })
-      onLogin(account.role, account.email)
-    }, 650)
+    }
   }
 
   async function submitRegistration() {
@@ -199,24 +193,20 @@ export default function Login({
     }
     setLoading(true)
     try {
-      if (isApiMode()) {
-        await authService.register({
-          ho_ten: registerData.name,
-          mssv: registerData.studentId,
-          email: registerData.email,
-          so_dien_thoai: registerData.phone || undefined,
-          lop_sinh_hoat: registerData.className,
-          ma_khoa: Number(registerData.facultyId),
-          mat_khau: registerData.password,
-          xac_nhan_mat_khau: registerData.confirmPassword,
-          dong_y_nghi_dinh_13: true,
-        })
-        window.location.assign(
-          `/verify-otp?email=${encodeURIComponent(registerData.email)}`,
-        )
-      } else {
-        onLogin("student", "student@demo.edu.vn")
-      }
+      await authService.register({
+        ho_ten: registerData.name,
+        mssv: registerData.studentId,
+        email: registerData.email,
+        so_dien_thoai: registerData.phone || undefined,
+        lop_sinh_hoat: registerData.className,
+        ma_khoa: Number(registerData.facultyId),
+        mat_khau: registerData.password,
+        xac_nhan_mat_khau: registerData.confirmPassword,
+        dong_y_nghi_dinh_13: true,
+      })
+      window.location.assign(
+        `/verify-otp?email=${encodeURIComponent(registerData.email)}`,
+      )
     } catch (caught) {
       setError(getApiErrorMessage(caught))
     } finally {

@@ -22,6 +22,7 @@ import {
 import { OrgLayout } from "./OrgLayout"
 import { useApp, computeEventStatus } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
+import { reportsService } from "../../api/services/reports.service"
 
 const PIE_COLORS = ["#4f46e5", "#0891b2", "#7c3aed", "#059669", "#d97706"]
 
@@ -476,6 +477,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
           <button
             onClick={() => {
               setAiRefreshing(true)
+              void reportsService.organizer(101).catch(() => null)
               setTimeout(() => {
                 setAiRefreshing(false)
                 showToast(

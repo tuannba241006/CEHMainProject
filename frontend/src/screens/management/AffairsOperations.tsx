@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   useApp,
   type AttendanceRecord,
@@ -6,6 +6,10 @@ import {
 } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { ManagementLayout } from "./ManagementLayout"
+import { drlService } from "../../api/services/drl.service"
+import { certificatesService } from "../../api/services/certificates.service"
+import { feedbackService } from "../../api/services/feedback.service"
+import { getApiErrorMessage } from "../../api/errors"
 
 interface Props {
   mode: "results" | "certificates"
@@ -31,20 +35,52 @@ export default function AffairsOperations({
 }
 
 function Results() {
-  const { attendanceRecords, recognizeAttendance, requestAttendanceRevision } =
+  const { attendanceRecords, recognizeAttendance, requestAttendanceRevision, events } =
     useApp()
   const { showToast } = useToast()
+  const [selectedEventId, setSelectedEventId] = useState<number | string>(() => {
+    return events && events.length > 0 ? (events[0].id || 101) : 101
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    drlService
+      .list(selectedEventId)
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedEventId])
+
+  const [isDrlLocked, setIsDrlLocked] = useState(false)
+  const [lockModalOpen, setLockModalOpen] = useState(false)
   const [reasonFor, setReasonFor] = useState<string | null>(null)
   const [reason, setReason] = useState("")
   const [filter, setFilter] = useState("all")
   const [unlockModalOpen, setUnlockModalOpen] = useState(false)
   const [unlockTarget, setUnlockTarget] = useState<string>("all_recognized")
   const [unlockReason, setUnlockReason] = useState("")
+  const [graceStudent, setGraceStudent] = useState<AttendanceRecord | null>(null)
+  const [graceReason, setGraceReason] = useState("")
+
   const rows = attendanceRecords.filter(
     (row) => filter === "all" || row.status === filter,
   )
 
   function recognize(row: AttendanceRecord) {
+    if (isDrlLocked) {
+      showToast("Danh sách Điểm Rèn Luyện đã bị khóa chốt. Vui lòng mở khóa trước khi công nhận.", "warning")
+      return
+    }
     const result = recognizeAttendance(row.id)
     showToast(
       result.success
@@ -54,7 +90,21 @@ function Results() {
     )
   }
 
-  function handleUnlockDrl() {
+  async function handleLockDrl() {
+    try {
+      await drlService.lock(selectedEventId)
+      setIsDrlLocked(true)
+      setLockModalOpen(false)
+      showToast(
+        "Đã khóa chốt danh sách Điểm Rèn Luyện (da_chot_drl = 1). Dữ liệu đã được niêm phong để gửi Phòng Đào tạo.",
+        "success",
+      )
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
+  }
+
+  async function handleUnlockDrl() {
     if (!unlockReason.trim() || unlockReason.trim().length < 8) {
       showToast(
         "Vui lòng nhập lý do mở khóa chi tiết (tối thiểu 8 ký tự).",
@@ -62,16 +112,22 @@ function Results() {
       )
       return
     }
-    showToast(
-      `Đã mở khóa điều chỉnh ĐRL cho ${
-        unlockTarget === "all_recognized"
-          ? "toàn bộ hồ sơ đã chốt"
-          : `hồ sơ ${unlockTarget}`
-      }. Đã ghi nhận lịch sử kiểm toán.`,
-      "success",
-    )
-    setUnlockModalOpen(false)
-    setUnlockReason("")
+    try {
+      await drlService.unlock(selectedEventId, unlockReason.trim())
+      setIsDrlLocked(false)
+      setUnlockModalOpen(false)
+      setUnlockReason("")
+      showToast(
+        `Đã mở khóa điều chỉnh ĐRL cho ${
+          unlockTarget === "all_recognized"
+            ? "toàn bộ hồ sơ đã chốt"
+            : `hồ sơ ${unlockTarget}`
+        } (da_chot_drl = 0). Đã ghi nhận lịch sử kiểm toán UNLOCK_DRL_FINAL.`,
+        "success",
+      )
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
   function requestRevision() {
@@ -89,15 +145,33 @@ function Results() {
     }
   }
 
-  function grantFeedbackGrace(row: AttendanceRecord) {
-    showToast(
-      `Đã cấp ân hạn 24h làm khảo sát cho sinh viên ${row.studentName} (${row.studentId}).`,
-      "success",
-    )
+  async function handleConfirmGrace() {
+    if (!graceStudent) return
+    if (!graceReason.trim() || graceReason.trim().length < 5) {
+      showToast("Vui lòng nhập lý do cấp ân hạn chi tiết (tối thiểu 5 ký tự).", "error")
+      return
+    }
+    try {
+      await feedbackService.grantGrace(graceStudent.id, graceReason.trim())
+      showToast(
+        `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${graceStudent.studentName} (${graceStudent.studentId}) - UC-FEED-01.`,
+        "success",
+      )
+      setGraceStudent(null)
+      setGraceReason("")
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl">
+      {error && (
+        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+          <span>⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-indigo mb-1">
@@ -108,30 +182,78 @@ function Results() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">
             Kiểm tra từng dòng đối soát; dòng có cảnh báo bị chặn công nhận.
-            Admin có thẩm quyền mở khóa điều chỉnh sau khi chốt sổ.
+            Admin có thẩm quyền độc quyền khóa chốt và mở khóa điều chỉnh sau khi chốt sổ.
           </p>
         </div>
+
+        {/* Action Buttons: Export, Lock, Unlock */}
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center">
+          {/* Dropdown chọn sự kiện */}
+          {events && events.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Sự kiện:</span>
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="text-xs font-semibold text-navy bg-transparent border-0 focus:outline-none cursor-pointer max-w-[200px] truncate"
+              >
+                {events.map((evt) => (
+                  <option key={evt.id} value={evt.id}>
+                    {evt.title} ({evt.date || "2026"})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* DRL Lock Status Indicator Badge */}
+          <span
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border shadow-2xs ${
+              isDrlLocked
+                ? "bg-rose-50 text-rose-700 border-rose-200"
+                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+            }`}
+          >
+            {isDrlLocked ? "🔒 Đã khóa chốt (da_chot_drl = 1)" : "🔓 Đang mở (da_chot_drl = 0)"}
+          </span>
+
+          {/* Xuất file Excel ĐRL (GET /events/{id}/drl/export) */}
           <button
             onClick={() => {
               showToast(
-                "Đang kết xuất danh sách sinh viên đủ điều kiện ĐRL chuẩn mẫu CTSV...",
+                "Đang kết xuất danh sách sinh viên đủ điều kiện ĐRL chuẩn mẫu CTSV (12 cột)...",
                 "info",
               )
             }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition-colors shadow-sm cursor-pointer"
-            title="Kết xuất file Excel bảng điểm rèn luyện chuẩn mẫu phòng CTSV"
+            onClickCapture={() => void drlService.export(selectedEventId).catch(() => null)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
+            title="Kết xuất file Excel bảng điểm rèn luyện 12 cột chuẩn mẫu CTSV gửi Phòng Đào tạo (GET /events/{id}/drl/export)"
           >
             <span>📥</span>
             <span>Xuất file Excel ĐRL</span>
           </button>
-          <button
-            onClick={() => setUnlockModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium text-sm transition-colors shadow-sm cursor-pointer"
-          >
-            <span>🔓</span>
-            <span>Mở khóa điều chỉnh ĐRL</span>
-          </button>
+
+          {/* Khóa chốt ĐRL (POST /events/{id}/drl/lock) */}
+          {!isDrlLocked ? (
+            <button
+              onClick={() => setLockModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
+              title="Khóa chốt danh sách ĐRL sự kiện (da_chot_drl = 1) gửi Phòng Đào tạo (POST /events/{id}/drl/lock)"
+            >
+              <span>🔒</span>
+              <span>Khóa chốt ĐRL</span>
+            </button>
+          ) : (
+            /* Mở khóa điều chỉnh ĐRL (POST /events/{id}/drl/unlock - UC-DRL-01.AC.1) */
+            <button
+              onClick={() => setUnlockModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
+              title="Admin mở khóa điều chỉnh ĐRL (da_chot_drl = 0) có kiểm toán Audit Log UNLOCK_DRL_FINAL (POST /events/{id}/drl/unlock)"
+            >
+              <span>🔓</span>
+              <span>Mở khóa điều chỉnh ĐRL</span>
+            </button>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -212,15 +334,35 @@ function Results() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <ResultRow
-                key={row.id}
-                row={row}
-                onRecognize={() => recognize(row)}
-                onRevision={() => setReasonFor(row.id)}
-                onGrace={() => grantFeedbackGrace(row)}
-              />
-            ))}
+            {loading ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <tr key={`skel-${idx}`} className="animate-pulse border-t border-slate-100">
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-28" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-20" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-16" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-16" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-12" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-12" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-12" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-24" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-20" /></td>
+                  <td className="px-4 py-3"><div className="h-6 bg-slate-200 rounded w-16" /></td>
+                </tr>
+              ))
+            ) : (
+              rows.map((row) => (
+                <ResultRow
+                  key={row.id}
+                  row={row}
+                  onRecognize={() => recognize(row)}
+                  onRevision={() => setReasonFor(row.id)}
+                  onGrace={() => {
+                    setGraceStudent(row)
+                    setGraceReason("")
+                  }}
+                />
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -280,8 +422,11 @@ function Results() {
                 Yêu cầu bổ sung
               </button>
               <button
-                onClick={() => grantFeedbackGrace(row)}
-                className="px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold"
+                onClick={() => {
+                  setGraceStudent(row)
+                  setGraceReason("")
+                }}
+                className="px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold cursor-pointer"
                 title="Cấp ân hạn 24h làm khảo sát đánh giá nếu quá hạn (POST /admin/tickets/{id}/feedback-grace)"
               >
                 Ân hạn 24h
@@ -407,15 +552,114 @@ function Results() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setUnlockModalOpen(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm transition-colors cursor-pointer"
               >
                 Hủy bỏ
               </button>
               <button
                 onClick={handleUnlockDrl}
-                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm transition-colors shadow-sm"
+                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-sm transition-colors shadow-sm cursor-pointer"
               >
                 Xác nhận mở khóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KHÓA CHỐT ĐRL (POST /events/{id}/drl/lock) */}
+      {lockModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 text-lg">
+                🔒
+              </div>
+              <div>
+                <h2 className="font-display font-bold text-lg text-navy">
+                  Khóa chốt Bảng Điểm Rèn Luyện
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Chuẩn quy chế CTSV gửi Phòng Đào tạo (UC-DRL-01)
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 p-3.5 bg-rose-50/70 border border-rose-200/80 rounded-2xl text-xs text-rose-900 leading-relaxed space-y-2">
+              <p className="font-semibold">⚠️ Xác nhận niêm phong kết quả:</p>
+              <p>
+                Sau khi khóa chốt (<code>da_chot_drl = 1</code>), bảng điểm rèn luyện của sự kiện sẽ được niêm phong để chuyển dữ liệu chính thức cho Phòng Đào tạo. Ban tổ chức cấp dưới sẽ <b>không thể tự ý điều chỉnh</b>.
+              </p>
+              <p>
+                Chỉ có tài khoản Quản trị viên (P.CTSV) mới có thẩm quyền mở khóa điều chỉnh (<code>POST /events/&#123;id&#125;/drl/unlock</code>) khi có đơn khiếu nại của sinh viên.
+              </p>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setLockModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleLockDrl}
+                className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer"
+              >
+                Xác nhận khóa chốt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CẤP ÂN HẠN KHẢO SÁT (POST /admin/tickets/{id}/feedback-grace - UC-FEED-01) */}
+      {graceStudent && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+              <div className="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 text-lg">
+                🎁
+              </div>
+              <div>
+                <h2 className="font-display font-bold text-lg text-navy">
+                  Cấp Ân hạn Khảo sát Đánh giá
+                </h2>
+                <p className="text-xs text-purple-600 font-semibold">
+                  Quy chế CTSV (UC-FEED-01)
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-4">
+              <div className="p-3.5 bg-purple-50/70 border border-purple-200/80 rounded-2xl text-xs text-purple-900 leading-relaxed">
+                Mở hạn ân hạn riêng (<code>han_an_han_feedback = NOW() + 24h</code>) cho sinh viên <b>{graceStudent.studentName}</b> (MSSV: <b>{graceStudent.studentId}</b>) nộp bù khảo sát chất lượng sau khi đã hết khung giờ 48 giờ tiêu chuẩn theo quy chế.
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Lý do cứu xét / cấp ân hạn (Bắt buộc ghi nhận kiểm toán Audit Log):
+                </label>
+                <textarea
+                  value={graceReason}
+                  onChange={(e) => setGraceReason(e.target.value)}
+                  rows={3}
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                  placeholder="Ví dụ: Sinh viên nộp đơn khiếu nại sự cố mạng kèm biên bản xác nhận của Ban Cán sự Lớp..."
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setGraceStudent(null)
+                  setGraceReason("")
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-xs transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={handleConfirmGrace}
+                className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer"
+              >
+                Xác nhận cấp ân hạn
               </button>
             </div>
           </div>
@@ -435,7 +679,7 @@ function ResultRow({
   onRecognize: () => void
   onRevision: () => void
   onGrace: () => void
-  key?: any
+  key?: React.Key
 }) {
   return (
     <tr className="border-t border-slate-100">
@@ -531,6 +775,7 @@ export function Certificates({ embedded = false }: {
   }
   function revoke() {
     if (!revokeId) return
+    void certificatesService.revoke(Number(revokeId) || 1, reason).catch(() => null)
     const result = revokeCertificate(revokeId, reason)
     showToast(
       result.success
@@ -649,34 +894,43 @@ export function Certificates({ embedded = false }: {
         />
       )}
       {revokeId && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <h2 className="font-display font-bold text-lg text-navy">
-              Thu hồi chứng nhận
-            </h2>
-            <p className="text-sm text-slate-500 mt-1 mb-4">
-              Bắt buộc nhập lý do. Mã xác thực sẽ hiển thị trạng thái “Đã thu
-              hồi”.
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 text-lg">
+                ⚠️
+              </div>
+              <div>
+                <h2 className="font-display font-bold text-lg text-navy">
+                  Thu hồi Giấy chứng nhận số (UC-CERT-01)
+                </h2>
+                <p className="text-xs text-rose-600 font-semibold">
+                  Mã HMAC-SHA256 độc bản
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+              Đánh dấu thu hồi (<code>da_thu_hoi = 1</code>) chứng nhận điện tử nếu phát hiện sinh viên gian lận điểm danh hoặc vi phạm kỷ luật sau sự kiện. Lý do bắt buộc lưu trong <b>Audit Log</b> (<code>REVOKE_CERTIFICATE</code>).
             </p>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              className="w-full p-3 rounded-xl border border-slate-200"
-              placeholder="Lý do thu hồi..."
+              className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              placeholder="Nhập lý do thu hồi (Ví dụ: Phát hiện gian lận quẹt thẻ thay hoặc vi phạm quy chế sau sự kiện)..."
             />
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-3 mt-5">
               <button
                 onClick={() => setRevokeId(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200"
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-xs cursor-pointer"
               >
-                Hủy
+                Hủy bỏ
               </button>
               <button
                 onClick={revoke}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold"
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer"
               >
-                Thu hồi
+                Xác nhận thu hồi
               </button>
             </div>
           </div>
@@ -686,7 +940,7 @@ export function Certificates({ embedded = false }: {
   )
 }
 
-export function CertificateBadge({ status }: { status: any }) {
+export function CertificateBadge({ status }: { status: string }) {
   const map: Record<string, [string, string]> = {
     ineligible: ["Chưa đủ điều kiện", "bg-slate-100 text-slate-600"],
     pending: ["Chờ phát hành", "bg-amber-50 text-amber-700"],

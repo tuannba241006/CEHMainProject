@@ -3,18 +3,37 @@ import { useLocation, useNavigate } from "react-router"
 import { useUser } from "../../context/UserContext"
 import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
 
-const items = [
-  ["/admin/dashboard", "Tổng quan toàn trường"],
-  ["/affairs/approvals", "Duyệt đề xuất sự kiện"],
-  ["/affairs/drl", "Phê duyệt kết quả ĐRL"],
-  ["/faculty/approvals", "Duyệt thay cấp Khoa (Sự cố)"],
-  ["/admin/rooms", "Phòng ốc & Lịch bảo trì"],
-  ["/admin/no-show", "Xử lý vi phạm No-show"],
-  ["/admin/certificates", "Cấp & Thu hồi chứng nhận"],
-  ["/admin/organizations", "Cây phân cấp Đơn vị"],
-  ["/admin/users", "Tài khoản & Phân quyền"],
-  ["/admin/topics", "Danh mục Chuyên đề"],
-  ["/admin/reports", "Báo cáo vĩ mô"],
+const navGroups = [
+  {
+    category: "Quản trị cấp Trường",
+    items: [
+      { path: "/admin/dashboard", label: "Tổng quan toàn trường", icon: "📊" },
+      { path: "/admin/events", label: "Sự kiện cấp trường & Nháp", icon: "📋" },
+      { path: "/affairs/approvals", label: "Duyệt đề xuất sự kiện", icon: "✅" },
+      { path: "/affairs/drl", label: "Phê duyệt kết quả ĐRL", icon: "⭐" },
+      { path: "/faculty/approvals", label: "Duyệt thay cấp Khoa (Sự cố)", icon: "⚡" },
+    ],
+  },
+  {
+    category: "Vận hành sự kiện (Toàn trường & P.CTSV)",
+    items: [
+      { path: "/admin/participants", label: "Người tham gia sự kiện", icon: "👥" },
+      { path: "/admin/staff", label: "Nhân viên & CTV điểm danh", icon: "🧑‍💼" },
+      { path: "/admin/cohost-invitations", label: "Lời mời đồng tổ chức", icon: "🤝" },
+    ],
+  },
+  {
+    category: "Hạ tầng & Hệ thống",
+    items: [
+      { path: "/admin/rooms", label: "Phòng ốc & Lịch bảo trì", icon: "🏢" },
+      { path: "/admin/no-show", label: "Xử lý vi phạm No-show", icon: "⚠️" },
+      { path: "/admin/certificates", label: "Cấp & Thu hồi chứng nhận", icon: "📜" },
+      { path: "/admin/organizations", label: "Cây phân cấp Đơn vị", icon: "🌳" },
+      { path: "/admin/users", label: "Tài khoản & Phân quyền", icon: "👤" },
+      { path: "/admin/topics", label: "Danh mục Chuyên đề", icon: "🏷️" },
+      { path: "/admin/reports", label: "Báo cáo vĩ mô", icon: "📈" },
+    ],
+  },
 ] as const
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -35,24 +54,36 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </div>
-      <nav className="flex-1 p-3 space-y-1">
-        {items.map(([path, label]) => (
-          <button
-            key={path}
-            onClick={() => {
-              navigate(path)
-              setOpen(false)
-            }}
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium ${
-              location.pathname === path ||
-              (path !== "/admin/dashboard" &&
-                location.pathname.startsWith(path))
-                ? "bg-indigo-light text-indigo"
-                : "text-slate-500 hover:bg-slate-50"
-            }`}
-          >
-            {label}
-          </button>
+      <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+        {navGroups.map((group) => (
+          <div key={group.category} className="space-y-0.5">
+            <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+              {group.category}
+            </p>
+            {group.items.map((item) => {
+              const active =
+                location.pathname === item.path ||
+                (item.path !== "/admin/dashboard" &&
+                  location.pathname.startsWith(item.path))
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => {
+                    navigate(item.path)
+                    setOpen(false)
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-xs sm:text-sm font-medium flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    active
+                      ? "bg-indigo-light text-indigo font-bold shadow-2xs"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-navy"
+                  }`}
+                >
+                  <span className="text-sm shrink-0">{item.icon}</span>
+                  <span className="truncate">{item.label}</span>
+                </button>
+              )
+            })}
+          </div>
         ))}
       </nav>
       <div className="p-4 border-t border-slate-100">

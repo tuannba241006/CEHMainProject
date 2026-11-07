@@ -1,6 +1,9 @@
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { OrgLayout } from "./OrgLayout"
 import { useToast } from "../../components/Toast"
+import { useUser } from "../../context/UserContext"
+import { eventsService } from "../../api/services/events.service"
+import { getApiErrorMessage } from "../../api/errors"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -23,6 +26,7 @@ export interface CohostInvitation {
   hoursLeft: number
   status: "pending" | "accepted" | "declined" | "expired"
   declineReason?: string
+  invitedUnit?: string
 }
 
 const INITIAL_INVITATIONS: CohostInvitation[] = [
@@ -31,6 +35,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     eventId: "evt-01",
     eventTitle: "UIT AI & Cloud Computing Workshop 2026",
     hostUnit: "CLB WebDev UIT (Host A)",
+    invitedUnit: "Phòng Công tác Sinh viên (P.CTSV)",
     hostContact: "Nguyễn Văn An · bch.webdev@uit.edu.vn",
     topic: "Học thuật & Trí tuệ nhân tạo",
     eventDate: "2026-11-15",
@@ -48,6 +53,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     eventId: "evt-02",
     eventTitle: "Chung kết Hackathon UIT Code Sprint 2026",
     hostUnit: "Khoa Hệ thống Thông tin (Host A)",
+    invitedUnit: "CLB WebDev UIT",
     hostContact: "TS. Nguyễn Minh Hải · bql.httt@uit.edu.vn",
     topic: "Kỹ năng mềm & Công nghệ",
     eventDate: "2026-11-20",
@@ -65,6 +71,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     eventId: "evt-03",
     eventTitle: "Ngày hội Sách và Văn hóa Đọc Sinh viên",
     hostUnit: "Đoàn Thanh niên - Hội Sinh viên (Host A)",
+    invitedUnit: "Khoa Hệ thống Thông tin",
     hostContact: "Đ/c Lê Thanh Tùng · doanthanhnien@uit.edu.vn",
     topic: "Văn hóa & Nghệ thuật",
     eventDate: "2026-12-01",
@@ -80,7 +87,28 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
 ]
 
 export default function CohostInvitations({ onNavigate, onLogout }: Props) {
+  const { user, role } = useUser()
   const { showToast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .getEvents()
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [invitations, setInvitations] =
     useState<CohostInvitation[]>(INITIAL_INVITATIONS)
   const [filter, setFilter] =
@@ -89,7 +117,22 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     useState<CohostInvitation | null>(null)
   const [declineReason, setDeclineReason] = useState("")
 
-  const filtered = invitations.filter(
+  // Data scoping cô lập tuyệt đối: Chỉ hiển thị lời mời gửi đích danh đến đơn vị của người dùng!
+  const scopedInvitations = useMemo(() => {
+    const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const targetKeyword = isPctsAdmin
+      ? "sinh viên"
+      : (user.don_vi?.ten_don_vi || "").toLowerCase()
+
+    return invitations.filter((inv) => {
+      const target = (inv.invitedUnit || "").toLowerCase()
+      if (target) return target.includes(targetKeyword)
+      if (isPctsAdmin) return inv.id === "cohost-01"
+      return !inv.hostUnit.toLowerCase().includes(targetKeyword)
+    })
+  }, [invitations, role, user])
+
+  const filtered = scopedInvitations.filter(
     (inv) => filter === "all" || inv.status === filter,
   )
 
@@ -127,7 +170,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     setDeclineReason("")
   }
 
-  const pendingCount = invitations.filter((i) => i.status === "pending").length
+  const pendingCount = scopedInvitations.filter((i) => i.status === "pending").length
 
   return (
     <OrgLayout current="org-cohost" onNavigate={onNavigate} onLogout={onLogout}>
@@ -135,10 +178,18 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-slate-400 mb-4">
           <button
-            onClick={() => onNavigate("org-dashboard")}
+            onClick={() =>
+              onNavigate(
+                role === "admin" || role === "student_affairs"
+                  ? "/admin/dashboard"
+                  : "org-dashboard",
+              )
+            }
             className="hover:text-indigo-600 cursor-pointer"
           >
-            Ban tổ chức
+            {role === "admin" || role === "student_affairs"
+              ? "Quản trị viên"
+              : "Ban tổ chức"}
           </button>
           <span>/</span>
           <span className="text-slate-700 font-medium">
@@ -186,7 +237,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
             <div className="p-3.5 rounded-2xl bg-slate-50">
               <p className="text-xs text-slate-500">Tổng lời mời</p>
               <p className="font-display font-bold text-xl text-navy mt-0.5">
-                {invitations.length}
+                {scopedInvitations.length}
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-100">
@@ -198,13 +249,13 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
             <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100">
               <p className="text-xs text-emerald-700">Đã đồng ý (DONG_Y)</p>
               <p className="font-display font-bold text-xl text-emerald-900 mt-0.5">
-                {invitations.filter((i) => i.status === "accepted").length}
+                {scopedInvitations.filter((i) => i.status === "accepted").length}
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100">
               <p className="text-xs text-rose-700">Đã từ chối (TU_CHOI)</p>
               <p className="font-display font-bold text-xl text-rose-900 mt-0.5">
-                {invitations.filter((i) => i.status === "declined").length}
+                {scopedInvitations.filter((i) => i.status === "declined").length}
               </p>
             </div>
           </div>
@@ -232,8 +283,28 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
           ))}
         </div>
 
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Invitations List */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div
+                key={`skel-inv-${idx}`}
+                className="bg-white rounded-3xl border border-slate-200 p-6 animate-pulse"
+              >
+                <div className="h-5 bg-slate-200 rounded w-1/3 mb-3" />
+                <div className="h-4 bg-slate-100 rounded w-2/3 mb-2" />
+                <div className="h-4 bg-slate-100 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6">
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-3">
               ✉️

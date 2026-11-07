@@ -12,7 +12,7 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
   const [aiMessages, setAiMessages] = useState<Array<{
     sender: "user" | "ai"
     text: string
-    table?: any
+    table?: Array<Record<string, unknown>>
   }>>([
     {
       sender: "ai",
@@ -32,7 +32,7 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
 
     setTimeout(() => {
       let reply = ""
-      let table: any = undefined
+      let table: Array<Record<string, unknown>> | undefined = undefined
       const lower = q.toLowerCase()
 
       if (lower.includes("tái phạm") || lower.includes("chế tài")) {
@@ -230,15 +230,15 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {m.table.map((row: any, rIdx: number) => (
+                          {m.table.map((row: Record<string, unknown>, rIdx: number) => (
                             <tr key={rIdx}>
                               {Object.values(row).map(
-                                (val: any, vIdx: number) => (
+                                (val: unknown, vIdx: number) => (
                                   <td
                                     key={vIdx}
                                     className="py-1.5 pr-2 text-slate-700"
                                   >
-                                    {val}
+                                    {String(val ?? "")}
                                   </td>
                                 ),
                               )}

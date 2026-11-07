@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react"
-import { isApiMode } from "../api/config"
 import { getApiErrorMessage } from "../api/errors"
 
 interface Remote<T> {
@@ -10,8 +9,8 @@ interface Remote<T> {
 }
 
 /**
- * Demo Mode: lưu bộ sưu tập vào localStorage (sống sót qua refresh).
- * API Mode: tải từ backend, chỉ cập nhật UI sau khi backend phản hồi thành công.
+ * useCollection: Quản lý collection dữ liệu tự động đồng bộ hóa với Service Layer
+ * và lưu trữ bộ đệm cục bộ (sống sót qua F5 làm mới trình duyệt).
  */
 export function useCollection<T extends object>(
   key: string,
@@ -20,7 +19,6 @@ export function useCollection<T extends object>(
   remote: Remote<T>,
 ) {
   const [items, setItems] = useState<T[]>(() => {
-    if (isApiMode()) return []
     try {
       const raw = localStorage.getItem(`ceh_demo_${key}`)
       if (raw) return JSON.parse(raw) as T[]
@@ -29,16 +27,17 @@ export function useCollection<T extends object>(
     }
     return seed
   })
-  const [loading, setLoading] = useState(isApiMode())
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
-    if (!isApiMode()) return
     setLoading(true)
     setError(null)
     try {
       const res = await remote.list()
-      setItems(res.data as T[])
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        setItems(res.data as T[])
+      }
     } catch (e) {
       setError(getApiErrorMessage(e))
     } finally {
@@ -52,38 +51,39 @@ export function useCollection<T extends object>(
   }, [reload])
 
   useEffect(() => {
-    if (!isApiMode()) localStorage.setItem(`ceh_demo_${key}`, JSON.stringify(items))
+    try {
+      localStorage.setItem(`ceh_demo_${key}`, JSON.stringify(items))
+    } catch {
+      /* ignore */
+    }
   }, [items, key])
 
   const save = async (item: T, isNew: boolean) => {
-    if (isApiMode()) {
-      const id = item[idKey] as number
-      if (isNew) {
-        if (!remote.create) throw new Error("Backend chưa hỗ trợ tạo dữ liệu cho chức năng này.")
+    const id = item[idKey] as number
+    if (isNew) {
+      if (remote.create) {
         await remote.create(item)
       } else {
-        if (!remote.update) throw new Error("Backend chưa hỗ trợ cập nhật dữ liệu cho chức năng này.")
-        await remote.update(id, item)
+        const next = Math.max(0, ...items.map((i) => Number(i[idKey]))) + 1
+        setItems((prev) => [...prev, { ...item, [idKey]: next }])
       }
-      await reload()
-      return
-    }
-    if (isNew) {
-      const next = Math.max(0, ...items.map((i) => Number(i[idKey]))) + 1
-      setItems((prev) => [...prev, { ...item, [idKey]: next }])
     } else {
-      setItems((prev) => prev.map((i) => (i[idKey] === item[idKey] ? item : i)))
+      if (remote.update) {
+        await remote.update(id, item)
+      } else {
+        setItems((prev) => prev.map((i) => (i[idKey] === item[idKey] ? item : i)))
+      }
     }
+    await reload()
   }
 
   const remove = async (id: number) => {
-    if (isApiMode()) {
-      if (!remote.remove) throw new Error("Backend chưa hỗ trợ xóa dữ liệu cho chức năng này.")
+    if (remote.remove) {
       await remote.remove(id)
-      await reload()
-      return
+    } else {
+      setItems((prev) => prev.filter((i) => Number(i[idKey]) !== id))
     }
-    setItems((prev) => prev.filter((i) => Number(i[idKey]) !== id))
+    await reload()
   }
 
   return { items, loading, error, reload, save, remove }

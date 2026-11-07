@@ -1,6 +1,18 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useApp } from "../context/AppContext"
 import { CertificateBadge } from "./management/AffairsOperations"
+import { certificatesService } from "../api/services/certificates.service"
+
+export interface VerifiedCertificateDisplay {
+  id: string | number
+  code: string
+  eventTitle: string
+  studentName: string
+  studentId: string
+  issuedAt: string
+  organizer: string
+  status: string
+}
 
 export default function PublicCertificateVerify({
   onBack,
@@ -12,9 +24,73 @@ export default function PublicCertificateVerify({
   const { verifyCertificate } = useApp()
   const [code, setCode] = useState(initialCode)
   const [searched, setSearched] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [connectionError, setConnectionError] = useState(false)
-  const certificate =
-    searched && !connectionError ? verifyCertificate(code.trim()) : undefined
+  const [certificate, setCertificate] = useState<VerifiedCertificateDisplay | undefined>(undefined)
+
+  const handleVerify = async (codeToVerify: string) => {
+    const trimmed = codeToVerify.trim()
+    if (!trimmed) return
+    setSearched(true)
+    setLoading(true)
+    setConnectionError(false)
+    try {
+      const res = await certificatesService.verify(trimmed).catch(() => null)
+      if (res?.data) {
+        const d = res.data
+        setCertificate({
+          id: 1,
+          code: trimmed,
+          eventTitle: d.ten_su_kien || "Sự kiện học thuật",
+          studentName: d.ho_ten_che_mo || "Sinh viên",
+          studentId: d.mssv_che_mo || "",
+          issuedAt: d.ngay_cap || new Date().toISOString(),
+          organizer: d.don_vi_to_chuc || "Đại học Công nghệ Thông tin",
+          status: d.da_thu_hoi ? "revoked" : (d.trang_thai?.toLowerCase() || "valid"),
+        })
+      } else {
+        const local = verifyCertificate(trimmed)
+        if (local) {
+          setCertificate({
+            id: local.id,
+            code: local.code,
+            eventTitle: local.eventTitle,
+            studentName: local.ho_ten_che_mo || local.recipientName || "Sinh viên",
+            studentId: local.mssv_che_mo || local.studentId || "",
+            issuedAt: local.issuedAt,
+            organizer: local.issuer || "Đại học Công nghệ Thông tin",
+            status: local.status,
+          })
+        } else {
+          setCertificate(undefined)
+        }
+      }
+    } catch {
+      const local = verifyCertificate(trimmed)
+      if (local) {
+        setCertificate({
+          id: local.id,
+          code: local.code,
+          eventTitle: local.eventTitle,
+          studentName: local.ho_ten_che_mo || local.recipientName || "Sinh viên",
+          studentId: local.mssv_che_mo || local.studentId || "",
+          issuedAt: local.issuedAt,
+          organizer: local.issuer || "Đại học Công nghệ Thông tin",
+          status: local.status,
+        })
+      } else {
+        setCertificate(undefined)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (initialCode) {
+      void handleVerify(initialCode)
+    }
+  }, [initialCode])
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/70 text-slate-900 font-sans">
@@ -70,18 +146,19 @@ export default function PublicCertificateVerify({
                   setCode(e.target.value)
                   setSearched(false)
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleVerify(code)
+                }}
                 className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 font-mono text-sm sm:text-base uppercase outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 tracking-wider bg-slate-50/50 focus:bg-white"
                 placeholder="VD: CEH-2026-AI-7K9P2"
               />
             </div>
             <button
-              onClick={() => {
-                setConnectionError(false)
-                setSearched(true)
-              }}
-              className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors shadow-xs cursor-pointer flex-shrink-0"
+              onClick={() => void handleVerify(code)}
+              disabled={loading}
+              className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-colors shadow-xs cursor-pointer flex-shrink-0 disabled:opacity-50"
             >
-              Xác thực ngay
+              {loading ? "Đang xác thực..." : "Xác thực ngay"}
             </button>
           </div>
 
@@ -93,8 +170,7 @@ export default function PublicCertificateVerify({
             <button
               onClick={() => {
                 setCode("CEH-2026-AI-7K9P2")
-                setConnectionError(false)
-                setSearched(true)
+                void handleVerify("CEH-2026-AI-7K9P2")
               }}
               className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 font-mono text-[11px] cursor-pointer"
             >
@@ -103,8 +179,7 @@ export default function PublicCertificateVerify({
             <button
               onClick={() => {
                 setCode("CEH-2026-AI-8B2X1")
-                setConnectionError(false)
-                setSearched(true)
+                void handleVerify("CEH-2026-AI-8B2X1")
               }}
               className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 font-mono text-[11px] cursor-pointer"
             >
@@ -114,6 +189,7 @@ export default function PublicCertificateVerify({
               onClick={() => {
                 setConnectionError(true)
                 setSearched(true)
+                setCertificate(undefined)
               }}
               className="text-slate-400 hover:text-slate-600 underline ml-auto text-[11px] cursor-pointer"
             >
@@ -124,7 +200,12 @@ export default function PublicCertificateVerify({
           {/* Verification Results Panel */}
           {searched && (
             <div className="mt-8 pt-8 border-t border-slate-100 animate-in fade-in duration-200">
-              {connectionError ? (
+              {loading ? (
+                <div className="p-8 text-center flex flex-col items-center gap-3">
+                  <div className="h-8 w-8 animate-spin rounded-full border-3 border-indigo-600 border-t-transparent" />
+                  <p className="text-sm font-medium text-slate-500">Đang truy vấn sổ chứng chỉ...</p>
+                </div>
+              ) : connectionError ? (
                 <div className="p-6 rounded-2xl bg-rose-50 border border-rose-200 text-center">
                   <h3 className="font-display font-bold text-base text-rose-800">
                     Không thể kết nối đến máy chủ xác thực
@@ -184,79 +265,42 @@ export default function PublicCertificateVerify({
                     <CertificateBadge status={certificate.status} />
                   </div>
 
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6 text-xs">
-                    {[
-                      [
-                        "Họ tên người nhận",
-                        certificate.ho_ten_che_mo ||
-                          certificate.recipientName ||
-                          "—",
-                      ],
-                      [
-                        "Mã số sinh viên",
-                        certificate.mssv_che_mo || certificate.studentId || "—",
-                      ],
-                      [
-                        "Sự kiện đã tham gia",
-                        certificate.ten_su_kien ||
-                          certificate.eventTitle ||
-                          "—",
-                      ],
-                      [
-                        "Đơn vị cấp phát",
-                        certificate.don_vi_to_chuc || certificate.issuer || "—",
-                      ],
-                      [
-                        "Ngày phát hành",
-                        certificate.ngay_cap || certificate.issuedAt || "—",
-                      ],
-                      [
-                        "Mã chứng thực (HMAC / Code)",
-                        certificate.ma_hash || certificate.code,
-                      ],
-                      ...(certificate.replacedBy
-                        ? [["Mã thay thế hợp lệ", certificate.replacedBy]]
-                        : []),
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="p-3 bg-white/70 rounded-xl border border-slate-100"
-                      >
-                        <dt className="text-slate-400 font-medium">{label}</dt>
-                        <dd className="text-sm font-semibold text-slate-800 mt-1">
-                          {value}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-
-                  {certificate.revokeReason && (
-                    <div className="mt-5 p-4 rounded-2xl bg-rose-100/70 border border-rose-200 text-xs text-rose-900">
-                      <strong>Lý do thu hồi:</strong> {certificate.revokeReason}
+                  {/* Metadata Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 pt-6 text-xs sm:text-sm">
+                    <div>
+                      <p className="text-slate-400 font-medium">Người thụ hưởng</p>
+                      <p className="font-semibold text-slate-900 mt-1">
+                        {certificate.studentName}
+                        {certificate.studentId ? ` (${certificate.studentId})` : ""}
+                      </p>
                     </div>
-                  )}
 
-                  <div className="mt-6 pt-5 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>
-                      Xác thực bởi: Phòng Công tác Sinh viên (CTSV) · ĐHQG-HCM
-                    </span>
-                    <button
-                      onClick={() => window.print()}
-                      className="text-indigo-600 font-semibold hover:underline cursor-pointer"
-                    >
-                      In bản xác thực
-                    </button>
+                    <div>
+                      <p className="text-slate-400 font-medium">Sự kiện</p>
+                      <p className="font-semibold text-slate-900 mt-1">
+                        {certificate.eventTitle}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-slate-400 font-medium">Đơn vị cấp</p>
+                      <p className="font-medium text-slate-700 mt-1">
+                        {certificate.organizer || "Đại học Công nghệ Thông tin - ĐHQG-HCM"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-slate-400 font-medium">Thời điểm cấp</p>
+                      <p className="font-medium text-slate-700 mt-1">
+                        {certificate.issuedAt}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
           )}
         </div>
-
-        <p className="text-xs text-center text-slate-400 mt-8">
-          Trang tra cứu thông tin chứng nhận số chính thức · Đại học Quốc gia
-          TP.HCM.
-        </p>
       </main>
     </div>
   )

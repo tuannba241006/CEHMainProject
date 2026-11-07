@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { TOPIC_LABELS, type Topic } from "../../data/mock"
+import type { WaitlistEntry } from "../../data/contract"
 import { useUser } from "../../context/UserContext"
 import {
   useApp,
@@ -48,6 +49,9 @@ export default function EventList({
     getUserActiveTicket,
     computeStatus,
     getStudentWaitlistEntries,
+    loading,
+    error,
+    refetch,
   } = useApp()
   const [search, setSearch] = useState("")
   const [topic, setTopic] = useState<Topic | "all">("all")
@@ -289,7 +293,34 @@ export default function EventList({
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4"
+              >
+                <div className="h-44 bg-slate-100 rounded-2xl w-full" />
+                <div className="h-5 bg-slate-200 rounded-md w-3/4" />
+                <div className="h-4 bg-slate-100 rounded-md w-1/2" />
+                <div className="h-10 bg-slate-100 rounded-xl w-full" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center max-w-lg mx-auto my-8">
+            <p className="text-sm font-semibold text-rose-800">
+              Không thể tải dữ liệu sự kiện từ máy chủ
+            </p>
+            <p className="text-xs text-rose-600 mt-1">{error}</p>
+            <button
+              onClick={() => void refetch?.()}
+              className="mt-4 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-8">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-4">
               <svg
@@ -359,10 +390,10 @@ function EventCard({
 }: {
   event: LiveEvent
   isRegistered: boolean
-  waitlistEntry?: any
+  waitlistEntry?: WaitlistEntry
   isGuest: boolean
   onSelect: () => void
-  key?: any
+  key?: React.Key
 }) {
   const { computeStatus } = useApp()
   const status = computeStatus(event)
@@ -607,7 +638,7 @@ function Chip({
   active: boolean
   onClick: () => void
   color: string
-  key?: any
+  key?: React.Key
 }) {
   return (
     <button

@@ -100,6 +100,70 @@ export interface OrganizationSummary {
   ma_don_vi_cha?: number | null
 }
 
+/** Chi tiết đơn vị tổ chức (UC-ADM-01) */
+export interface Organization extends OrganizationSummary {
+  mo_ta?: string | null
+  hoat_dong: boolean
+  thoi_gian_tao: string
+  thoi_gian_cap_nhat?: string
+}
+
+/** Trạng thái lời mời đồng tổ chức */
+export interface CohostInvitationStatus {
+  id: number
+  ma_su_kien: number
+  ten_su_kien: string
+  don_vi_host: OrganizationSummary
+  don_vi_dong_to_chuc: OrganizationSummary
+  trang_thai_xac_nhan: "CHO_XAC_NHAN" | "DONG_Y" | "TU_CHOI"
+  ly_do_tu_choi?: string | null
+  thoi_gian_tao: string
+  thoi_gian_bat_dau?: string
+  thoi_gian_ket_thuc?: string
+  ten_phong?: string
+}
+
+/** Payload tạo bản nháp sự kiện */
+export interface EventCreateDraftPayload {
+  ten_su_kien: string
+  ma_chuyen_de?: number
+  mo_ta?: string
+  thoi_gian_bat_dau: string
+  thoi_gian_ket_thuc: string
+  ma_phong?: number | null
+  danh_sach_ma_dong_to_chuc?: number[]
+  khong_gioi_han_slot?: boolean
+  so_luong_toi_da?: number | null
+  dieu_khoan_drl?: DrlRule | string
+  diem_drl_du_kien?: number
+  gio_tinh_nguyen?: number
+  anh_bia?: string | null
+  dien_gia?: string | null
+  doi_tuong_tham_gia?: string | null
+  lo_trinh?: AgendaItem[] | null
+  danh_sach_co_host_ids?: number[]
+  ngay_cong_bo?: string
+  [key: string]: unknown
+}
+
+/** Payload cập nhật bản nháp sự kiện */
+export type EventUpdateDraftPayload = Partial<EventCreateDraftPayload>
+
+/** Payload thẩm định sự kiện */
+export interface EventReviewPayload {
+  trang_thai?: "APPROVED" | "REJECTED" | string
+  ly_do_tu_choi?: string
+  ghi_chu?: string
+  hanh_dong?: string
+  [key: string]: unknown
+}
+
+/** Payload đổi phòng khẩn cấp */
+export interface EventChangeRoomPayload {
+  ma_phong_moi: number | string
+  ly_do: string
+}
+
 /** Thông tin phòng ốc công khai */
 export interface RoomPublic {
   ma_phong: number
@@ -113,6 +177,67 @@ export interface RoomPublic {
     am_thanh: boolean
     wifi: boolean
   }
+}
+
+/** Lịch đặt phòng */
+export interface RoomScheduleEntry {
+  ma_dat_phong?: number
+  ma_su_kien: number
+  ten_su_kien: string
+  thoi_gian_bat_dau: string
+  thoi_gian_ket_thuc: string
+  trang_thai: string
+}
+
+/** Kết quả kiểm tra tình trạng trống của phòng */
+export interface RoomAvailabilityCheck {
+  ma_phong: number
+  trong_lich: boolean
+  xung_dot?: {
+    ma_su_kien: number
+    ten_su_kien: string
+    thoi_gian_bat_dau: string
+    thoi_gian_ket_thuc: string
+  } | null
+}
+
+/** Payload bài đánh giá sự kiện */
+export interface FeedbackPayload {
+  ma_su_kien?: number
+  diem_noi_dung?: number
+  diem_dien_gia?: number
+  diem_to_chuc?: number
+  gop_y?: string
+  content?: number
+  organization?: number
+  venue?: number
+  overall?: number
+  useful?: string
+  improvement?: string
+  joinAgain?: boolean
+}
+
+/** Thống kê vĩ mô cấp trường */
+export interface MacroAnalytics {
+  tong_so_su_kien: number
+  tong_luot_sinh_vien_tham_gia: number
+  ty_le_checkin_tb: number
+  ty_le_no_show_tb: number
+  su_kien_theo_chuyen_de?: Record<string, number>
+}
+
+/** Hồ sơ sinh viên vi phạm No-show */
+export interface NoShowViolationItem {
+  ma_tai_khoan: number
+  mssv: string
+  ho_ten: string
+  lop_sinh_hoat: string
+  so_lan_vi_pham: number
+  danh_sach_su_kien_no_show?: {
+    ma_su_kien: number
+    ten_su_kien: string
+    ngay_dien_ra: string
+  }[]
 }
 
 /** Hạng mục trong lộ trình sự kiện */

@@ -5,7 +5,7 @@ import type {
   OrganizationSummary,
 } from "../data/contract"
 import { ORGANIZATIONS } from "../data/mock"
-import { isApiMode, tokenStore } from "../api/config"
+import { tokenStore, isApiMode } from "../api/config"
 import { authService } from "../api/services/auth.service"
 
 export type AppRole = "student" | "organizer" | "faculty_manager" | "student_affairs" | "admin"
@@ -91,18 +91,43 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const stored = sessionStorage.getItem("ceh_demo_role")
     return stored as AppRole | null
   })
-  const [loading, setLoading] = useState(isApiMode())
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!isApiMode()) return
-    authService
-      .me()
-      .then(({ data }) => {
-        setUser(fromContractUser(data))
-        setRole(roleFromUser(data))
-      })
-      .catch(() => setRole(null))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    const token = tokenStore.get()
+    const storedRole = sessionStorage.getItem("ceh_demo_role") as AppRole | null
+    const storedEmail = sessionStorage.getItem("ceh_demo_email")
+
+    if (token || isApiMode()) {
+      authService
+        .me()
+        .then(({ data }) => {
+          if (cancelled || !data) return
+          setUser(fromContractUser(data))
+          setRole(roleFromUser(data))
+        })
+        .catch(() => {
+          if (cancelled) return
+          if (storedRole && storedEmail) {
+            loginAs(storedEmail, storedRole)
+          } else {
+            setRole(null)
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    } else if (storedRole && storedEmail) {
+      loginAs(storedEmail, storedRole)
+      setLoading(false)
+    } else {
+      setLoading(false)
+    }
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   function updateUser(
@@ -153,7 +178,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       })
       return
     }
-    if (email === "checkin@demo.edu.vn" || email === "22520099@gm.uit.edu.vn") {
+    if (
+      email === "checkin@demo.edu.vn" ||
+      email === "22521999@gm.uit.edu.vn" ||
+      email === "22520099@gm.uit.edu.vn"
+    ) {
       setUser({
         ma_tai_khoan: 2,
         ho_ten: "Trần Minh Phúc",
@@ -297,14 +326,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setUser(DEFAULT_USER)
   }
 
-  // Session restoration must rebuild the matching profile, not just the role.
-  useEffect(() => {
-    if (isApiMode()) return
-    const storedRole = sessionStorage.getItem("ceh_demo_role") as AppRole | null
-    const storedEmail = sessionStorage.getItem("ceh_demo_email")
-    if (storedRole && storedEmail) loginAs(storedEmail, storedRole)
-  }, [])
-
   async function loginApi(username: string, password: string) {
     const res = await authService.login(username, password)
     if (!res || !res.data) {
@@ -318,15 +339,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     try {
-      if (isApiMode()) {
-        await authService.logout()
-      }
+      await authService.logout()
     } catch (e) {
       console.warn("Logout error:", e)
     } finally {
       tokenStore.clear()
       sessionStorage.removeItem("ceh_demo_role")
       sessionStorage.removeItem("ceh_demo_email")
+      sessionStorage.setItem("ceh_just_logged_out", "true")
       setRole(null)
       setUser(DEFAULT_USER)
     }

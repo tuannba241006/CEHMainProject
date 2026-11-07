@@ -1,5 +1,5 @@
 import { api } from "../client"
-import type { OrganizerDashboard } from "../../data/contract"
+import type { OrganizerDashboard, MacroAnalytics, NoShowViolationItem } from "../../data/contract"
 import type { ApiEnvelope } from "./auth.service"
 
 export const reportsService = {
@@ -8,9 +8,9 @@ export const reportsService = {
       `/organizer/events/${eventId}/analytics`,
     ),
   adminMacro: (query?: Record<string, string | number>) =>
-    api.get<ApiEnvelope<unknown>>("/admin/analytics/macro", { query }),
+    api.get<ApiEnvelope<MacroAnalytics>>("/admin/analytics/macro", { query }),
   noShow: (query?: Record<string, string | number>) =>
-    api.get<ApiEnvelope<unknown[]>>("/admin/analytics/no-show-violations", {
+    api.get<ApiEnvelope<NoShowViolationItem[]>>("/admin/analytics/no-show-violations", {
       query,
     }),
   exportMacro: (query?: Record<string, string | number>) =>

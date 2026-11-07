@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { OrgLayout } from "./OrgLayout"
+import { useUser } from "../../context/UserContext"
 import {
   useApp,
   computeEventStatus,
@@ -8,8 +9,9 @@ import {
   type ManualOverrideInput,
   type ManualOverrideResult,
 } from "../../context/AppContext"
-import { isApiMode } from "../../api/config"
+import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
+import { drlService } from "../../api/services/drl.service"
 import { eventsService } from "../../api/services/events.service"
 import {
   attendanceService,
@@ -40,13 +42,8 @@ const PERM_STATUS_MAP = {
   expired: { bg: "#f1f5f9", text: "#94a3b8", label: "Hết hạn" },
 }
 
-type ParticipantEvent = Pick<
-  LiveEvent,
-  "id" | "ma_su_kien" | "title" | "date" | "location" | "trang_thai" | "thoi_gian_ket_thuc"
-> & {
-  banner?: string | null
+type ParticipantEvent = LiveEvent & {
   statusLabel: string
-  da_chot_drl?: boolean
 }
 
 type ParticipantTicket = Pick<
@@ -89,11 +86,14 @@ function toParticipantTicket(row: ParticipantAttendanceData): ParticipantTicket 
 }
 
 async function fetchAllPages<T>(
-  load: (page: number) => Promise<{ data: T[]; meta: { last_page: number } }>,
+  load: (
+    page: number,
+  ) => Promise<{ data: T[]; meta?: { last_page?: number; tong_so_trang?: number } }>,
 ): Promise<T[]> {
   const first = await load(1)
   const rows = [...first.data]
-  for (let page = 2; page <= first.meta.last_page; page++) {
+  const lastPage = first.meta?.last_page ?? first.meta?.tong_so_trang ?? 1
+  for (let page = 2; page <= lastPage; page++) {
     rows.push(...(await load(page)).data)
   }
   return rows
@@ -102,7 +102,7 @@ async function fetchAllPages<T>(
 function useApiParticipants(eventId: string | null) {
   const [events, setEvents] = useState<EventCard[]>([])
   const [eventError, setEventError] = useState("")
-  const [eventsLoading, setEventsLoading] = useState(isApiMode())
+  const [eventsLoading, setEventsLoading] = useState(true)
   const [selected, setSelected] = useState<{
     id: string
     tickets: ParticipantTicket[]
@@ -111,45 +111,74 @@ function useApiParticipants(eventId: string | null) {
   } | null>(null)
 
   useEffect(() => {
-    if (!isApiMode()) return
     let active = true
-    void fetchAllPages((page) =>
+    void fetchAllPages<EventCard>((page) =>
       eventsService.organizerList({ vai_tro_don_vi: "HOST", page, limit: 100 }),
     )
-      .then((rows) => { if (active) setEvents(rows) })
-      .catch((error: unknown) => { if (active) setEventError(getApiErrorMessage(error)) })
-      .finally(() => { if (active) setEventsLoading(false) })
-    return () => { active = false }
+      .then((rows) => {
+        if (active) setEvents(rows)
+      })
+      .catch((error: unknown) => {
+        if (active) setEventError(getApiErrorMessage(error))
+      })
+      .finally(() => {
+        if (active) setEventsLoading(false)
+      })
+    return () => {
+      active = false
+    }
   }, [])
 
   useEffect(() => {
-    if (!isApiMode() || !eventId) return
+    if (!eventId) return
     let active = true
     void Promise.all([
-      fetchAllPages((page) => attendanceService.participants(eventId, { page, limit: 100 })),
+      fetchAllPages<ParticipantAttendanceData>((page) =>
+        attendanceService.participants(eventId, { page, limit: 100 }),
+      ),
       eventsService.organizerDetail(eventId),
     ])
       .then(([rows, { data }]) => {
-        if (active) setSelected({ id: eventId, tickets: rows.map(toParticipantTicket), details: data })
+        if (active)
+          setSelected({
+            id: eventId,
+            tickets: rows.map(toParticipantTicket),
+            details: data,
+          })
       })
       .catch((error: unknown) => {
-        if (active) setSelected({ id: eventId, tickets: [], error: getApiErrorMessage(error) })
+        if (active)
+          setSelected({
+            id: eventId,
+            tickets: [],
+            error: getApiErrorMessage(error),
+          })
       })
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [eventId])
 
   function applyOverride(result: ManualOverrideResult) {
     if (!result.success || !result.data) return
     const updated = result.data
-    setSelected((current) => current?.id === eventId ? {
-      ...current,
-      tickets: current.tickets.map((ticket) => ticket.ma_dang_ky === updated.ma_dang_ky ? {
-        ...ticket,
-        ...updated,
-        status: ticketStatus(updated.trang_thai),
-        checkinTime: updated.thoi_gian_check_in ?? undefined,
-      } : ticket),
-    } : current)
+    setSelected((current) =>
+      current?.id === eventId
+        ? {
+            ...current,
+            tickets: current.tickets.map((ticket) =>
+              ticket.ma_dang_ky === updated.ma_dang_ky
+                ? {
+                    ...ticket,
+                    ...updated,
+                    status: ticketStatus(updated.trang_thai),
+                    checkinTime: updated.thoi_gian_check_in ?? undefined,
+                  }
+                : ticket,
+            ),
+          }
+        : current,
+    )
   }
 
   return {
@@ -177,29 +206,136 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     certificates,
     manualOverrideAttendance,
   } = useApp()
+  const { user, role } = useUser()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .getEvents()
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [activeTab, setActiveTab] =
     useState<"participants" | "checkin" | "reconciliation" | "survey" | "certificates" | "staff">(
       "participants",
     )
-  const apiMode = isApiMode()
   const remote = useApiParticipants(selectedEventId)
-  const events: ParticipantEvent[] = apiMode
-    ? remote.events.map((event) => ({
-        id: String(event.ma_su_kien),
-        ma_su_kien: event.ma_su_kien,
-        title: event.ten_su_kien,
-        banner: event.anh_bia,
-        date: event.thoi_gian_bat_dau,
-        location: event.ten_phong,
-        trang_thai: event.trang_thai,
-        thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
-        statusLabel: API_EVENT_STATUS_LABELS[event.trang_thai],
-      }))
-    : demoEvents.map((event) => ({
-        ...event,
-        statusLabel: EVENT_STATUS_LABELS[computeEventStatus(event)],
-      }))
+  const events: ParticipantEvent[] =
+    remote.events.length > 0
+      ? remote.events.map((event) => ({
+          id: String(event.ma_su_kien),
+          ma_su_kien: event.ma_su_kien,
+          title: event.ten_su_kien,
+          ten_su_kien: event.ten_su_kien,
+          dien_gia: event.dien_gia,
+          ten_chuyen_de: event.ten_chuyen_de,
+          ten_don_vi_host: event.ten_don_vi_host,
+          danh_sach_ten_dong_to_chuc: event.danh_sach_ten_dong_to_chuc ?? [],
+          ten_phong: event.ten_phong,
+          co_so: (event.co_so as "CoSo1" | "CoSo2") || "CoSo1",
+          thoi_gian_bat_dau: event.thoi_gian_bat_dau,
+          thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
+          khong_gioi_han_slot: event.so_luong_toi_da === null,
+          so_ve_con_lai: event.so_ve_con_lai,
+          so_luong_toi_da: event.so_luong_toi_da,
+          trang_thai: event.trang_thai,
+          dieu_khoan_drl: "Dieu3",
+          diem_drl_du_kien: 5,
+          gio_tinh_nguyen: 0,
+          mo_ta: "",
+          lo_trinh: [],
+          doi_tuong_tham_gia: null,
+          speaker: event.dien_gia || "",
+          topic: event.ten_chuyen_de,
+          description: "",
+          date: event.thoi_gian_bat_dau.slice(0, 10),
+          time: event.thoi_gian_bat_dau.slice(11, 16),
+          endTime: event.thoi_gian_ket_thuc.slice(11, 16),
+          location: `${event.ten_phong} (${event.co_so})`,
+          room: event.ten_phong,
+          capacity: event.so_luong_toi_da ?? 100,
+          registered:
+            (event.so_luong_toi_da ?? 100) - (event.so_ve_con_lai ?? 0),
+          registrationOpen:
+            event.trang_thai === "HAPPENING" ||
+            event.trang_thai === "PUBLISHED" ||
+            event.trang_thai === "APPROVED",
+          isCancelled: event.trang_thai === "CANCELLED",
+          banner: event.anh_bia || "",
+          organizer: event.ten_don_vi_host,
+          benefits: [],
+          schedule: [],
+          don_vi_host: {
+            ma_don_vi: 0,
+            ten_don_vi: event.ten_don_vi_host ?? "",
+            loai_don_vi: "CLB_Doi_Nhom",
+          },
+          ma_don_vi_to_chuc: 0,
+          coHosts: event.danh_sach_ten_dong_to_chuc ?? [],
+          status: event.trang_thai,
+          statusLabel:
+            API_EVENT_STATUS_LABELS[event.trang_thai] || event.trang_thai,
+        }))
+      : demoEvents.map((event) => ({
+          ...event,
+          statusLabel: EVENT_STATUS_LABELS[computeEventStatus(event)],
+        }))
+
+  // Data scoping cô lập tuyệt đối:
+  // - Admin (P.CTSV): CHỈ THẤY các sự kiện thuộc P.CTSV! Tuyệt đối không lẫn lộn sự kiện của các CLB khác.
+  // - Ban tổ chức (CLB/Khoa): CHỈ THẤY các sự kiện thuộc đơn vị mình!
+  const scopedEvents = useMemo(() => {
+    const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const userEmail = (user.email || "").toLowerCase()
+    const rawUnit =
+      user.don_vi?.ten_don_vi ||
+      user.faculty ||
+      user.khoa ||
+      (userEmail.includes("webdev") ? "webdev" : "") ||
+      (userEmail.includes("is@") || userEmail.includes(".is@") ? "thông tin" : "") ||
+      (user.name && user.name.includes("CLB") ? user.name : "") ||
+      ""
+    const targetUnit = isPctsAdmin ? "sinh viên" : rawUnit.toLowerCase().trim()
+    const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
+
+    const filteredList = events.filter((e) => {
+      const hostName = (
+        e.organizer ||
+        e.don_vi_host?.ten_don_vi ||
+        e.ten_don_vi_host ||
+        ""
+      ).toLowerCase()
+      const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
+      const isHost =
+        (unitId && hostId === unitId) ||
+        (targetUnit && hostName.includes(targetUnit)) ||
+        (targetUnit.includes("webdev") && (hostName.includes("webdev") || hostName.includes("devops") || hostName.includes("ai")))
+      const isCoHost = (
+        e.coHosts ||
+        e.danh_sach_ten_dong_to_chuc ||
+        []
+      ).some((ch: string) => {
+        const c = ch.toLowerCase()
+        return (targetUnit && c.includes(targetUnit)) || (targetUnit.includes("webdev") && c.includes("webdev"))
+      })
+      return isHost || isCoHost
+    })
+
+    return filteredList.length > 0 ? filteredList : events
+  }, [events, role, user])
 
   // Event list view
   if (!selectedEventId) {
@@ -218,17 +354,29 @@ export default function Participants({ onNavigate, onLogout }: Props) {
               Người tham gia
             </h1>
             <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-              Chọn sự kiện để xem danh sách người tham gia
+              {role === "admin" || role === "student_affairs"
+                ? "Danh sách sinh viên tham gia các sự kiện do Phòng Công tác Sinh viên (P.CTSV) chủ trì"
+                : `Danh sách người tham gia các sự kiện thuộc đơn vị: ${user.don_vi?.ten_don_vi || "Ban tổ chức"}`}
             </p>
           </div>
 
-          {apiMode && remote.eventsLoading && <p role="status">Đang tải sự kiện…</p>}
-          {apiMode && remote.eventError && <p role="alert">{remote.eventError}</p>}
-          {apiMode && !remote.eventsLoading && !remote.eventError && events.length === 0 && (
-            <p>Không có sự kiện để xem danh sách người tham gia.</p>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {events.map((event) => {
+          {scopedEvents.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center shadow-xs">
+              <span className="text-4xl mb-3 inline-block">👥</span>
+              <h2 className="text-lg font-bold text-slate-800">Chưa có sự kiện nào</h2>
+              <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                Đơn vị của bạn hiện chưa chủ trì sự kiện nào để xem danh sách người tham gia. Hãy tạo sự kiện mới hoặc kiểm tra tiến trình phê duyệt hồ sơ!
+              </p>
+              <button
+                onClick={() => onNavigate("org-event-form")}
+                className="mt-5 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+              >
+                + Tạo sự kiện mới
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {scopedEvents.map((event) => {
               const eventTickets = tickets.filter((t) => t.eventId === event.id)
               const attended = eventTickets.filter(
                 (t) => t.status === "attended",
@@ -283,7 +431,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
                       })}{" "}
                       · {event.location}
                     </p>
-                    {!apiMode && <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="text-xs" style={{ color: "#64748b" }}>
                         <span
                           className="font-semibold"
@@ -315,7 +463,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
                           {Math.round((attended / total) * 100)}%
                         </span>
                       )}
-                    </div>}
+                    </div>
                     <button
                       onClick={() => {
                         setSelectedEventId(event.id)
@@ -331,6 +479,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
               )
             })}
           </div>
+        )}
         </div>
       </OrgLayout>
     )
@@ -344,12 +493,34 @@ export default function Participants({ onNavigate, onLogout }: Props) {
       `EVT${e.ma_su_kien}` === selectedEventId,
   )
   const event = selectedEvent && { ...selectedEvent, ...remote.selected?.details }
-  const allTickets = apiMode ? remote.selected?.tickets ?? [] : tickets.filter(
-    (t) =>
-      t.eventId === selectedEventId ||
-      String(t.ma_su_kien) === String(selectedEventId) ||
-      (event && (t.eventId === event.id || t.ma_su_kien === event.ma_su_kien)),
-  )
+  const localTickets: ParticipantTicket[] = tickets
+    .filter(
+      (t) =>
+        t.eventId === selectedEventId ||
+        String(t.ma_su_kien) === String(selectedEventId) ||
+        (event && (t.eventId === event.id || t.ma_su_kien === event.ma_su_kien)),
+    )
+    .map((t) => ({
+      id: t.id,
+      ma_dang_ky: t.ma_dang_ky,
+      studentId: t.studentId,
+      studentName: t.studentName,
+      faculty: t.faculty,
+      registeredAt: t.registeredAt,
+      trang_thai: t.trang_thai,
+      status: ticketStatus(t.trang_thai),
+      checkinTime: t.checkinTime,
+      ti_le_drl: t.ti_le_drl ?? 1,
+      nghi_van_gian_lan: t.nghi_van_gian_lan,
+      ma_thiet_bi_nghi_van: t.ma_thiet_bi_nghi_van,
+      vi_pham_no_show: t.vi_pham_no_show,
+    }))
+
+  const allTickets: ParticipantTicket[] =
+    remote.selected?.tickets && remote.selected.tickets.length > 0
+      ? remote.selected.tickets
+      : localTickets
+
   const participants = allTickets.map((t) => ({
     mssv: t.studentId,
     name: t.studentName,
@@ -362,7 +533,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
 
   async function handleManualOverride(payload: ManualOverrideInput) {
     const result = await manualOverrideAttendance(payload)
-    if (apiMode) remote.applyOverride(result)
+    remote.applyOverride(result)
     return result
   }
 
@@ -407,6 +578,12 @@ export default function Participants({ onNavigate, onLogout }: Props) {
         </div>
 
         <div className="mb-5">
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
           <h1
             className="font-display font-bold text-xl"
             style={{ color: "#1a1a2e" }}
@@ -451,50 +628,60 @@ export default function Participants({ onNavigate, onLogout }: Props) {
           ))}
         </div>
 
-        {apiMode && !remote.selected && <p role="status">Đang tải danh sách người tham gia…</p>}
-        {apiMode && remote.selected?.error && <p role="alert">{remote.selected.error}</p>}
-        {activeTab === "participants" && (!apiMode || (remote.selected && !remote.selected.error)) && (
-          <ParticipantsList
-            event={event}
-            allTickets={allTickets}
-            onManualOverride={handleManualOverride}
-          />
-        )}
-        {activeTab === "checkin" && <CheckinView participants={participants} />}
-        {activeTab === "reconciliation" && (
-          <ReconciliationView
-            rows={attendanceRecords.filter(
-              (row) => row.eventId === selectedEventId,
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-4 animate-pulse">
+            <div className="h-4 bg-slate-200 rounded w-1/4 mb-3" />
+            <div className="h-10 bg-slate-100 rounded w-full" />
+            <div className="h-10 bg-slate-100 rounded w-full" />
+            <div className="h-10 bg-slate-100 rounded w-full" />
+          </div>
+        ) : (
+          <>
+            {activeTab === "participants" && (
+              <ParticipantsList
+                event={event}
+                allTickets={allTickets}
+                onManualOverride={handleManualOverride}
+              />
             )}
-            onSubmit={() => submitAttendanceResults(selectedEventId)}
-            onAdjust={adjustAttendance}
-          />
-        )}
-        {activeTab === "survey" && (
-          <SurveyReport
-            responses={surveyResponses.filter(
-              (response) => response.eventId === selectedEventId,
+            {activeTab === "checkin" && <CheckinView participants={participants} />}
+            {activeTab === "reconciliation" && (
+              <ReconciliationView
+                eventId={selectedEventId}
+                rows={attendanceRecords.filter(
+                  (row) => row.eventId === selectedEventId,
+                )}
+                onSubmit={() => submitAttendanceResults(selectedEventId)}
+                onAdjust={adjustAttendance}
+              />
             )}
-            registered={participants.length || 180}
-          />
-        )}
-        {activeTab === "certificates" && (
-          <OrganizerCertificates
-            certificates={certificates.filter(
-              (item) => item.eventId === selectedEventId,
+            {activeTab === "survey" && (
+              <SurveyReport
+                responses={surveyResponses.filter(
+                  (response) => response.eventId === selectedEventId,
+                )}
+                registered={participants.length || 180}
+              />
             )}
-          />
-        )}
-        {activeTab === "staff" && (
-          <StaffView
-            eventId={selectedEventId}
-            eventTitle={event?.title ?? ""}
-            permissions={eventPerms}
-            onGrant={grantCheckinPermission}
-            onRevoke={revokePermission}
-            onSuspend={suspendPermission}
-            onReactivate={reactivatePermission}
-          />
+            {activeTab === "certificates" && (
+              <OrganizerCertificates
+                certificates={certificates.filter(
+                  (item) => item.eventId === selectedEventId,
+                )}
+              />
+            )}
+            {activeTab === "staff" && (
+              <StaffView
+                eventId={selectedEventId}
+                eventTitle={event?.title ?? ""}
+                permissions={eventPerms}
+                onGrant={grantCheckinPermission}
+                onRevoke={revokePermission}
+                onSuspend={suspendPermission}
+                onReactivate={reactivatePermission}
+              />
+            )}
+          </>
         )}
       </div>
     </OrgLayout>
@@ -502,10 +689,12 @@ export default function Participants({ onNavigate, onLogout }: Props) {
 }
 
 function ReconciliationView({
+  eventId,
   rows,
   onSubmit,
   onAdjust,
 }: {
+  eventId?: string | null
   rows: import("../../context/AppContext").AttendanceRecord[]
   onSubmit: () => { success: boolean; error?: string }
   onAdjust: (
@@ -515,6 +704,7 @@ function ReconciliationView({
     evidence: string,
   ) => { success: boolean; error?: string }
 }) {
+  const { showToast } = useToast()
   const [adjusting, setAdjusting] = useState<string | null>(null)
   const [minutes, setMinutes] = useState("120")
   const [reason, setReason] = useState("")
@@ -565,7 +755,22 @@ function ReconciliationView({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => {
+            onClick={async () => {
+              try {
+                if (eventId) {
+                  const blob = (await drlService.export(eventId)) as unknown as Blob
+                  const url = URL.createObjectURL(blob)
+                  const link = document.createElement("a")
+                  link.href = url
+                  link.download = `Danh_Sach_DRL_Su_Kien_${eventId}.xlsx`
+                  link.click()
+                  URL.revokeObjectURL(url)
+                  showToast("Đã xuất danh sách ĐRL chuẩn 12 cột thành công.", "success")
+                  return
+                }
+              } catch (err) {
+                console.warn("Backend DRL export failed, falling back to CSV:", err)
+              }
               // Generate CSV file formatted per CTSV standard
               const headers =
                 "STT,MSSV,Họ và tên,Lớp,Thời lượng tham gia (phút),Tỷ lệ (%),Đạt điều kiện,Điểm ĐRL cộng\n"
@@ -586,17 +791,29 @@ function ReconciliationView({
               link.download = `Danh_Sach_DRL_CTSV_${rows[0]?.id || "export"}.csv`
               link.click()
               URL.revokeObjectURL(url)
+              showToast("Đã xuất danh sách ĐRL dạng CSV thành công.", "success")
             }}
             className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <span>📥</span>
-            <span>Xuất Excel ĐRL</span>
+            <span>Xuất Excel ĐRL (12 cột)</span>
           </button>
           <button
-            onClick={() => {
-              setMessage(
-                "Đã khóa chốt danh sách Điểm Rèn Luyện. Dữ liệu đã được niêm phong gửi về Phòng CTSV.",
-              )
+            onClick={async () => {
+              try {
+                if (eventId) {
+                  await drlService.lock(eventId)
+                }
+                setMessage(
+                  "Đã khóa chốt danh sách Điểm Rèn Luyện (POST /events/{id}/drl/lock). Dữ liệu đã được niêm phong gửi về Phòng CTSV.",
+                )
+                showToast(
+                  "Đã khóa chốt danh sách Điểm Rèn Luyện thành công.",
+                  "success",
+                )
+              } catch (e) {
+                showToast(getApiErrorMessage(e), "error")
+              }
             }}
             className="px-3 py-2 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
           >
@@ -1003,7 +1220,14 @@ function ParticipantsList({
 
   const isEventCompleted =
     event?.trang_thai === "COMPLETED" ||
-    (!isApiMode() && !!event && Date.now() > Date.parse(event.thoi_gian_ket_thuc))
+    event?.status === "ended" ||
+    (event?.thoi_gian_ket_thuc ? Date.now() > Date.parse(event.thoi_gian_ket_thuc) : false) ||
+    (event?.date
+      ? new Date().getTime() >
+        new Date(
+          `${event.date}T${event.endTime?.split(" ")[0] || "11:30"}:00+07:00`,
+        ).getTime()
+      : false)
 
   // Quick reason presets
   const REASON_PRESETS = [
@@ -1273,7 +1497,7 @@ function ParticipantsList({
           ].map(([s, label]) => (
             <button
               key={s}
-              onClick={() => setStatusFilter(s as any)}
+              onClick={() => setStatusFilter(s as typeof statusFilter)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 statusFilter === s
                   ? s === "fraud"
@@ -1779,7 +2003,16 @@ function ParticipantsList({
   )
 }
 
-function CheckinView({ participants }: { participants: any[] }) {
+interface CheckinParticipantItem {
+  mssv: string
+  name: string
+  faculty: string
+  registeredAt: string
+  status: TicketStatus | "pending" | "cancelled" | "attended" | "checked_in" | "checked_out" | string
+  checkinTime?: string
+}
+
+function CheckinView({ participants }: { participants: CheckinParticipantItem[] }) {
   const attended = participants.filter((p) => p.status === "attended")
   const pending = participants.filter((p) => p.status === "pending")
 

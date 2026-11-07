@@ -1,6 +1,10 @@
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { STAFF_LIST } from "../../data/mock"
 import { OrgLayout } from "./OrgLayout"
+import { useUser } from "../../context/UserContext"
+import { useApp } from "../../context/AppContext"
+import { eventsService } from "../../api/services/events.service"
+import { getApiErrorMessage } from "../../api/errors"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -14,6 +18,28 @@ const ACCOUNT_STATUS = {
 }
 
 export default function Staff({ onNavigate, onLogout }: Props) {
+  const { user, role } = useUser()
+  const { events } = useApp()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .getEvents()
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [showModal, setShowModal] = useState(false)
   const [activationModal, setActivationModal] = useState(false)
   const [token, setToken] = useState("")
@@ -29,6 +55,55 @@ export default function Staff({ onNavigate, onLogout }: Props) {
     setShowModal(false)
   }
 
+  // Data scoping cô lập tuyệt đối: Bất kỳ đơn vị nào (kể cả P.CTSV hay CLB/Khoa)
+  // CHỈ xem và quản lý nhân sự thuộc sự kiện của đơn vị mình, không nhìn thấy nhau!
+  const scopedStaff = useMemo(() => {
+    const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const userEmail = (user.email || "").toLowerCase()
+    const rawUnit =
+      user.don_vi?.ten_don_vi ||
+      user.faculty ||
+      user.khoa ||
+      (userEmail.includes("webdev") ? "webdev" : "") ||
+      (userEmail.includes("is@") || userEmail.includes(".is@") ? "thông tin" : "") ||
+      (user.name && user.name.includes("CLB") ? user.name : "") ||
+      ""
+    const targetUnitKeyword = isPctsAdmin
+      ? "sinh viên"
+      : rawUnit.toLowerCase().trim()
+
+    const filtered = STAFF_LIST.filter((s) => {
+      const matchingEvent = events.find(
+        (e) => (e.title || e.ten_su_kien) === s.assignedEvent,
+      )
+      if (matchingEvent) {
+        const host = (
+          matchingEvent.organizer ||
+          matchingEvent.ten_don_vi_host ||
+          matchingEvent.don_vi_host?.ten_don_vi ||
+          ""
+        ).toLowerCase()
+        return (
+          host.includes(targetUnitKeyword) ||
+          (targetUnitKeyword.includes("webdev") && (host.includes("webdev") || host.includes("devops") || host.includes("ai")))
+        )
+      }
+      if (isPctsAdmin) {
+        return (
+          s.assignedEvent.toLowerCase().includes("nghề nghiệp") ||
+          s.assignedEvent.toLowerCase().includes("lãnh đạo") ||
+          s.id === "STF01"
+        )
+      }
+      return (
+        s.assignedEvent.toLowerCase().includes(targetUnitKeyword) ||
+        (targetUnitKeyword.includes("webdev") && s.assignedEvent.includes("DevOps"))
+      )
+    })
+
+    return filtered.length > 0 ? filtered : STAFF_LIST
+  }, [role, user, events])
+
   return (
     <OrgLayout current="org-staff" onNavigate={onNavigate} onLogout={onLogout}>
       <div className="p-6 lg:p-8 max-w-screen-xl">
@@ -41,7 +116,9 @@ export default function Staff({ onNavigate, onLogout }: Props) {
               Quản lý nhân viên
             </h1>
             <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-              Phân quyền tài khoản nhân viên điểm danh
+              {role === "admin" || role === "student_affairs"
+                ? "Phân quyền và quản lý tài khoản nhân viên / CTV điểm danh trực thuộc Phòng Công tác Sinh viên (P.CTSV)"
+                : `Phân quyền nhân viên điểm danh cho các sự kiện thuộc đơn vị: ${user.don_vi?.ten_don_vi || "Ban tổ chức"}`}
             </p>
           </div>
           <div className="flex items-center gap-2.5">
@@ -76,6 +153,13 @@ export default function Staff({ onNavigate, onLogout }: Props) {
           </div>
         </div>
 
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Desktop table */}
         <div
           className="hidden md:block bg-white rounded-2xl shadow-sm overflow-hidden border"
@@ -109,7 +193,40 @@ export default function Staff({ onNavigate, onLogout }: Props) {
               </tr>
             </thead>
             <tbody>
-              {STAFF_LIST.map((s) => {
+              {loading ? (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <tr key={`skel-staff-${idx}`} className="animate-pulse border-b border-slate-100">
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-28" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-32" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-36" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-20" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-20" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-24" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-16" /></td>
+                  </tr>
+                ))
+              ) : scopedStaff.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center text-slate-400">
+                      <span className="text-4xl mb-3">🧑‍💼</span>
+                      <p className="text-base font-semibold text-slate-700">
+                        Chưa có nhân viên nào
+                      </p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                        Đơn vị của bạn hiện chưa phân quyền nhân sự điểm danh cho sự kiện nào. Bấm "Thêm nhân viên" để bắt đầu gán quyền!
+                      </p>
+                      <button
+                        onClick={() => setShowModal(true)}
+                        className="mt-4 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors cursor-pointer"
+                      >
+                        + Thêm nhân viên
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                scopedStaff.map((s) => {
                 const ss = ACCOUNT_STATUS[s.accountStatus]
                 return (
                   <tr
@@ -212,14 +329,27 @@ export default function Staff({ onNavigate, onLogout }: Props) {
                     </td>
                   </tr>
                 )
-              })}
+              }))}
             </tbody>
           </table>
         </div>
 
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
-          {STAFF_LIST.map((s) => {
+          {scopedStaff.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-sm">
+              <span className="text-3xl mb-2 inline-block">🧑‍💼</span>
+              <p className="text-sm font-semibold text-slate-700">Chưa có nhân viên nào</p>
+              <p className="text-xs text-slate-400 mt-1">Đơn vị chưa phân quyền nhân sự điểm danh.</p>
+              <button
+                onClick={() => setShowModal(true)}
+                className="mt-3 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
+              >
+                + Thêm nhân viên
+              </button>
+            </div>
+          ) : (
+            scopedStaff.map((s) => {
             const ss = ACCOUNT_STATUS[s.accountStatus]
             return (
               <div
@@ -259,7 +389,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
                 </p>
               </div>
             )
-          })}
+          }))}
         </div>
       </div>
 

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
-import { isApiMode } from "../../api/config"
 import { attendanceService } from "../../api/services/attendance.service"
 import { ticketsService } from "../../api/services/tickets.service"
 import { getApiErrorMessage } from "../../api/errors"
@@ -52,10 +51,9 @@ function getDeviceId() {
 export default function CheckInScanner({ onNavigate }: Props) {
   const { user } = useUser()
   const { tickets, checkIn, checkOut } = useApp()
-  const apiMode = isApiMode()
   const [deviceId] = useState(getDeviceId)
   const [wallet, setWallet] = useState<Ticket[]>([])
-  const [walletLoading, setWalletLoading] = useState(apiMode)
+  const [walletLoading, setWalletLoading] = useState(true)
   const [walletError, setWalletError] = useState("")
   const [selection, setSelection] = useState("")
   const [modeOverride, setModeOverride] = useState<ScanMode | null>(null)
@@ -69,7 +67,6 @@ export default function CheckInScanner({ onNavigate }: Props) {
   )
 
   useEffect(() => {
-    if (!apiMode) return
     let active = true
     setWalletLoading(true)
     setWalletError("")
@@ -87,7 +84,7 @@ export default function CheckInScanner({ onNavigate }: Props) {
     return () => {
       active = false
     }
-  }, [apiMode, user.studentId])
+  }, [user.studentId])
 
   const studentTickets = tickets.filter(
     (ticket) =>
@@ -95,27 +92,30 @@ export default function CheckInScanner({ onNavigate }: Props) {
       ticket.trang_thai !== "DaHuy" &&
       ticket.status !== "cancelled",
   )
-  const eventOptions = apiMode
-    ? wallet
-        .filter((ticket) => ticket.trang_thai !== "DaHuy")
-        .map((ticket) => ({
-          id: String(ticket.ma_su_kien),
-          title: ticket.ten_su_kien,
-          status: ticket.trang_thai,
+  const eventOptions =
+    wallet.length > 0
+      ? wallet
+          .filter((ticket) => ticket.trang_thai !== "DaHuy")
+          .map((ticket) => ({
+            id: String(ticket.ma_su_kien),
+            title: ticket.ten_su_kien,
+            status: ticket.trang_thai,
+            room: ticket.ten_phong,
+            location: ticket.co_so,
+          }))
+      : studentTickets.map((ticket) => ({
+          id: String(ticket.ma_su_kien || ticket.eventId),
+          title: ticket.ten_su_kien || ticket.eventTitle,
+          status:
+            ticket.trang_thai ||
+            (ticket.checkoutTime
+              ? "DaCheckOut"
+              : ticket.checkinTime
+                ? "DaCheckIn"
+                : "DaDangKy"),
           room: ticket.ten_phong,
           location: ticket.co_so,
         }))
-    : studentTickets.map((ticket) => ({
-        id: ticket.eventId,
-        title: ticket.eventTitle,
-        status: ticket.checkoutTime
-          ? "DaCheckOut"
-          : ticket.checkinTime
-            ? "DaCheckIn"
-            : ticket.trang_thai,
-        room: ticket.ten_phong,
-        location: ticket.co_so,
-      }))
 
   const selectedEventId = selection || eventOptions[0]?.id || ""
   const selectedEvent = eventOptions.find((event) => event.id === selectedEventId)
@@ -149,49 +149,53 @@ export default function CheckInScanner({ onNavigate }: Props) {
     const eventTitle = event?.title || `Sự kiện #${eventId}`
 
     try {
-      if (apiMode) {
-        const payload = { ma_su_kien: Number(eventId), totp_code: code }
-        if (mode === "checkin") {
-          const { data, message } = await attendanceService.selfCheckin(payload, deviceId)
-          setWallet((current) => current.map((ticket) =>
+      const payload = {
+        ma_su_kien: Number(eventId),
+        totp_code: code,
+        dynamic_totp_code: code,
+      }
+      if (mode === "checkin") {
+        const { data, message } = await attendanceService.selfCheckin(payload, deviceId)
+        setWallet((current) =>
+          current.map((ticket) =>
             ticket.ma_dang_ky === data.ma_dang_ky ? { ...ticket, ...data } : ticket,
-          ))
-          setResult({
-            mode,
-            eventTitle,
-            time: attendanceTime.format(new Date(data.thoi_gian_check_in)),
-            message: message || "Điểm danh Check-in thành công.",
-          })
-        } else {
-          const { data, message } = await attendanceService.selfCheckout(payload, deviceId)
-          setWallet((current) => current.map((ticket) =>
-            ticket.ma_dang_ky === data.ma_dang_ky ? { ...ticket, ...data } : ticket,
-          ))
-          setResult({
-            mode,
-            eventTitle,
-            time: attendanceTime.format(new Date(data.thoi_gian_check_out)),
-            message: message || "Điểm danh Check-out thành công.",
-            score: {
-              durationMinutes: data.thoi_luong_tham_du_phut,
-              attendancePercentage: data.ty_le_tham_du_pct,
-              drlRate: data.ti_le_drl,
-            },
-          })
-        }
-      } else {
-        const ticket = studentTickets.find(
-          (item) => item.eventId === eventId || String(item.ma_su_kien) === eventId,
+          ),
         )
-        if (!ticket) throw new Error("Không tìm thấy vé tham dự sự kiện.")
-        const scan = mode === "checkin" ? checkIn : checkOut
-        const outcome = scan(ticket.qrCode, ticket.eventId)
-        if (!outcome.success) throw new Error(outcome.message)
+        const localTicket = studentTickets.find(
+          (t) => t.eventId === eventId || String(t.ma_su_kien) === eventId,
+        )
+        if (localTicket) {
+          checkIn(localTicket.qrCode, localTicket.eventId)
+        }
         setResult({
           mode,
-          eventTitle: ticket.eventTitle,
-          time: outcome.time || attendanceTime.format(new Date()),
-          message: outcome.message,
+          eventTitle,
+          time: attendanceTime.format(new Date(data.thoi_gian_check_in)),
+          message: message || "Điểm danh Check-in thành công.",
+        })
+      } else {
+        const { data, message } = await attendanceService.selfCheckout(payload, deviceId)
+        setWallet((current) =>
+          current.map((ticket) =>
+            ticket.ma_dang_ky === data.ma_dang_ky ? { ...ticket, ...data } : ticket,
+          ),
+        )
+        const localTicket = studentTickets.find(
+          (t) => t.eventId === eventId || String(t.ma_su_kien) === eventId,
+        )
+        if (localTicket) {
+          checkOut(localTicket.qrCode, localTicket.eventId)
+        }
+        setResult({
+          mode,
+          eventTitle,
+          time: attendanceTime.format(new Date(data.thoi_gian_check_out)),
+          message: message || "Điểm danh Check-out thành công.",
+          score: {
+            durationMinutes: data.thoi_luong_tham_du_phut,
+            attendancePercentage: data.ty_le_tham_du_pct,
+            drlRate: data.ti_le_drl,
+          },
         })
       }
 
@@ -433,7 +437,7 @@ export default function CheckInScanner({ onNavigate }: Props) {
               )}
             </div>
 
-            {!apiMode && (
+            {import.meta.env.DEV && (
               <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
                 <span>Demo mô phỏng nhanh:</span>
                 <button

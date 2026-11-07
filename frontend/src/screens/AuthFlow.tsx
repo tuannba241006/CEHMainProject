@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router"
 import { authService } from "../api/services/auth.service"
 import { getApiErrorMessage } from "../api/errors"
-import { isApiMode } from "../api/config"
 
 export default function AuthFlow({
   mode,
@@ -32,14 +31,11 @@ export default function AuthFlow({
     setBusy(true)
     setError("")
     try {
-      if (!isApiMode()) {
-        if (mode === "otp" && !/^\d{6}$/.test(otp))
-          throw new Error("OTP phải gồm đúng 6 chữ số.")
-        if ((mode === "reset" || mode === "change") && password !== confirm)
-          throw new Error("Mật khẩu xác nhận không khớp.")
-        setMessage("Demo Mode: thao tác đã được mô phỏng thành công.")
-        return
-      }
+      if (mode === "otp" && !/^\d{6}$/.test(otp))
+        throw new Error("OTP phải gồm đúng 6 chữ số.")
+      if ((mode === "reset" || mode === "change") && password !== confirm)
+        throw new Error("Mật khẩu xác nhận không khớp.")
+
       if (mode === "otp") await authService.verifyRegistrationOtp(email, otp)
       if (mode === "forgot") await authService.forgotPassword(email)
       if (mode === "reset")
