@@ -13,15 +13,15 @@ class SelfCheckInRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge(['device_id' => $this->input('device_id') ?: $this->header('X-Device-Id')]);
+        $this->merge(['device_id' => $this->header('X-Device-Id')]);
     }
 
     public function rules(): array
     {
         return [
             'ma_su_kien' => ['required', 'integer', 'min:1'],
-            'totp_code' => ['required', 'digits:6'],
-            'device_id' => ['required', 'string', 'max:100'],
+            'totp_code' => ['required', 'string', 'digits:6'],
+            'device_id' => ['required', 'string', 'min:8', 'max:100'],
             'client_fingerprint' => ['nullable', 'string', 'max:255'],
         ];
     }
