@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AttendanceOverrideController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\EventCatalogController;
 use App\Http\Controllers\Api\EventCoHostController;
 use App\Http\Controllers\Api\EventEmergencyController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\EventOrganizerController;
 use App\Http\Controllers\Api\EventPublicDetailController;
 use App\Http\Controllers\Api\EventReviewController;
 use App\Http\Controllers\Api\EventShareController;
+use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\KioskSessionController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoomController;
@@ -202,8 +204,33 @@ $attendanceRoutes = function () {
     });
 };
 
+// PKG-10: Feedback 48h survey and e-Certificate HMAC (UC-FEED-01, UC-CERT-01)
+$feedbackAndCertificateRoutes = function () {
+    // Public verification of certificate (no auth required)
+    Route::get('/certificates/verify/{hash}', [CertificateController::class, 'verifyPublic'])->name('certificates.verify');
+
+    // Student operations
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
+        Route::post('/events/{id}/feedback', [FeedbackController::class, 'submitFeedback'])->whereNumber('id')->name('events.feedback');
+        Route::post('/tickets/{id}/certificate', [CertificateController::class, 'issueOrGet'])->whereNumber('id')->name('tickets.certificate');
+        Route::get('/certificates/my-certificates', [CertificateController::class, 'myCertificates'])->name('certificates.my');
+    });
+
+    // Student (owner) and Admin: Download PDF
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien,Admin', 'password.changed'])->group(function () {
+        Route::get('/certificates/{id}/download', [CertificateController::class, 'downloadPdf'])->whereNumber('id')->name('certificates.download');
+    });
+
+    // Admin operations
+    Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
+        Route::post('/admin/tickets/{id}/feedback-grace', [FeedbackController::class, 'grantGrace'])->whereNumber('id')->name('admin.tickets.feedback-grace');
+        Route::get('/admin/certificates', [CertificateController::class, 'adminIndex'])->name('admin.certificates.index');
+        Route::post('/admin/certificates/{id}/revoke', [CertificateController::class, 'revoke'])->whereNumber('id')->name('admin.certificates.revoke');
+    });
+};
+
 // Version 1 API routes (/api/v1/...)
-Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes, $waitlistRoutes) {
+Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes, $waitlistRoutes, $feedbackAndCertificateRoutes) {
     Route::prefix('auth')->group($authRoutes);
     Route::prefix('admin')->group($adminRoutes);
     Route::prefix('rooms')->group($roomRoutes);
@@ -213,6 +240,7 @@ Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRout
     Route::prefix('notifications')->name('v1.notifications.')->group($notificationRoutes);
     $waitlistRoutes();
     $attendanceRoutes();
+    $feedbackAndCertificateRoutes();
 });
 
 // Root API alias routes (/api/...)
@@ -225,3 +253,4 @@ Route::prefix('tickets')->name('tickets.')->group($ticketRoutes);
 Route::prefix('notifications')->name('notifications.')->group($notificationRoutes);
 $waitlistRoutes();
 $attendanceRoutes();
+$feedbackAndCertificateRoutes();
