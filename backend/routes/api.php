@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\AttendanceOverrideController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CertificateController;
+use App\Http\Controllers\Api\DrlController;
+use App\Http\Controllers\Api\EventAnalyticsController;
 use App\Http\Controllers\Api\EventCatalogController;
 use App\Http\Controllers\Api\EventCoHostController;
 use App\Http\Controllers\Api\EventEmergencyController;
@@ -229,8 +231,22 @@ $feedbackAndCertificateRoutes = function () {
     });
 };
 
+// PKG-11: DRL Accreditation & Organizer Analytics (UC-DRL-01, UC-REP-01)
+$drlAndAnalyticsRoutes = function () {
+    Route::middleware(['auth:sanctum,web', 'role:ToChuc,Admin', 'password.changed'])->group(function () {
+        Route::get('/events/{id}/drl', [DrlController::class, 'index'])->whereNumber('id')->name('events.drl.index');
+        Route::post('/events/{id}/drl/lock', [DrlController::class, 'lock'])->whereNumber('id')->name('events.drl.lock');
+        Route::get('/events/{id}/drl/export', [DrlController::class, 'export'])->whereNumber('id')->name('events.drl.export');
+        Route::get('/organizer/events/{id}/analytics', [EventAnalyticsController::class, 'showAnalytics'])->whereNumber('id')->name('organizer.events.analytics');
+    });
+
+    Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
+        Route::post('/events/{id}/drl/unlock', [DrlController::class, 'unlock'])->whereNumber('id')->name('events.drl.unlock');
+    });
+};
+
 // Version 1 API routes (/api/v1/...)
-Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes, $waitlistRoutes, $feedbackAndCertificateRoutes) {
+Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes, $waitlistRoutes, $feedbackAndCertificateRoutes, $drlAndAnalyticsRoutes) {
     Route::prefix('auth')->group($authRoutes);
     Route::prefix('admin')->group($adminRoutes);
     Route::prefix('rooms')->group($roomRoutes);
@@ -241,6 +257,7 @@ Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRout
     $waitlistRoutes();
     $attendanceRoutes();
     $feedbackAndCertificateRoutes();
+    $drlAndAnalyticsRoutes();
 });
 
 // Root API alias routes (/api/...)
@@ -254,3 +271,4 @@ Route::prefix('notifications')->name('notifications.')->group($notificationRoute
 $waitlistRoutes();
 $attendanceRoutes();
 $feedbackAndCertificateRoutes();
+$drlAndAnalyticsRoutes();

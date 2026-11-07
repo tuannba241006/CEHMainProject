@@ -53,7 +53,7 @@ Qua rà soát và phân tích toán học toàn bộ **31 Tasks kỹ thuật** t
 | [ ] | **`PKG-08`** | Hạ tầng Phiên Kiosk Độc lập & Soát vé HMAC Bàn | Wave 6 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-06 hoàn tất |
 | [ ] | **`PKG-09`** | Điểm danh 2 Chiều TOTP, Device Binding & $\Delta t$ | Wave 7 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-08 hoàn tất |
 | [x] | **`PKG-10`** | Khảo sát Feedback 48h & e-Certificate NĐ 13 | Wave 8 | **3.5d** | Critical Path | [`PKG-10_QA_QC_REPORT.md`](../reports/PKG-10_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, 100% AC, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-10 hoàn tất |
+| [x] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | [`PKG-11_QA_QC_REPORT.md`](../reports/PKG-11_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, 100% AC, Đủ điều kiện sáp nhập) |
 | [ ] | **`PKG-12`** | Vòng đời Sự kiện, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-11 hoàn tất |
 | [ ] | **`PKG-13`** | Nền tảng AI Core, Lọc PII & Trợ lý Organizer Copilot | Wave 9 | **3.5d** | Song song | — | ⬜ Chờ PKG-10 (Song song với PKG-11, 12) |
 | [ ] | **`PKG-14`** | Dashboard Chiến lược Vĩ mô Toàn trường & AI BI Agent | Wave 11 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-11, PKG-12, PKG-13 hoàn tất |
@@ -81,7 +81,7 @@ Qua rà soát và phân tích toán học toàn bộ **31 Tasks kỹ thuật** t
 | [ ] | **`PKG-08`** | Hạ tầng Phiên Kiosk Độc lập & Soát vé HMAC Bàn | Wave 6 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-06 hoàn tất |
 | [ ] | **`PKG-09`** | Điểm danh 2 Chiều TOTP, Device Binding & $\Delta t$ | Wave 7 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-08 hoàn tất |
 | [x] | **`PKG-10`** | Khảo sát Feedback 48h & e-Certificate NĐ 13 | Wave 8 | **3.5d** | Critical Path | [`PKG-10_QA_QC_REPORT.md`](../reports/PKG-10_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, 100% AC, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-10 hoàn tất |
+| [x] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | [`PKG-11_QA_QC_REPORT.md`](../reports/PKG-11_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, 100% AC, Đủ điều kiện sáp nhập) |
 | [ ] | **`PKG-12`** | Vòng đời Sự kiện, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-11 hoàn tất |
 | [ ] | **`PKG-13`** | Nền tảng AI Core, Lọc PII & Trợ lý Organizer Copilot | Wave 9 | **3.5d** | Song song | — | ⬜ Chờ PKG-10 (Song song với PKG-11, 12) |
 | [ ] | **`PKG-14`** | Dashboard Chiến lược Vĩ mô Toàn trường & AI BI Agent | Wave 11 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-11, PKG-12, PKG-13 hoàn tất |
@@ -122,7 +122,7 @@ flowchart TD
     PKG09["[PKG-09] Điểm danh 2 Chiều TOTP & Device Binding<br/><b>4.0d</b> | Wave 7"]:::criticalPath
     PKG10["<s>[PKG-10] Khảo sát Feedback 48h & e-Cert NĐ 13</s><br/><b>3.5d</b> | Wave 8<br/>✅ <b>HOÀN THÀNH (PASS)</b>"]:::completed
 
-    PKG11["[PKG-11] Khóa Chốt ĐRL & Dashboard BTC<br/><b>3.5d</b> | Wave 9"]:::criticalPath
+    PKG11["<s>[PKG-11] Khóa Chốt ĐRL & Dashboard BTC</s><br/><b>3.5d</b> | Wave 9<br/>✅ <b>HOÀN THÀNH (PASS)</b>"]:::completed
     PKG12["[PKG-12] Vòng đời Sự kiện & Quét No-show An toàn<br/><b>3.5d</b> | Wave 10"]:::criticalPath
 
     PKG13["[PKG-13] Nền tảng AI Core & Organizer Copilot<br/><b>3.5d</b> | Wave 9 (Song song)"]:::parallelTrack
