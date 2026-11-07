@@ -25,6 +25,8 @@ import {
   type ReconciliationStatus,
   type AttendanceRecord,
   type TicketDataContextType,
+  type ManualOverrideInput,
+  type ManualOverrideResult,
 } from "./TicketDataContext"
 
 import {
@@ -68,6 +70,8 @@ export type {
   SurveyResponse,
   CertificateStatus,
   Certificate,
+  ManualOverrideInput,
+  ManualOverrideResult,
 }
 export { computeEventStatus, EVENT_STATUS_LABELS, INITIAL_LIVE_EVENTS }
 
@@ -87,26 +91,19 @@ function AppContextBridge({ children }: { children: React.ReactNode }) {
   const eventData = useEventData()
   const ticketData = useTicketData()
   const approvalData = useApprovalData()
-  const notifData = useNotificationData()
+  const notificationData = useNotificationData()
 
   const value: AppContextType = {
     ...eventData,
     ...ticketData,
     ...approvalData,
-    ...notifData,
+    ...notificationData,
     refetch: eventData.refetch,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }
 
-/**
- * AppProvider composes the 4 specialized domain contexts according to FE-PKG-01:
- * - NotificationDataProvider
- * - EventDataProvider
- * - TicketDataProvider
- * - ApprovalDataProvider
- */
 export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <NotificationDataProvider>
@@ -121,14 +118,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-/**
- * useApp() serves as the backward-compatible facade hook
- * aggregating all 4 domain contexts for existing UI screens.
- */
-export function useApp(): AppContextType {
+export function useApp() {
   const ctx = useContext(AppContext)
-  if (!ctx) {
-    throw new Error("useApp must be used within an AppProvider")
-  }
+  if (!ctx) throw new Error("useApp must be inside AppProvider")
   return ctx
 }

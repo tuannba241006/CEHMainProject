@@ -37,7 +37,7 @@ class KioskAndAttendanceTest extends TestCase
         $this->organizer = User::firstOrCreate(['email' => 'kiosk-organizer@test.uit.edu.vn'], ['ho_ten' => 'Kiosk Organizer', 'mat_khau' => Hash::make('Password123@'), 'loai_tai_khoan' => 'ToChuc', 'ma_don_vi_to_chuc' => $unit->ma_don_vi_to_chuc, 'dong_y_nghi_dinh_13' => 1, 'hoat_dong' => 1, 'buoc_doi_mat_khau' => 0]);
         $this->student = User::firstOrCreate(['email' => 'kiosk-student@test.uit.edu.vn'], ['mssv' => '22529991', 'ho_ten' => 'Kiosk Student', 'mat_khau' => Hash::make('Password123@'), 'loai_tai_khoan' => 'SinhVien', 'dong_y_nghi_dinh_13' => 1, 'hoat_dong' => 1, 'buoc_doi_mat_khau' => 0]);
         $start = now()->addMinutes(10);
-        $this->event = SuKien::create(['ma_don_vi_to_chuc' => $unit->ma_don_vi_to_chuc, 'ma_chuyen_de' => $topic->ma_chuyen_de, 'ma_phong' => $room->ma_phong, 'ten_su_kien' => 'Kiosk attendance test', 'mo_ta' => 'Kiosk attendance test', 'ngay_cong_bo' => now()->subDay(), 'thoi_gian_bat_dau' => $start, 'thoi_gian_ket_thuc' => $start->copy()->addHours(2), 'khong_gioi_han_slot' => 0, 'so_luong_toi_da' => 100, 'so_ve_con_lai' => 99, 'dieu_khoan_drl' => 'Dieu3', 'diem_drl_du_kien' => 5, 'trang_thai' => 'PUBLISHED']);
+        $this->event = SuKien::create(['ma_don_vi_to_chuc' => $unit->ma_don_vi_to_chuc, 'ma_chuyen_de' => $topic->ma_chuyen_de, 'ma_phong' => $room->ma_phong, 'ten_su_kien' => 'Kiosk attendance test', 'mo_ta' => 'Kiosk attendance test', 'ngay_cong_bo' => Carbon::parse('2026-11-04 00:00:00'), 'thoi_gian_bat_dau' => $start, 'thoi_gian_ket_thuc' => $start->copy()->addHours(2), 'khong_gioi_han_slot' => 0, 'so_luong_toi_da' => 100, 'so_ve_con_lai' => 99, 'dieu_khoan_drl' => 'Dieu3', 'diem_drl_du_kien' => 5, 'trang_thai' => 'PUBLISHED']);
         $uuid = (string) Str::uuid();
         DangKy::create(['ma_tai_khoan' => $this->student->ma_tai_khoan, 'ma_su_kien' => $this->event->ma_su_kien, 'ma_ve_uuid' => $uuid, 'chu_ky_hmac' => app(CryptoService::class)->signTicket($uuid, $this->student->ma_tai_khoan, $this->event->ma_su_kien), 'trang_thai' => 'DaDangKy', 'thoi_gian_dang_ky' => now()]);
     }
@@ -95,7 +95,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_checkin_gate_opens_at_boundary_and_records_audit(): void
     {
-        $now = Carbon::parse('2026-11-05 10:00:00');
+        $now = now()->startOfMinute();
         Carbon::setTestNow($now);
         $this->event->update([
             'thoi_gian_bat_dau' => $now->copy()->addMinutes(30),
@@ -266,7 +266,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_staff_checkout_calculates_attendance_score_for_each_threshold(): void
     {
-        $start = Carbon::parse('2026-11-05 10:00:00');
+        $start = now()->startOfMinute();
         $end = $start->copy()->addHours(2);
         $this->event->update(['trang_thai' => 'HAPPENING', 'thoi_gian_bat_dau' => $start, 'thoi_gian_ket_thuc' => $end, 'cong_check_out_mo' => true]);
         NhanVienCheckIn::create(['ma_tai_khoan' => $this->student->ma_tai_khoan, 'ma_su_kien' => $this->event->ma_su_kien, 'nguoi_phan_cong' => $this->organizer->ma_tai_khoan]);
@@ -331,7 +331,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_early_checkout_gate_records_effective_event_end(): void
     {
-        $end = Carbon::parse('2026-11-05 12:00:00');
+        $end = now()->startOfMinute()->addHours(2);
         Carbon::setTestNow($end->copy()->subMinutes(15));
         $this->event->update(['thoi_gian_bat_dau' => $end->copy()->subHours(2), 'thoi_gian_ket_thuc' => $end]);
 
@@ -350,7 +350,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_checkout_gate_rejects_opening_before_boundary(): void
     {
-        $now = Carbon::parse('2026-11-05 10:00:00');
+        $now = now()->startOfMinute();
         Carbon::setTestNow($now);
         $this->event->update([
             'thoi_gian_bat_dau' => $now->copy()->subHours(1),
@@ -369,7 +369,7 @@ class KioskAndAttendanceTest extends TestCase
      */
     public function test_fallback_command_opens_checkout_and_logs_automatically(): void
     {
-        $start = Carbon::parse('2026-11-05 10:00:00');
+        $start = now()->startOfMinute();
         $end = $start->copy()->addHours(2);
         Carbon::setTestNow($end->copy()->addSecond());
         $this->event->update(['trang_thai' => 'HAPPENING', 'thoi_gian_bat_dau' => $start, 'thoi_gian_ket_thuc' => $end]);

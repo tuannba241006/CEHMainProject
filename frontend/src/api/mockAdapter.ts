@@ -96,6 +96,60 @@ export async function handleMockRequest<T>(
     } as T
   }
 
+  if (
+    cleanPath.startsWith("/events/") &&
+    cleanPath.endsWith("/participants") &&
+    method === "GET"
+  ) {
+    const parts = cleanPath.split("/")
+    const eventId = parts[2]
+    const matchedTickets = mockTickets.filter(
+      (t) => String(t.ma_su_kien) === eventId || t.eventId === eventId,
+    )
+    const list = (matchedTickets.length > 0 ? matchedTickets : mockTickets).map(
+      (t, idx) => ({
+        ma_dang_ky: t.ma_dang_ky || 100 + idx,
+        ma_tai_khoan: 1000 + idx,
+        mssv: t.mssv || t.studentId || `2252${String(idx).padStart(4, "0")}`,
+        ho_ten: t.studentName || `Sinh viên ${idx + 1}`,
+        lop_sinh_hoat: "KTPM2022.1",
+        khoa: t.faculty || "Khoa Kỹ thuật Phần mềm",
+        trang_thai:
+          t.trang_thai ||
+          (t.status === "cancelled"
+            ? "DaHuy"
+            : t.status === "attended"
+              ? "DaCheckOut"
+              : "DaDangKy"),
+        da_check_in: Boolean(t.checkinTime),
+        da_check_out: Boolean(t.checkoutTime),
+        thoi_gian_dang_ky: t.registeredAt || new Date().toISOString(),
+        thoi_gian_check_in: t.checkinTime || null,
+        thoi_gian_check_out: t.checkoutTime || null,
+        thoi_luong_tham_du_phut: 90,
+        ty_le_tham_du_pct: 100,
+        ti_le_drl: t.ti_le_drl ?? 1,
+        da_feedback: false,
+        han_an_han_feedback: null,
+        du_dieu_kien_drl: true,
+        nghi_van_gian_lan: Boolean(t.nghi_van_gian_lan),
+        ma_thiet_bi_nghi_van: t.ma_thiet_bi_nghi_van || null,
+        vi_pham_no_show: Boolean(t.vi_pham_no_show),
+        ghi_chu: null,
+      }),
+    )
+    return {
+      success: true,
+      data: list,
+      meta: {
+        trang_hien_tai: 1,
+        tong_so_trang: 1,
+        tong_so_ban_ghi: list.length,
+        kich_thuoc_trang: 50,
+      },
+    } as T
+  }
+
   if (cleanPath.startsWith("/events/") && method === "GET") {
     const parts = cleanPath.split("/")
     const id = parts[2]
@@ -296,6 +350,57 @@ export async function handleMockRequest<T>(
         ti_le_drl: 1.0,
       },
       message: "Điểm danh vé thành công",
+    } as T
+  }
+
+  if (cleanPath === "/attendance/self-check-in") {
+    const payload = (options.body || {}) as { ma_su_kien?: number }
+    const ticket =
+      mockTickets.find(
+        (t) =>
+          t.ma_su_kien === payload.ma_su_kien ||
+          t.eventId === String(payload.ma_su_kien),
+      ) || mockTickets[0]
+    if (ticket) {
+      ticket.trang_thai = "DaCheckIn"
+      ticket.status = "DaCheckIn"
+      ticket.checkinTime = new Date().toISOString()
+    }
+    return {
+      success: true,
+      data: {
+        ma_dang_ky: ticket?.ma_dang_ky || 101,
+        trang_thai: "DaCheckIn",
+        thoi_gian_check_in: new Date().toISOString(),
+      },
+      message: "Điểm danh Check-in thành công.",
+    } as T
+  }
+
+  if (cleanPath === "/attendance/self-check-out") {
+    const payload = (options.body || {}) as { ma_su_kien?: number }
+    const ticket =
+      mockTickets.find(
+        (t) =>
+          t.ma_su_kien === payload.ma_su_kien ||
+          t.eventId === String(payload.ma_su_kien),
+      ) || mockTickets[0]
+    if (ticket) {
+      ticket.trang_thai = "DaCheckOut"
+      ticket.status = "DaCheckOut"
+      ticket.checkoutTime = new Date().toISOString()
+    }
+    return {
+      success: true,
+      data: {
+        ma_dang_ky: ticket?.ma_dang_ky || 101,
+        trang_thai: "DaCheckOut",
+        thoi_gian_check_out: new Date().toISOString(),
+        thoi_luong_tham_du_phut: 110,
+        ty_le_tham_du_pct: 92,
+        ti_le_drl: 1,
+      },
+      message: "Điểm danh Check-out thành công.",
     } as T
   }
 
