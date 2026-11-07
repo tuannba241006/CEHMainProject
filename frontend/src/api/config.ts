@@ -5,9 +5,9 @@ export type AppMode = "demo" | "api"
 const apiOrigin = (import.meta.env.VITE_API_URL?.trim() || "").replace(/\/$/, "")
 
 export const apiConfig = {
-  // MẶC ĐỊNH LÀ "demo" để bạn chạy test độc lập 100% Frontend (chưa cần bật PHP/Database)
-  // Khi nào bạn sẵn sàng nối Backend, chỉ cần đổi giá trị này thành "api"
-  mode: (import.meta.env.VITE_APP_MODE === "api" ? "api" : "demo") as AppMode,
+  // Mặc định là "api" để kết nối HTTP tới Mock Server Prism (cổng 4010) hoặc Backend Laravel
+  // Khi cần chạy thử nghiệm độc lập offline thuần túy, có thể đặt VITE_APP_MODE="demo"
+  mode: (import.meta.env.VITE_APP_MODE === "demo" ? "demo" : "api") as AppMode,
   origin: apiOrigin,
   baseUrl: apiOrigin ? `${apiOrigin}/api` : "/api",
   timeoutMs: 20_000,

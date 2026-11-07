@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import type { Role } from "../../App"
 import {
   useApp,
@@ -57,6 +57,26 @@ export default function ApprovalWorkspace({
 }: Props) {
   const { approvalCases } = useApp()
   const { user, role: activeRole } = useUser()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .getEvents()
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const faculty = user.faculty || user.khoa || ""
   const canView = (item: ApprovalCase) =>
     role !== "faculty_manager" ||
@@ -123,6 +143,8 @@ export default function ApprovalWorkspace({
           onSelect={onSelect}
           faculty={faculty}
           isAdmin={activeRole === "admin"}
+          loading={loading}
+          error={error}
         />
       )}
     </ManagementLayout>
@@ -135,12 +157,16 @@ function ApprovalList({
   onSelect,
   faculty,
   isAdmin,
+  loading,
+  error,
 }: {
   role: Props["role"]
   cases: ApprovalCase[]
   onSelect: (id: string) => void
   faculty: string
   isAdmin: boolean
+  loading?: boolean
+  error?: string | null
 }) {
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("all")
@@ -197,6 +223,14 @@ function ApprovalList({
             : "Thẩm định sự kiện và quy tắc điểm dự kiến."}
         </p>
       </div>
+
+      {error && (
+        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+          <span>⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
           ["Tổng hồ sơ", scoped.length],
@@ -271,7 +305,15 @@ function ApprovalList({
           </select>
         </label>
       </div>
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-4 animate-pulse">
+          <div className="h-5 bg-slate-200 rounded w-1/4 mb-2" />
+          <div className="h-10 bg-slate-100 rounded w-full" />
+          <div className="h-10 bg-slate-100 rounded w-full" />
+          <div className="h-10 bg-slate-100 rounded w-full" />
+          <div className="h-10 bg-slate-100 rounded w-full" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-slate-100">
           <p className="font-medium text-slate-500">Không có hồ sơ phù hợp</p>
           <p className="text-sm text-slate-400 mt-1">

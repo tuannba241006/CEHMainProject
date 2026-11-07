@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { OrgLayout } from "./OrgLayout"
 import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
@@ -18,6 +18,25 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
   const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [orgList, setOrgList] = useState(ORGANIZATIONS)
+
+  useEffect(() => {
+    let cancelled = false
+    organizationsService
+      .publicList()
+      .then((res) => {
+        if (!cancelled && res.data && res.data.length > 0) {
+          setOrgList(res.data)
+        }
+      })
+      .catch(() => {
+        // Fallback to default ORGANIZATIONS
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [form, setForm] = useState({
     title: "",
     topic: "",
@@ -333,7 +352,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                 chức xác nhận.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 bg-slate-50 rounded-2xl border border-slate-200">
-                {ORGANIZATIONS.map((org) => {
+                {orgList.map((org) => {
                   const selectedIds = form.cohostIds
                     ? form.cohostIds.split(",").map((s) => s.trim())
                     : []

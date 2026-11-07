@@ -1,8 +1,10 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { STAFF_LIST } from "../../data/mock"
 import { OrgLayout } from "./OrgLayout"
 import { useUser } from "../../context/UserContext"
 import { useApp } from "../../context/AppContext"
+import { eventsService } from "../../api/services/events.service"
+import { getApiErrorMessage } from "../../api/errors"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -18,6 +20,26 @@ const ACCOUNT_STATUS = {
 export default function Staff({ onNavigate, onLogout }: Props) {
   const { user, role } = useUser()
   const { events } = useApp()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .getEvents()
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [showModal, setShowModal] = useState(false)
   const [activationModal, setActivationModal] = useState(false)
   const [token, setToken] = useState("")
@@ -131,6 +153,13 @@ export default function Staff({ onNavigate, onLogout }: Props) {
           </div>
         </div>
 
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Desktop table */}
         <div
           className="hidden md:block bg-white rounded-2xl shadow-sm overflow-hidden border"
@@ -164,7 +193,19 @@ export default function Staff({ onNavigate, onLogout }: Props) {
               </tr>
             </thead>
             <tbody>
-              {scopedStaff.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <tr key={`skel-staff-${idx}`} className="animate-pulse border-b border-slate-100">
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-28" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-32" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-36" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-20" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-20" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-24" /></td>
+                    <td className="px-4 py-4"><div className="h-4 bg-slate-200 rounded w-16" /></td>
+                  </tr>
+                ))
+              ) : scopedStaff.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-400">

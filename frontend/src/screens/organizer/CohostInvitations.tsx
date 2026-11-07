@@ -1,7 +1,9 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { OrgLayout } from "./OrgLayout"
 import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
+import { eventsService } from "../../api/services/events.service"
+import { getApiErrorMessage } from "../../api/errors"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -87,6 +89,26 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
 export default function CohostInvitations({ onNavigate, onLogout }: Props) {
   const { user, role } = useUser()
   const { showToast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .getEvents()
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [invitations, setInvitations] =
     useState<CohostInvitation[]>(INITIAL_INVITATIONS)
   const [filter, setFilter] =
@@ -261,8 +283,28 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
           ))}
         </div>
 
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Invitations List */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div
+                key={`skel-inv-${idx}`}
+                className="bg-white rounded-3xl border border-slate-200 p-6 animate-pulse"
+              >
+                <div className="h-5 bg-slate-200 rounded w-1/3 mb-3" />
+                <div className="h-4 bg-slate-100 rounded w-2/3 mb-2" />
+                <div className="h-4 bg-slate-100 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6">
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-3">
               ✉️

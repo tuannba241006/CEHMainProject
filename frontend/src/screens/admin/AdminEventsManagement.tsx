@@ -1204,6 +1204,21 @@ export default function AdminEventsManagement({
         </div>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center justify-between text-sm shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-500 hover:text-red-700 font-bold ml-2 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* University Events Table */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
         <div className="overflow-x-auto">
@@ -1219,7 +1234,32 @@ export default function AdminEventsManagement({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredEvents.map((evt) => {
+              {loading ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={`skeleton-${idx}`} className="animate-pulse">
+                    <td className="p-3.5">
+                      <div className="h-4 bg-slate-200 rounded w-48 mb-1.5" />
+                      <div className="h-3 bg-slate-100 rounded w-24" />
+                    </td>
+                    <td className="p-3.5">
+                      <div className="h-4 bg-slate-200 rounded w-32" />
+                    </td>
+                    <td className="p-3.5">
+                      <div className="h-4 bg-slate-200 rounded w-36" />
+                    </td>
+                    <td className="p-3.5">
+                      <div className="h-4 bg-slate-200 rounded w-20" />
+                    </td>
+                    <td className="p-3.5">
+                      <div className="h-6 bg-slate-200 rounded-full w-24" />
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <div className="h-8 bg-slate-200 rounded-lg w-28 ml-auto" />
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                filteredEvents.map((evt) => {
                 const title = evt.title || evt.ten_su_kien
                 const organizer = evt.organizer || evt.ten_don_vi_host
                 const room = evt.room || evt.ten_phong
@@ -1437,9 +1477,9 @@ export default function AdminEventsManagement({
                     </td>
                   </tr>
                 )
-              })}
+              }))}
 
-              {filteredEvents.length === 0 && (
+              {!loading && filteredEvents.length === 0 && (
                 <tr>
                   <td colSpan={6} className="p-8 text-center text-slate-500 text-sm">
                     Không có sự kiện nào phù hợp với bộ lọc hiện tại.

@@ -10,7 +10,10 @@ export default defineConfig({
     host: "0.0.0.0",
     proxy: {
       "/api": {
-        target: process.env.VITE_BACKEND_URL || "http://localhost:8000",
+        target:
+          process.env.VITE_BACKEND_URL ||
+          process.env.VITE_MOCK_URL ||
+          "http://localhost:4010",
         changeOrigin: true,
         secure: false,
       },

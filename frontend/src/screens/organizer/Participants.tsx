@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { OrgLayout } from "./OrgLayout"
 import { useUser } from "../../context/UserContext"
 import {
@@ -9,6 +9,7 @@ import {
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
 import { drlService } from "../../api/services/drl.service"
+import { eventsService } from "../../api/services/events.service"
 import type { Ticket } from "../../data/mock"
 import type { TicketStatus } from "../../data/contract"
 
@@ -47,6 +48,26 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     manualOverrideAttendance,
   } = useApp()
   const { user, role } = useUser()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .getEvents()
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [activeTab, setActiveTab] =
     useState<"participants" | "checkin" | "reconciliation" | "survey" | "certificates" | "staff">(
@@ -310,6 +331,12 @@ export default function Participants({ onNavigate, onLogout }: Props) {
         </div>
 
         <div className="mb-5">
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
           <h1
             className="font-display font-bold text-xl"
             style={{ color: "#1a1a2e" }}
@@ -354,49 +381,60 @@ export default function Participants({ onNavigate, onLogout }: Props) {
           ))}
         </div>
 
-        {activeTab === "participants" && (
-          <ParticipantsList
-            event={event}
-            allTickets={allTickets}
-            onManualOverride={manualOverrideAttendance}
-          />
-        )}
-        {activeTab === "checkin" && <CheckinView participants={participants} />}
-        {activeTab === "reconciliation" && (
-          <ReconciliationView
-            eventId={selectedEventId}
-            rows={attendanceRecords.filter(
-              (row) => row.eventId === selectedEventId,
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-4 animate-pulse">
+            <div className="h-4 bg-slate-200 rounded w-1/4 mb-3" />
+            <div className="h-10 bg-slate-100 rounded w-full" />
+            <div className="h-10 bg-slate-100 rounded w-full" />
+            <div className="h-10 bg-slate-100 rounded w-full" />
+          </div>
+        ) : (
+          <>
+            {activeTab === "participants" && (
+              <ParticipantsList
+                event={event}
+                allTickets={allTickets}
+                onManualOverride={manualOverrideAttendance}
+              />
             )}
-            onSubmit={() => submitAttendanceResults(selectedEventId)}
-            onAdjust={adjustAttendance}
-          />
-        )}
-        {activeTab === "survey" && (
-          <SurveyReport
-            responses={surveyResponses.filter(
-              (response) => response.eventId === selectedEventId,
+            {activeTab === "checkin" && <CheckinView participants={participants} />}
+            {activeTab === "reconciliation" && (
+              <ReconciliationView
+                eventId={selectedEventId}
+                rows={attendanceRecords.filter(
+                  (row) => row.eventId === selectedEventId,
+                )}
+                onSubmit={() => submitAttendanceResults(selectedEventId)}
+                onAdjust={adjustAttendance}
+              />
             )}
-            registered={participants.length || 180}
-          />
-        )}
-        {activeTab === "certificates" && (
-          <OrganizerCertificates
-            certificates={certificates.filter(
-              (item) => item.eventId === selectedEventId,
+            {activeTab === "survey" && (
+              <SurveyReport
+                responses={surveyResponses.filter(
+                  (response) => response.eventId === selectedEventId,
+                )}
+                registered={participants.length || 180}
+              />
             )}
-          />
-        )}
-        {activeTab === "staff" && (
-          <StaffView
-            eventId={selectedEventId}
-            eventTitle={event?.title ?? ""}
-            permissions={eventPerms}
-            onGrant={grantCheckinPermission}
-            onRevoke={revokePermission}
-            onSuspend={suspendPermission}
-            onReactivate={reactivatePermission}
-          />
+            {activeTab === "certificates" && (
+              <OrganizerCertificates
+                certificates={certificates.filter(
+                  (item) => item.eventId === selectedEventId,
+                )}
+              />
+            )}
+            {activeTab === "staff" && (
+              <StaffView
+                eventId={selectedEventId}
+                eventTitle={event?.title ?? ""}
+                permissions={eventPerms}
+                onGrant={grantCheckinPermission}
+                onRevoke={revokePermission}
+                onSuspend={suspendPermission}
+                onReactivate={reactivatePermission}
+              />
+            )}
+          </>
         )}
       </div>
     </OrgLayout>

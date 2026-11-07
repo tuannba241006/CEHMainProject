@@ -112,6 +112,13 @@ export async function request<T>(
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new ApiError(503, { message: "Yêu cầu quá thời gian chờ." })
     }
+    // Fallback to mock adapter if server/mock container is offline or unreachable
+    if (error instanceof TypeError && error.message.toLowerCase().includes("fetch")) {
+      const mockResponse = await handleMockRequest<T>(path, options)
+      if (mockResponse !== undefined) {
+        return mockResponse
+      }
+    }
     throw error
   } finally {
     window.clearTimeout(timeout)

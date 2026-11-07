@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   useApp,
   type AttendanceRecord,
@@ -41,6 +41,26 @@ function Results() {
   const [selectedEventId, setSelectedEventId] = useState<number | string>(() => {
     return events && events.length > 0 ? (events[0].id || 101) : 101
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    drlService
+      .list(selectedEventId)
+      .catch((err) => {
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedEventId])
+
   const [isDrlLocked, setIsDrlLocked] = useState(false)
   const [lockModalOpen, setLockModalOpen] = useState(false)
   const [reasonFor, setReasonFor] = useState<string | null>(null)
@@ -146,6 +166,12 @@ function Results() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl">
+      {error && (
+        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
+          <span>⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wider text-indigo mb-1">
@@ -308,18 +334,35 @@ function Results() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <ResultRow
-                key={row.id}
-                row={row}
-                onRecognize={() => recognize(row)}
-                onRevision={() => setReasonFor(row.id)}
-                onGrace={() => {
-                  setGraceStudent(row)
-                  setGraceReason("")
-                }}
-              />
-            ))}
+            {loading ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <tr key={`skel-${idx}`} className="animate-pulse border-t border-slate-100">
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-28" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-20" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-16" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-16" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-12" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-12" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-12" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-24" /></td>
+                  <td className="px-4 py-3"><div className="h-4 bg-slate-200 rounded w-20" /></td>
+                  <td className="px-4 py-3"><div className="h-6 bg-slate-200 rounded w-16" /></td>
+                </tr>
+              ))
+            ) : (
+              rows.map((row) => (
+                <ResultRow
+                  key={row.id}
+                  row={row}
+                  onRecognize={() => recognize(row)}
+                  onRevision={() => setReasonFor(row.id)}
+                  onGrace={() => {
+                    setGraceStudent(row)
+                    setGraceReason("")
+                  }}
+                />
+              ))
+            )}
           </tbody>
         </table>
       </div>
