@@ -8,9 +8,9 @@ export const eventsService = {
   publicDetail: (id: number | string) =>
     api.get<ApiEnvelope<EventPublicDetail>>(`/events/${id}`),
   organizerList: (query?: Record<string, string | number | undefined>) =>
-    api.get<ApiEnvelope<unknown[]>>("/organizer/events", { query }),
+    api.get<ApiEnvelope<EventCard[]> & { meta: { last_page: number } }>("/organizer/events", { query }),
   organizerDetail: (id: number | string) =>
-    api.get<ApiEnvelope<unknown>>(`/organizer/events/${id}`),
+    api.get<ApiEnvelope<Pick<EventCard, "trang_thai"> & { da_chot_drl: boolean }>>(`/organizer/events/${id}`),
   createDraft: (payload: unknown) =>
     api.post<ApiEnvelope<unknown>>("/events", payload),
   updateDraft: (id: number | string, payload: unknown) =>
