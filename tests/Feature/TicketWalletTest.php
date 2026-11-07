@@ -42,7 +42,6 @@ class TicketWalletTest extends TestCase
         $this->donVi = DonViToChuc::first() ?? DonViToChuc::create([
             'ten_don_vi' => 'Khoa Kỹ thuật Phần mềm',
             'loai_don_vi' => 'Khoa',
-            'email_lien_he' => 'ktpm_wallet@uit.edu.vn',
         ]);
 
         $this->room = PhongHoiTruong::where('trang_thai', 'KhaDung')->first()

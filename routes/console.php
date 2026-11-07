@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ExpireSoftHoldJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -10,4 +11,16 @@ Artisan::command('inspire', function () {
 
 Schedule::command('ceh:open-checkout-fallback')
     ->everyFiveMinutes()
+    ->withoutOverlapping();
+
+Schedule::command('ceh:expire-offers')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+Schedule::command('ceh:reconcile-waitlists')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
+Schedule::job(new ExpireSoftHoldJob)
+    ->everyFifteenMinutes()
     ->withoutOverlapping();

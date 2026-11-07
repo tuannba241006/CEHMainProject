@@ -18,23 +18,14 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="mysql" force="false"/>
+                <env name="DB_CONNECTION" value="mysql" force="false"/>
         <env name="DB_HOST" value="db" force="false"/>
         <env name="DB_PORT" value="3306" force="false"/>
-        <env name="DB_DATABASE" value="ceh_test" force="false"/>
         <env name="DB_USERNAME" value="ceh_user" force="false"/>
         <env name="DB_PASSWORD" value="ceh_local_password" force="false"/>
+        <!-- Luôn ép ceh_test để không bao giờ ghi vào database dev -->
+        <env name="DB_DATABASE" value="ceh_test" force="true"/>
+        <server name="DB_DATABASE" value="ceh_test"/>
         <env name="DB_URL" value=""/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="database" force="false"/>
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>
