@@ -418,7 +418,7 @@ export default function QRScanner({
                 </option>
               ))}
             </select>
-            {eventLoadError && (
+            {eventLoadError && assignedEvents.length === 0 && (
               <p role="alert" className="mt-2 text-xs text-rose-300">
                 Không tải được danh sách sự kiện được phân công: {eventLoadError}
               </p>

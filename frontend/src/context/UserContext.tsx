@@ -5,7 +5,7 @@ import type {
   OrganizationSummary,
 } from "../data/contract"
 import { ORGANIZATIONS } from "../data/mock"
-import { tokenStore } from "../api/config"
+import { tokenStore, isApiMode } from "../api/config"
 import { authService } from "../api/services/auth.service"
 
 export type AppRole = "student" | "organizer" | "faculty_manager" | "student_affairs" | "admin"
@@ -99,7 +99,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const storedRole = sessionStorage.getItem("ceh_demo_role") as AppRole | null
     const storedEmail = sessionStorage.getItem("ceh_demo_email")
 
-    if (token) {
+    if (token || isApiMode()) {
       authService
         .me()
         .then(({ data }) => {
