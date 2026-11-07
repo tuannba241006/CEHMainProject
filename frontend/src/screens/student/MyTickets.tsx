@@ -40,9 +40,18 @@ export default function MyTickets({
     getStudentWaitlistEntries,
     claimWaitlistOffer,
     declineWaitlistOffer,
+    refreshTickets,
+    ticketsLoading,
+    ticketsError,
   } = useApp()
   const { user } = useUser()
   const { showToast } = useToast()
+
+  useEffect(() => {
+    if (refreshTickets) {
+      void refreshTickets(user)
+    }
+  }, [user, refreshTickets])
   const [tab, setTab] = useState<"upcoming" | "waitlist" | "history">(
     initialTab,
   )
@@ -307,9 +316,27 @@ export default function MyTickets({
         </div>
       )}
 
+      {ticketsError && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between text-xs">
+          <span>⚠️ {ticketsError}</span>
+          <button
+            onClick={() => refreshTickets && refreshTickets(user)}
+            className="underline font-semibold cursor-pointer"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
       {/* Ticket List View */}
       {tab !== "waitlist" &&
-        (list.length === 0 ? (
+        (ticketsLoading && list.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6 animate-pulse">
+            <div className="w-12 h-12 rounded-full bg-slate-200 mx-auto mb-3" />
+            <div className="h-4 bg-slate-200 rounded-md w-3/4 mx-auto mb-2" />
+            <div className="h-3 bg-slate-100 rounded-md w-1/2 mx-auto" />
+          </div>
+        ) : list.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-4">
               <svg

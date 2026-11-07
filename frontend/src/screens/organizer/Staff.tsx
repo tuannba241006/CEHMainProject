@@ -5,6 +5,7 @@ import { useUser } from "../../context/UserContext"
 import { useApp } from "../../context/AppContext"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
+import type { EventCard } from "../../data/contract"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -22,6 +23,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
   const { events } = useApp()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [apiEvents, setApiEvents] = useState<EventCard[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -29,6 +31,11 @@ export default function Staff({ onNavigate, onLogout }: Props) {
     setError(null)
     eventsService
       .getEvents()
+      .then((res) => {
+        if (!cancelled && res.data && Array.isArray(res.data)) {
+          setApiEvents(res.data)
+        }
+      })
       .catch((err) => {
         if (!cancelled) setError(getApiErrorMessage(err))
       })
@@ -73,14 +80,20 @@ export default function Staff({ onNavigate, onLogout }: Props) {
       : rawUnit.toLowerCase().trim()
 
     const filtered = STAFF_LIST.filter((s) => {
-      const matchingEvent = events.find(
-        (e) => (e.title || e.ten_su_kien) === s.assignedEvent,
-      )
+      const matchingEvent =
+        events.find((e) => (e.title || e.ten_su_kien) === s.assignedEvent) ||
+        apiEvents.find((e) => e.ten_su_kien === s.assignedEvent)
       if (matchingEvent) {
+        const liveHost =
+          "don_vi_host" in matchingEvent &&
+          matchingEvent.don_vi_host &&
+          typeof matchingEvent.don_vi_host === "object"
+            ? (matchingEvent.don_vi_host as { ten_don_vi?: string }).ten_don_vi
+            : undefined
         const host = (
-          matchingEvent.organizer ||
+          ("organizer" in matchingEvent ? (matchingEvent.organizer as string) : "") ||
           matchingEvent.ten_don_vi_host ||
-          matchingEvent.don_vi_host?.ten_don_vi ||
+          liveHost ||
           ""
         ).toLowerCase()
         return (
@@ -102,7 +115,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
     })
 
     return filtered.length > 0 ? filtered : STAFF_LIST
-  }, [role, user, events])
+  }, [role, user, events, apiEvents])
 
   return (
     <OrgLayout current="org-staff" onNavigate={onNavigate} onLogout={onLogout}>

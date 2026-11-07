@@ -1,12 +1,16 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { TOPIC_LABELS, type Ticket } from "../../data/mock"
 import {
   useApp,
   computeEventStatus,
   EVENT_STATUS_LABELS,
+  type LiveEvent,
 } from "../../context/AppContext"
+import { mapContractEventToLiveEvent } from "../../context/EventDataContext"
 import { useUser } from "../../context/UserContext"
 import { useToast } from "../../components/Toast"
+import { eventsService } from "../../api/services/events.service"
+import { getApiErrorMessage } from "../../api/errors"
 
 const TOPIC_COLORS: Record<string, string> = {
   academic: "#4f46e5",
@@ -55,12 +59,60 @@ export default function EventDetail({
   const [tab, setTab] = useState<typeof TABS[number]>("Giới thiệu")
   const [registering, setRegistering] = useState(false)
   const [showWaitlistRules, setShowWaitlistRules] = useState(false)
+  const [fetchedEvent, setFetchedEvent] = useState<LiveEvent | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
 
-  const event = getEvent(eventId)
+  const cachedEvent = getEvent(eventId)
+  const event = cachedEvent || fetchedEvent
+
+  useEffect(() => {
+    if (!cachedEvent && eventId) {
+      let cancelled = false
+      setLoadingDetail(true)
+      setDetailError(null)
+      const numId = Number(eventId.replace(/\D/g, "")) || eventId
+      eventsService
+        .publicDetail(numId)
+        .then((res) => {
+          if (!cancelled && res.data) {
+            setFetchedEvent(mapContractEventToLiveEvent(res.data))
+          }
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setDetailError(getApiErrorMessage(err))
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoadingDetail(false)
+          }
+        })
+      return () => {
+        cancelled = true
+      }
+    }
+  }, [cachedEvent, eventId])
+
+  if (loadingDetail) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-16 animate-pulse">
+        <div className="h-8 bg-slate-200 rounded-xl w-1/3 mb-4" />
+        <div className="h-64 bg-slate-200 rounded-3xl w-full mb-6" />
+        <div className="h-4 bg-slate-200 rounded-md w-2/3 mb-2" />
+        <div className="h-4 bg-slate-100 rounded-md w-1/2" />
+      </div>
+    )
+  }
+
   if (!event) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
-        <p className="text-slate-500 mb-4">Không tìm thấy thông tin sự kiện.</p>
+        <p className="text-slate-500 mb-2">Không tìm thấy thông tin sự kiện.</p>
+        {detailError && (
+          <p className="text-xs text-rose-500 mb-4">{detailError}</p>
+        )}
         <button
           onClick={onBack}
           className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold text-xs cursor-pointer"

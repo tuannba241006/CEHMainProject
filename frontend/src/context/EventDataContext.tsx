@@ -5,7 +5,7 @@ import {
   type AgendaItem,
   type EventStatus as ContractEventStatus,
 } from "../data/mock"
-import type { OrganizationSummary } from "../data/contract"
+import type { OrganizationSummary, EventCard, EventPublicDetail } from "../data/contract"
 import { eventsService } from "../api/services/events.service"
 import { getApiErrorMessage } from "../api/errors"
 
@@ -120,6 +120,121 @@ export const INITIAL_LIVE_EVENTS: LiveEvent[] = EVENTS.map((e) => ({
   ly_do_tu_choi: null,
 }))
 
+export function mapContractEventToLiveEvent(
+  card: EventCard | EventPublicDetail,
+): LiveEvent {
+  const startDateStr = card.thoi_gian_bat_dau || ""
+  const endDateStr = card.thoi_gian_ket_thuc || ""
+  const date = startDateStr.includes("T")
+    ? startDateStr.split("T")[0]
+    : startDateStr.slice(0, 10)
+  const time = startDateStr.includes("T")
+    ? startDateStr.split("T")[1].slice(0, 5)
+    : "08:30"
+  const endTime = endDateStr.includes("T")
+    ? endDateStr.split("T")[1].slice(0, 5)
+    : "11:30"
+  const capacity = card.so_luong_toi_da ?? 100
+  const remaining = card.so_ve_con_lai ?? capacity
+  const registered = Math.max(0, capacity - remaining)
+
+  const detail = card as Partial<EventPublicDetail>
+  const description = detail.mo_ta || card.ten_su_kien
+  const agenda = detail.lo_trinh || []
+
+  const mappedSchedule = agenda.map((item) => ({
+    time: `${item.thoi_gian_bat_dau} - ${item.thoi_gian_ket_thuc}`,
+    title: item.tieu_de + (item.dien_gia ? ` (${item.dien_gia})` : ""),
+  }))
+
+  const existingInitial = INITIAL_LIVE_EVENTS.find(
+    (e) => e.ma_su_kien === card.ma_su_kien,
+  )
+  const id = existingInitial ? existingInitial.id : String(card.ma_su_kien)
+
+  const isClosed =
+    card.trang_thai === "CANCELLED" || card.trang_thai === "COMPLETED"
+  const isFull = remaining <= 0
+  const isNearlyFull = remaining > 0 && remaining <= capacity * 0.2
+  const legacyStatus = isClosed
+    ? "closed"
+    : isFull
+      ? "full"
+      : isNearlyFull
+        ? "nearly_full"
+        : "open"
+
+  return {
+    ma_su_kien: card.ma_su_kien,
+    ten_su_kien: card.ten_su_kien,
+    anh_bia:
+      card.anh_bia ||
+      existingInitial?.anh_bia ||
+      "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=800&h=400&fit=crop&auto=format",
+    dien_gia: card.dien_gia || existingInitial?.dien_gia || "Ban tổ chức",
+    ten_chuyen_de: card.ten_chuyen_de || "Chung",
+    ten_don_vi_host: card.ten_don_vi_host || "Trường ĐH CNTT",
+    danh_sach_ten_dong_to_chuc: card.danh_sach_ten_dong_to_chuc || [],
+    ten_phong: card.ten_phong || "Hội trường",
+    co_so: card.co_so || "CoSo1",
+    thoi_gian_bat_dau: card.thoi_gian_bat_dau,
+    thoi_gian_ket_thuc: card.thoi_gian_ket_thuc,
+    khong_gioi_han_slot: Boolean(card.khong_gioi_han_slot),
+    so_ve_con_lai: remaining,
+    so_luong_toi_da: capacity,
+    trang_thai: (card.trang_thai || "PUBLISHED") as ContractEventStatus,
+    dieu_khoan_drl: (card.dieu_khoan_drl || "Dieu3") as
+      | "KhongCo"
+      | "Dieu3"
+      | "Dieu4",
+    diem_drl_du_kien: card.diem_drl_du_kien ?? 5,
+    gio_tinh_nguyen:
+      (card as unknown as { gio_tinh_nguyen?: number }).gio_tinh_nguyen ?? 0,
+    mo_ta: description,
+    lo_trinh: agenda,
+    doi_tuong_tham_gia: detail.doi_tuong_tham_gia || "Sinh viên toàn trường",
+    da_chot_drl: false,
+
+    id,
+    title: card.ten_su_kien,
+    speaker: card.dien_gia || existingInitial?.speaker || "Ban tổ chức",
+    topic: card.ten_chuyen_de || "Công nghệ Thông tin",
+    description,
+    date,
+    time: `${time} - ${endTime}`,
+    endTime,
+    location: `${card.ten_phong}, ${card.co_so === "CoSo2" ? "Cơ sở 2" : "Cơ sở 1"}`,
+    room: card.ten_phong,
+    capacity,
+    registered,
+    registrationOpen: card.trang_thai === "PUBLISHED" && remaining > 0,
+    isCancelled: card.trang_thai === "CANCELLED",
+    banner:
+      card.anh_bia ||
+      existingInitial?.banner ||
+      "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=800&h=400&fit=crop&auto=format",
+    organizer: card.ten_don_vi_host,
+    benefits: [
+      `Cộng ${card.diem_drl_du_kien ?? 5} điểm ĐRL (${card.dieu_khoan_drl === "Dieu4" ? "Điều 4" : "Điều 3"})`,
+      "Chứng nhận tham gia hội thảo / hoạt động chính quy",
+      "Cơ hội mở rộng kiến thức và giao lưu chuyên gia",
+    ],
+    schedule:
+      mappedSchedule.length > 0
+        ? mappedSchedule
+        : [
+            { time, title: "Khai mạc & Điểm danh" },
+            { time: `${time} - ${endTime}`, title: card.ten_su_kien },
+            { time: endTime, title: "Bế mạc & Hoàn tất DRL" },
+          ],
+    points: card.diem_drl_du_kien,
+    coHosts: card.danh_sach_ten_dong_to_chuc,
+    status: legacyStatus,
+    so_luong_da_dang_ky: registered,
+    ly_do_tu_choi: null,
+  }
+}
+
 export interface EventDataContextType {
   events: LiveEvent[]
   loading: boolean
@@ -144,7 +259,7 @@ export function EventDataProvider({ children }: { children: ReactNode }) {
     try {
       const res = await eventsService.listPublic()
       if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        // mapped from API
+        setEvents(res.data.map(mapContractEventToLiveEvent))
       }
     } catch (err) {
       setError(getApiErrorMessage(err))

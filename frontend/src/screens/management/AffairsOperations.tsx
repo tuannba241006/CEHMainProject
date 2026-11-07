@@ -10,6 +10,7 @@ import { drlService } from "../../api/services/drl.service"
 import { certificatesService } from "../../api/services/certificates.service"
 import { feedbackService } from "../../api/services/feedback.service"
 import { getApiErrorMessage } from "../../api/errors"
+import type { DrlRecord } from "../../data/contract"
 
 interface Props {
   mode: "results" | "certificates"
@@ -43,6 +44,7 @@ function Results() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [drlApiRecords, setDrlApiRecords] = useState<DrlRecord[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -50,6 +52,11 @@ function Results() {
     setError(null)
     drlService
       .list(selectedEventId)
+      .then((res) => {
+        if (!cancelled && res.data && Array.isArray(res.data)) {
+          setDrlApiRecords(res.data)
+        }
+      })
       .catch((err) => {
         if (!cancelled) setError(getApiErrorMessage(err))
       })
@@ -72,7 +79,27 @@ function Results() {
   const [graceStudent, setGraceStudent] = useState<AttendanceRecord | null>(null)
   const [graceReason, setGraceReason] = useState("")
 
-  const rows = attendanceRecords.filter(
+  const effectiveRecords: AttendanceRecord[] =
+    drlApiRecords.length > 0
+      ? drlApiRecords.map((r, idx) => ({
+          id: `DRL-${r.stt || idx + 1}`,
+          eventId: String(selectedEventId),
+          studentId: r.mssv,
+          studentName: r.ho_ten,
+          checkin: r.thoi_gian_vao || "08:30",
+          checkout: r.thoi_gian_ra || "11:30",
+          validMinutes: r.thoi_luong_tham_du_phut || 150,
+          participationRatio: 1.0,
+          proposedPoints: r.diem_cong_thuc_nhan,
+          officialPoints: r.diem_cong_thuc_nhan,
+          certificateEligible: true,
+          status: "recognized" as const,
+          ruleVersion: "DK-2026.2",
+          history: [],
+        }))
+      : attendanceRecords
+
+  const rows = effectiveRecords.filter(
     (row) => filter === "all" || row.status === filter,
   )
 

@@ -23,6 +23,7 @@ import { OrgLayout } from "./OrgLayout"
 import { useApp, computeEventStatus } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { reportsService } from "../../api/services/reports.service"
+import { getApiErrorMessage } from "../../api/errors"
 
 const PIE_COLORS = ["#4f46e5", "#0891b2", "#7c3aed", "#059669", "#d97706"]
 
@@ -477,14 +478,24 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
           <button
             onClick={() => {
               setAiRefreshing(true)
-              void reportsService.organizer(101).catch(() => null)
-              setTimeout(() => {
-                setAiRefreshing(false)
-                showToast(
-                  "AI đã cập nhật phân tích cảm xúc từ 142 biểu mẫu khảo sát mới nhất!",
-                  "success",
-                )
-              }, 900)
+              reportsService
+                .organizer(101)
+                .then((res) => {
+                  const total =
+                    res.data?.tong_ve_dang_ky ??
+                    res.data?.so_luong_check_in ??
+                    142
+                  showToast(
+                    `AI đã cập nhật phân tích cảm xúc từ ${total} biểu mẫu khảo sát mới nhất!`,
+                    "success",
+                  )
+                })
+                .catch((err) => {
+                  showToast(getApiErrorMessage(err), "error")
+                })
+                .finally(() => {
+                  setAiRefreshing(false)
+                })
             }}
             disabled={aiRefreshing}
             className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 w-fit cursor-pointer disabled:opacity-50"

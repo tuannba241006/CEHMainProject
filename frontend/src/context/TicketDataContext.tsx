@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import {
   TICKETS,
   type Ticket,
   type WaitlistEntry,
   parseQrPayload,
 } from "../data/mock"
+import { type Ticket as ContractTicket, buildQrPayload } from "../data/contract"
 import type { UserData } from "./UserContext"
 import { ticketsService } from "../api/services/tickets.service"
 import { bookingsService } from "../api/services/bookings.service"
@@ -171,6 +172,73 @@ export interface TicketDataContextType {
     ly_do: string
     da_doi_soat_the?: boolean
   }) => Promise<{ success: boolean; error?: string }>
+  ticketsLoading: boolean
+  ticketsError: string | null
+  refreshTickets: (user?: Partial<UserData> | null) => Promise<void>
+}
+
+export function mapContractTicketToUiTicket(
+  ct: ContractTicket,
+  user?: Partial<UserData> | null,
+): Ticket {
+  const startDateStr = ct.thoi_gian_bat_dau || ""
+  const endDateStr = ct.thoi_gian_ket_thuc || ""
+  const date = startDateStr.includes("T")
+    ? startDateStr.split("T")[0]
+    : startDateStr.slice(0, 10)
+  const time = startDateStr.includes("T")
+    ? startDateStr.split("T")[1].slice(0, 5)
+    : "08:30"
+  const endTime = endDateStr.includes("T")
+    ? endDateStr.split("T")[1].slice(0, 5)
+    : "11:30"
+
+  let legacyStatus: Ticket["status"] = "pending"
+  if (ct.trang_thai === "DaCheckIn") legacyStatus = "checked_in"
+  else if (ct.trang_thai === "DaCheckOut") legacyStatus = "attended"
+  else if (ct.trang_thai === "DaHuy") legacyStatus = "cancelled"
+
+  const qr = buildQrPayload(
+    ct.ma_ve_uuid,
+    user?.ma_tai_khoan || 1,
+    ct.ma_su_kien,
+  )
+
+  const existingTicket = TICKETS.find((t) => t.ma_dang_ky === ct.ma_dang_ky)
+
+  return {
+    ...ct,
+    chu_ky_hmac:
+      (ct as unknown as { chu_ky_hmac?: string }).chu_ky_hmac ||
+      existingTicket?.chu_ky_hmac ||
+      "a8f5f167f44f4964e6c998dee827110c849f8a12c3e4b5a6c7d8e9f012345678",
+    payload_qr:
+      (ct as unknown as { payload_qr?: string }).payload_qr ||
+      existingTicket?.payload_qr ||
+      qr,
+    yeu_cau_wake_lock: true,
+
+    id: existingTicket?.id || `TKT-${ct.ma_dang_ky}`,
+    eventId: existingTicket?.eventId || String(ct.ma_su_kien),
+    eventTitle: ct.ten_su_kien,
+    eventDate: date,
+    eventTime: `${time} - ${endTime}`,
+    eventLocation: `${ct.ten_phong}, ${ct.co_so === "CoSo2" ? "Cơ sở 2" : "Cơ sở 1"}`,
+    studentId: user?.studentId || existingTicket?.studentId || "22521001",
+    studentName: user?.name || existingTicket?.studentName || "Cao Duy Anh",
+    faculty: user?.faculty || existingTicket?.faculty || "Công nghệ Thông tin",
+    status: legacyStatus,
+    checkinTime: ct.thoi_gian_check_in || existingTicket?.checkinTime,
+    checkoutTime: ct.thoi_gian_check_out || existingTicket?.checkoutTime,
+    qrCode: existingTicket?.qrCode || qr,
+    registeredAt:
+      ct.thoi_gian_dang_ky ||
+      existingTicket?.registeredAt ||
+      new Date().toISOString(),
+    ticketCode: existingTicket?.ticketCode || `TKT-${ct.ma_dang_ky}`,
+    mssv: user?.studentId || existingTicket?.mssv || "22521001",
+    studentEmail: user?.email || existingTicket?.studentEmail,
+  }
 }
 
 const TicketDataContext = createContext<TicketDataContextType | null>(null)
@@ -178,9 +246,33 @@ const TicketDataContext = createContext<TicketDataContextType | null>(null)
 export function TicketDataProvider({ children }: { children: ReactNode }) {
   const { events, setEvents } = useEventData()
   const [tickets, setTickets] = useState<Ticket[]>(TICKETS)
+  const [ticketsLoading, setTicketsLoading] = useState(false)
+  const [ticketsError, setTicketsError] = useState<string | null>(null)
   const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([])
   const [permissions, setPermissions] = useState<CheckInPermission[]>(SEED_PERMISSIONS)
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(SEED_ATTENDANCE)
+
+  async function refreshTickets(currentUser?: Partial<UserData> | null) {
+    setTicketsLoading(true)
+    setTicketsError(null)
+    try {
+      const res = await ticketsService.mine()
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map((t) =>
+          mapContractTicketToUiTicket(t, currentUser),
+        )
+        setTickets(mapped)
+      }
+    } catch (err) {
+      setTicketsError(getApiErrorMessage(err))
+    } finally {
+      setTicketsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void refreshTickets()
+  }, [])
 
   function getUserActiveTicket(eventId: string, studentId: string) {
     return tickets.find(
@@ -540,6 +632,9 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
         adjustAttendance,
         requestStudentReview,
         manualOverrideAttendance,
+        ticketsLoading,
+        ticketsError,
+        refreshTickets,
       }}
     >
       {children}

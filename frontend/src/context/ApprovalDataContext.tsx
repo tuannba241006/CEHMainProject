@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { eventsService } from "../api/services/events.service"
 import { getApiErrorMessage } from "../api/errors"
 
@@ -262,6 +262,7 @@ export interface ApprovalDataContextType {
     certificateId: string,
   ) => { success: boolean; certificate?: Certificate; error?: string }
   verifyCertificate: (code: string) => Certificate | undefined
+  refreshReviewQueue: () => Promise<void>
 }
 
 const ApprovalDataContext = createContext<ApprovalDataContextType | null>(null)
@@ -270,6 +271,72 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
   const [approvalCases, setApprovalCases] = useState<ApprovalCase[]>(SEED_APPROVALS)
   const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>(SEED_SURVEYS)
   const [certificates, setCertificates] = useState<Certificate[]>(SEED_CERTIFICATES)
+
+  async function refreshReviewQueue() {
+    try {
+      const res = await eventsService.reviewQueue()
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        const apiCases: ApprovalCase[] = res.data.map((card) => {
+          const existing = SEED_APPROVALS.find(
+            (s) =>
+              s.eventId === String(card.ma_su_kien) ||
+              s.id === `HS-${card.ma_su_kien}`,
+          )
+          if (existing) return existing
+          const isPendingFaculty = card.trang_thai === "PENDING_FACULTY"
+          return {
+            id: `HS-${card.ma_su_kien}`,
+            eventId: String(card.ma_su_kien),
+            title: card.ten_su_kien,
+            unit: card.ten_don_vi_host || "Khoa Hệ thống Thông tin",
+            faculty: (card.ten_don_vi_host || "").includes("Khoa")
+              ? card.ten_don_vi_host
+              : "Khoa Công nghệ Thông tin",
+            submitter: card.dien_gia || "Ban tổ chức",
+            submittedAt: (card.thoi_gian_bat_dau || "").slice(0, 10),
+            eventDate: (card.thoi_gian_bat_dau || "").slice(0, 10),
+            status: isPendingFaculty ? "faculty_pending" : "affairs_pending",
+            lifecycle: "scheduled",
+            description: card.ten_su_kien,
+            plan: "Kế hoạch tổ chức chi tiết được đính kèm.",
+            documents: ["Ke_hoach_to_chuc.pdf"],
+            proposedPoints: card.diem_drl_du_kien ?? 5,
+            semester: "HK1 2026–2027",
+            criteriaCode:
+              card.dieu_khoan_drl === "Dieu4" ? "TC-04-HĐ" : "TC-03-HT",
+            maxPoints: card.diem_drl_du_kien ?? 5,
+            validMinutes: 120,
+            thresholds: [{ ratio: 80, points: card.diem_drl_du_kien ?? 5 }],
+            requiredSessions: ["Khai mạc"],
+            certificateCondition: "Tham dự tối thiểu 80% thời lượng",
+            ruleBasis: "Quy chế CTSV",
+            ruleVersion: "DK-2026.2",
+            history: [],
+          }
+        })
+
+        setApprovalCases((prev) => {
+          const merged = [...apiCases]
+          for (const item of prev) {
+            if (
+              !merged.some(
+                (m) => m.id === item.id || m.eventId === item.eventId,
+              )
+            ) {
+              merged.push(item)
+            }
+          }
+          return merged
+        })
+      }
+    } catch {
+      // Keep static
+    }
+  }
+
+  useEffect(() => {
+    void refreshReviewQueue()
+  }, [])
 
   function saveApprovalDraft(
     input: Partial<ApprovalCase> & Pick<ApprovalCase, "title">,
@@ -371,6 +438,28 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
           : c,
       ),
     )
+
+    const targetCase = approvalCases.find((c) => c.id === caseId)
+    if (targetCase) {
+      const eventNum = Number(targetCase.eventId.replace(/\D/g, "")) || 101
+      const isApproved =
+        action === "faculty_approve" ||
+        action === "faculty_approve_by_admin" ||
+        action === "affairs_approve"
+      eventsService
+        .review(eventNum, {
+          trang_thai: isApproved
+            ? "APPROVED"
+            : action === "reject"
+              ? "REJECTED"
+              : "REVISION",
+          ly_do_tu_choi: reason,
+          ghi_chu: reason,
+          hanh_dong: action,
+        })
+        .catch(() => {})
+    }
+
     return { success: true }
   }
 
@@ -443,6 +532,7 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
         revokeCertificate,
         replaceCertificate,
         verifyCertificate,
+        refreshReviewQueue,
       }}
     >
       {children}

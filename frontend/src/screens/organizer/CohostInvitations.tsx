@@ -97,7 +97,49 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     setLoading(true)
     setError(null)
     eventsService
-      .getEvents()
+      .getCohostInvitations()
+      .then((res) => {
+        if (!cancelled && res.data && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped: CohostInvitation[] = res.data.map((item) => {
+            const startDateStr = item.thoi_gian_bat_dau || "2026-11-15T08:00:00+07:00"
+            const endDateStr = item.thoi_gian_ket_thuc || "2026-11-15T11:30:00+07:00"
+            const eventDate = startDateStr.slice(0, 10)
+            const startTime = startDateStr.includes("T")
+              ? startDateStr.split("T")[1].slice(0, 5)
+              : "08:00"
+            const endTime = endDateStr.includes("T")
+              ? endDateStr.split("T")[1].slice(0, 5)
+              : "11:30"
+            let uiStatus: CohostInvitation["status"] = "pending"
+            if (item.trang_thai_xac_nhan === "DONG_Y") uiStatus = "accepted"
+            else if (item.trang_thai_xac_nhan === "TU_CHOI") uiStatus = "declined"
+
+            return {
+              id: `cohost-${item.id}`,
+              eventId: String(item.ma_su_kien),
+              eventTitle: item.ten_su_kien,
+              hostUnit: item.don_vi_host?.ten_don_vi || "Ban tổ chức",
+              invitedUnit:
+                item.don_vi_dong_to_chuc?.ten_don_vi ||
+                user.don_vi?.ten_don_vi ||
+                "CLB WebDev UIT",
+              hostContact: "bch@uit.edu.vn",
+              topic: "Học thuật & Công nghệ",
+              eventDate,
+              eventTime: `${startTime} - ${endTime}`,
+              roomName: item.ten_phong || "Hội trường A",
+              roleDescription:
+                "Phối hợp hỗ trợ kiểm tra thiết bị và điều phối check-in sinh viên.",
+              drlAllocation: "Cộng 5 điểm DRL Điều 3 cho sinh viên tham gia.",
+              deadline: "2026-11-02T18:00:00+07:00",
+              hoursLeft: 24,
+              status: uiStatus,
+              declineReason: item.ly_do_tu_choi || undefined,
+            }
+          })
+          setInvitations(mapped)
+        }
+      })
       .catch((err) => {
         if (!cancelled) setError(getApiErrorMessage(err))
       })
@@ -107,7 +149,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [user])
 
   const [invitations, setInvitations] =
     useState<CohostInvitation[]>(INITIAL_INVITATIONS)
@@ -136,38 +178,62 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     (inv) => filter === "all" || inv.status === filter,
   )
 
-  function handleAccept(inv: CohostInvitation) {
-    setInvitations((prev) =>
-      prev.map((item) =>
-        item.id === inv.id ? { ...item, status: "accepted" } : item,
-      ),
-    )
-    showToast(
-      `Đã đồng ý (DONG_Y) tham gia đồng tổ chức sự kiện "${inv.eventTitle}". Hồ sơ tiến hành chuyển bước phê duyệt tiếp theo.`,
-      "success",
-    )
+  async function handleAccept(inv: CohostInvitation) {
+    const numericEventId = Number(inv.eventId.replace(/\D/g, "")) || 101
+    try {
+      await eventsService.cohostRespond(numericEventId, {
+        dong_y: true,
+        trang_thai_xac_nhan: "DONG_Y",
+      })
+      setInvitations((prev) =>
+        prev.map((item) =>
+          item.id === inv.id ? { ...item, status: "accepted" } : item,
+        ),
+      )
+      showToast(
+        `Đã đồng ý (DONG_Y) tham gia đồng tổ chức sự kiện "${inv.eventTitle}". Hồ sơ tiến hành chuyển bước phê duyệt tiếp theo.`,
+        "success",
+      )
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
-  function handleDeclineConfirm() {
+  async function handleDeclineConfirm() {
     if (!selectedDecline) return
     if (!declineReason.trim()) {
       showToast("Vui lòng nhập lý do từ chối đồng tổ chức.", "error")
       return
     }
 
-    setInvitations((prev) =>
-      prev.map((item) =>
-        item.id === selectedDecline.id
-          ? { ...item, status: "declined", declineReason: declineReason.trim() }
-          : item,
-      ),
-    )
-    showToast(
-      `Đã từ chối (TU_CHOI) lời mời đồng tổ chức cho sự kiện "${selectedDecline.eventTitle}".`,
-      "info",
-    )
-    setSelectedDecline(null)
-    setDeclineReason("")
+    const numericEventId =
+      Number(selectedDecline.eventId.replace(/\D/g, "")) || 101
+    try {
+      await eventsService.cohostRespond(numericEventId, {
+        dong_y: false,
+        trang_thai_xac_nhan: "TU_CHOI",
+        ly_do_tu_choi: declineReason.trim(),
+      })
+      setInvitations((prev) =>
+        prev.map((item) =>
+          item.id === selectedDecline.id
+            ? {
+                ...item,
+                status: "declined",
+                declineReason: declineReason.trim(),
+              }
+            : item,
+        ),
+      )
+      showToast(
+        `Đã từ chối (TU_CHOI) lời mời đồng tổ chức cho sự kiện "${selectedDecline.eventTitle}".`,
+        "info",
+      )
+      setSelectedDecline(null)
+      setDeclineReason("")
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
   const pendingCount = scopedInvitations.filter((i) => i.status === "pending").length

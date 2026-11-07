@@ -55,7 +55,7 @@ export default function ApprovalWorkspace({
   onNavigate,
   onLogout,
 }: Props) {
-  const { approvalCases } = useApp()
+  const { approvalCases, refreshReviewQueue } = useApp()
   const { user, role: activeRole } = useUser()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,7 +65,12 @@ export default function ApprovalWorkspace({
     setLoading(true)
     setError(null)
     eventsService
-      .getEvents()
+      .reviewQueue()
+      .then((res) => {
+        if (!cancelled && res.data && refreshReviewQueue) {
+          void refreshReviewQueue()
+        }
+      })
       .catch((err) => {
         if (!cancelled) setError(getApiErrorMessage(err))
       })
@@ -75,7 +80,7 @@ export default function ApprovalWorkspace({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshReviewQueue])
 
   const faculty = user.faculty || user.khoa || ""
   const canView = (item: ApprovalCase) =>
