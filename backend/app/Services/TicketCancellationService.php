@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Exceptions\BusinessException;
 use App\Models\DangKy;
-use App\Models\HangDoiWaitlist;
 use App\Models\SuKien;
 use App\Models\User;
 use Carbon\Carbon;
@@ -17,7 +16,8 @@ class TicketCancellationService
 {
     public function __construct(
         protected AuditLogService $auditLogService,
-        protected NotificationService $notificationService
+        protected NotificationService $notificationService,
+        protected WaitlistService $waitlistService
     ) {}
 
     /**
@@ -37,13 +37,18 @@ class TicketCancellationService
 
         // 1. Handle Idempotency Key if provided (OpenAPI contract, TTL 5 mins)
         $cacheKey = null;
+        // Thay đoạn đọc cache (khoảng dòng 40-53)
         if ($idempotencyKey) {
             $cacheKey = "idempotency:cancel_ticket:{$user->ma_tai_khoan}:{$ticketId}:{$idempotencyKey}";
             $cached = Cache::get($cacheKey);
 
             if ($cached) {
                 if (hash_equals($cached['payload_hash'], md5($reason))) {
-                    return $cached['response'];
+                    // Nạp lại từ DB, không unserialize model
+                    $ticket = DangKy::with(['suKien.phongHoiTruong', 'chungNhan'])
+                        ->findOrFail($cached['ma_dang_ky']);
+
+                    return ['ticket' => $ticket];
                 }
 
                 throw new BusinessException(
@@ -120,36 +125,7 @@ class TicketCancellationService
             // Step 8: Drain Window & Capacity Invariant Accounting
             // so_luong_toi_da = valid_tickets + OFFERED + so_slot_dong_bang + so_ve_con_lai
             if (! $suKien->khong_gioi_han_slot) {
-                // Check if someone is WAITING in waitlist (FIFO order)
-                $waitlistEntry = HangDoiWaitlist::where('ma_su_kien', $suKien->ma_su_kien)
-                    ->where('trang_thai', 'WAITING')
-                    ->orderBy('so_thu_tu', 'asc')
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($waitlistEntry) {
-                    // Claim window: min(NOW() + 60m, T - 2h)
-                    $claimWindow = now()->addMinutes(60);
-                    $tMinus2h = $startTime->copy()->subHours(2);
-                    $finalDeadline = $claimWindow->lt($tMinus2h) ? $claimWindow : $tMinus2h;
-
-                    $waitlistEntry->trang_thai = 'OFFERED';
-                    $waitlistEntry->han_chot_xac_nhan = $finalDeadline;
-                    $waitlistEntry->save();
-
-                    // Send notification to offered student
-                    $formattedDeadline = $finalDeadline->setTimezone('+07:00')->format('H:i d/m/Y');
-                    $this->notificationService->sendNotification(
-                        $waitlistEntry->ma_tai_khoan,
-                        'Bạn nhận được suất tham dự sự kiện',
-                        "Suất tham dự sự kiện '{$suKien->ten_su_kien}' đã sẵn sàng cho bạn. Vui lòng xác nhận trước {$formattedDeadline}.",
-                        'CLAIM_SLOT',
-                        '/my-tickets'
-                    );
-                } else {
-                    // No one waiting, return slot to public pool
-                    $suKien->increment('so_ve_con_lai');
-                }
+                $this->waitlistService->offerNext((int) $suKien->ma_su_kien, now());
             }
 
             // Step 9: Audit Log (CANCEL_TICKET)
@@ -181,10 +157,11 @@ class TicketCancellationService
         ];
 
         // Cache idempotent response for 5 minutes (300 seconds)
+        // Thay đoạn ghi cache (khoảng dòng 183-189)
         if ($cacheKey) {
             Cache::put($cacheKey, [
                 'payload_hash' => md5($reason),
-                'response' => $response,
+                'ma_dang_ky' => $cancelledTicket->ma_dang_ky,
             ], 300);
         }
 

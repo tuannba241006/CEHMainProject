@@ -43,7 +43,6 @@ class TicketCancellationTest extends TestCase
         $this->donVi = DonViToChuc::first() ?? DonViToChuc::create([
             'ten_don_vi' => 'Khoa Khoa học Máy tính',
             'loai_don_vi' => 'Khoa',
-            'email_lien_he' => 'cs_cancel@uit.edu.vn',
         ]);
 
         $this->room = PhongHoiTruong::where('trang_thai', 'KhaDung')->first()

@@ -5,13 +5,24 @@ import {
   useApp,
   computeEventStatus,
   EVENT_STATUS_LABELS,
+  type LiveEvent,
+  type ManualOverrideInput,
+  type ManualOverrideResult,
 } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
 import { drlService } from "../../api/services/drl.service"
 import { eventsService } from "../../api/services/events.service"
+import {
+  attendanceService,
+  type ParticipantAttendanceData,
+} from "../../api/services/attendance.service"
+import {
+  EVENT_STATUS_LABELS as API_EVENT_STATUS_LABELS,
+  type EventCard,
+  type TicketStatus,
+} from "../../data/contract"
 import type { Ticket } from "../../data/mock"
-import type { TicketStatus } from "../../data/contract"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -31,9 +42,157 @@ const PERM_STATUS_MAP = {
   expired: { bg: "#f1f5f9", text: "#94a3b8", label: "Hết hạn" },
 }
 
+type ParticipantEvent = LiveEvent & {
+  statusLabel: string
+}
+
+type ParticipantTicket = Pick<
+  Ticket,
+  | "id"
+  | "ma_dang_ky"
+  | "studentId"
+  | "studentName"
+  | "faculty"
+  | "registeredAt"
+  | "trang_thai"
+  | "checkinTime"
+  | "ti_le_drl"
+  | "nghi_van_gian_lan"
+  | "ma_thiet_bi_nghi_van"
+  | "vi_pham_no_show"
+> & { status: "attended" | "pending" | "cancelled" }
+
+function ticketStatus(status: TicketStatus): ParticipantTicket["status"] {
+  if (status === "DaHuy") return "cancelled"
+  return status === "DaDangKy" ? "pending" : "attended"
+}
+
+function toParticipantTicket(row: ParticipantAttendanceData): ParticipantTicket {
+  return {
+    id: String(row.ma_dang_ky),
+    ma_dang_ky: row.ma_dang_ky,
+    studentId: row.mssv ?? "",
+    studentName: row.ho_ten,
+    faculty: row.khoa ?? "",
+    registeredAt: row.thoi_gian_dang_ky ?? "",
+    trang_thai: row.trang_thai,
+    status: ticketStatus(row.trang_thai),
+    checkinTime: row.thoi_gian_check_in ?? undefined,
+    ti_le_drl: row.ti_le_drl,
+    nghi_van_gian_lan: row.nghi_van_gian_lan,
+    ma_thiet_bi_nghi_van: row.ma_thiet_bi_nghi_van,
+    vi_pham_no_show: row.vi_pham_no_show,
+  }
+}
+
+async function fetchAllPages<T>(
+  load: (
+    page: number,
+  ) => Promise<{ data: T[]; meta?: { last_page?: number; tong_so_trang?: number } }>,
+): Promise<T[]> {
+  const first = await load(1)
+  const rows = [...first.data]
+  const lastPage = first.meta?.last_page ?? first.meta?.tong_so_trang ?? 1
+  for (let page = 2; page <= lastPage; page++) {
+    rows.push(...(await load(page)).data)
+  }
+  return rows
+}
+
+function useApiParticipants(eventId: string | null) {
+  const [events, setEvents] = useState<EventCard[]>([])
+  const [eventError, setEventError] = useState("")
+  const [eventsLoading, setEventsLoading] = useState(true)
+  const [selected, setSelected] = useState<{
+    id: string
+    tickets: ParticipantTicket[]
+    details?: Pick<ParticipantEvent, "trang_thai" | "da_chot_drl">
+    error?: string
+  } | null>(null)
+
+  useEffect(() => {
+    let active = true
+    void fetchAllPages<EventCard>((page) =>
+      eventsService.organizerList({ vai_tro_don_vi: "HOST", page, limit: 100 }),
+    )
+      .then((rows) => {
+        if (active) setEvents(rows)
+      })
+      .catch((error: unknown) => {
+        if (active) setEventError(getApiErrorMessage(error))
+      })
+      .finally(() => {
+        if (active) setEventsLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!eventId) return
+    let active = true
+    void Promise.all([
+      fetchAllPages<ParticipantAttendanceData>((page) =>
+        attendanceService.participants(eventId, { page, limit: 100 }),
+      ),
+      eventsService.organizerDetail(eventId),
+    ])
+      .then(([rows, { data }]) => {
+        if (active)
+          setSelected({
+            id: eventId,
+            tickets: rows.map(toParticipantTicket),
+            details: data,
+          })
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setSelected({
+            id: eventId,
+            tickets: [],
+            error: getApiErrorMessage(error),
+          })
+      })
+    return () => {
+      active = false
+    }
+  }, [eventId])
+
+  function applyOverride(result: ManualOverrideResult) {
+    if (!result.success || !result.data) return
+    const updated = result.data
+    setSelected((current) =>
+      current?.id === eventId
+        ? {
+            ...current,
+            tickets: current.tickets.map((ticket) =>
+              ticket.ma_dang_ky === updated.ma_dang_ky
+                ? {
+                    ...ticket,
+                    ...updated,
+                    status: ticketStatus(updated.trang_thai),
+                    checkinTime: updated.thoi_gian_check_in ?? undefined,
+                  }
+                : ticket,
+            ),
+          }
+        : current,
+    )
+  }
+
+  return {
+    events,
+    eventsLoading,
+    eventError,
+    selected: selected?.id === eventId ? selected : null,
+    applyOverride,
+  }
+}
+
 export default function Participants({ onNavigate, onLogout }: Props) {
   const {
-    events,
+    events: demoEvents,
     tickets,
     getEventPermissions,
     grantCheckinPermission,
@@ -73,6 +232,67 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     useState<"participants" | "checkin" | "reconciliation" | "survey" | "certificates" | "staff">(
       "participants",
     )
+  const remote = useApiParticipants(selectedEventId)
+  const events: ParticipantEvent[] =
+    remote.events.length > 0
+      ? remote.events.map((event) => ({
+          id: String(event.ma_su_kien),
+          ma_su_kien: event.ma_su_kien,
+          title: event.ten_su_kien,
+          ten_su_kien: event.ten_su_kien,
+          dien_gia: event.dien_gia,
+          ten_chuyen_de: event.ten_chuyen_de,
+          ten_don_vi_host: event.ten_don_vi_host,
+          danh_sach_ten_dong_to_chuc: event.danh_sach_ten_dong_to_chuc ?? [],
+          ten_phong: event.ten_phong,
+          co_so: (event.co_so as "CoSo1" | "CoSo2") || "CoSo1",
+          thoi_gian_bat_dau: event.thoi_gian_bat_dau,
+          thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
+          khong_gioi_han_slot: event.so_luong_toi_da === null,
+          so_ve_con_lai: event.so_ve_con_lai,
+          so_luong_toi_da: event.so_luong_toi_da,
+          trang_thai: event.trang_thai,
+          dieu_khoan_drl: "Dieu3",
+          diem_drl_du_kien: 5,
+          gio_tinh_nguyen: 0,
+          mo_ta: "",
+          lo_trinh: [],
+          doi_tuong_tham_gia: null,
+          speaker: event.dien_gia || "",
+          topic: event.ten_chuyen_de,
+          description: "",
+          date: event.thoi_gian_bat_dau.slice(0, 10),
+          time: event.thoi_gian_bat_dau.slice(11, 16),
+          endTime: event.thoi_gian_ket_thuc.slice(11, 16),
+          location: `${event.ten_phong} (${event.co_so})`,
+          room: event.ten_phong,
+          capacity: event.so_luong_toi_da ?? 100,
+          registered:
+            (event.so_luong_toi_da ?? 100) - (event.so_ve_con_lai ?? 0),
+          registrationOpen:
+            event.trang_thai === "HAPPENING" ||
+            event.trang_thai === "PUBLISHED" ||
+            event.trang_thai === "APPROVED",
+          isCancelled: event.trang_thai === "CANCELLED",
+          banner: event.anh_bia || "",
+          organizer: event.ten_don_vi_host,
+          benefits: [],
+          schedule: [],
+          don_vi_host: {
+            ma_don_vi: 0,
+            ten_don_vi: event.ten_don_vi_host ?? "",
+            loai_don_vi: "CLB_Doi_Nhom",
+          },
+          ma_don_vi_to_chuc: 0,
+          coHosts: event.danh_sach_ten_dong_to_chuc ?? [],
+          status: event.trang_thai,
+          statusLabel:
+            API_EVENT_STATUS_LABELS[event.trang_thai] || event.trang_thai,
+        }))
+      : demoEvents.map((event) => ({
+          ...event,
+          statusLabel: EVENT_STATUS_LABELS[computeEventStatus(event)],
+        }))
 
   // Data scoping cô lập tuyệt đối:
   // - Admin (P.CTSV): CHỈ THẤY các sự kiện thuộc P.CTSV! Tuyệt đối không lẫn lộn sự kiện của các CLB khác.
@@ -164,20 +384,18 @@ export default function Participants({ onNavigate, onLogout }: Props) {
               const total = eventTickets.filter(
                 (t) => t.status !== "cancelled",
               ).length
-              const status = computeEventStatus(event)
-
               return (
                 <div
                   key={event.id}
                   className="bg-white rounded-2xl shadow-sm border overflow-hidden"
                   style={{ borderColor: "#f1f5f9" }}
                 >
-                  <div className="relative h-28 overflow-hidden">
-                    <img
+                  <div className="relative h-28 overflow-hidden bg-slate-200">
+                    {event.banner && <img
                       src={event.banner}
                       alt={event.title}
                       className="w-full h-full object-cover"
-                    />
+                    />}
                     <div
                       className="absolute inset-0"
                       style={{
@@ -194,7 +412,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
                           backdropFilter: "blur(4px)",
                         }}
                       >
-                        {EVENT_STATUS_LABELS[status]}
+                        {event.statusLabel}
                       </span>
                     </div>
                   </div>
@@ -268,18 +486,41 @@ export default function Participants({ onNavigate, onLogout }: Props) {
   }
 
   // Participant detail view
-  const event = events.find(
+  const selectedEvent = events.find(
     (e) =>
       e.id === selectedEventId ||
       String(e.ma_su_kien) === String(selectedEventId) ||
       `EVT${e.ma_su_kien}` === selectedEventId,
   )
-  const allTickets = tickets.filter(
-    (t) =>
-      t.eventId === selectedEventId ||
-      String(t.ma_su_kien) === String(selectedEventId) ||
-      (event && (t.eventId === event.id || t.ma_su_kien === event.ma_su_kien)),
-  )
+  const event = selectedEvent && { ...selectedEvent, ...remote.selected?.details }
+  const localTickets: ParticipantTicket[] = tickets
+    .filter(
+      (t) =>
+        t.eventId === selectedEventId ||
+        String(t.ma_su_kien) === String(selectedEventId) ||
+        (event && (t.eventId === event.id || t.ma_su_kien === event.ma_su_kien)),
+    )
+    .map((t) => ({
+      id: t.id,
+      ma_dang_ky: t.ma_dang_ky,
+      studentId: t.studentId,
+      studentName: t.studentName,
+      faculty: t.faculty,
+      registeredAt: t.registeredAt,
+      trang_thai: t.trang_thai,
+      status: ticketStatus(t.trang_thai),
+      checkinTime: t.checkinTime,
+      ti_le_drl: t.ti_le_drl ?? 1,
+      nghi_van_gian_lan: t.nghi_van_gian_lan,
+      ma_thiet_bi_nghi_van: t.ma_thiet_bi_nghi_van,
+      vi_pham_no_show: t.vi_pham_no_show,
+    }))
+
+  const allTickets: ParticipantTicket[] =
+    remote.selected?.tickets && remote.selected.tickets.length > 0
+      ? remote.selected.tickets
+      : localTickets
+
   const participants = allTickets.map((t) => ({
     mssv: t.studentId,
     name: t.studentName,
@@ -289,6 +530,12 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     checkinTime: t.checkinTime ?? "",
   }))
   const eventPerms = getEventPermissions(selectedEventId)
+
+  async function handleManualOverride(payload: ManualOverrideInput) {
+    const result = await manualOverrideAttendance(payload)
+    remote.applyOverride(result)
+    return result
+  }
 
   return (
     <OrgLayout
@@ -394,7 +641,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
               <ParticipantsList
                 event={event}
                 allTickets={allTickets}
-                onManualOverride={manualOverrideAttendance}
+                onManualOverride={handleManualOverride}
               />
             )}
             {activeTab === "checkin" && <CheckinView participants={participants} />}
@@ -949,16 +1196,9 @@ function ParticipantsList({
   allTickets,
   onManualOverride,
 }: {
-  event?: import("../../context/AppContext").LiveEvent
-  allTickets: import("../../data/mock").Ticket[]
-  onManualOverride: (payload: {
-    ma_dang_ky?: number
-    ticketId?: string
-    trang_thai_moi: "DaCheckIn" | "DaCheckOut"
-    ti_le_drl_moi: number
-    ly_do: string
-    da_doi_soat_the?: boolean
-  }) => Promise<{ success: boolean; error?: string }>
+  event?: ParticipantEvent
+  allTickets: ParticipantTicket[]
+  onManualOverride: (payload: ManualOverrideInput) => Promise<ManualOverrideResult>
 }) {
   const [statusFilter, setStatusFilter] =
     useState<"all" | "pending" | "checkin" | "checkout" | "cancelled" | "fraud" | "noshow">(
@@ -967,8 +1207,7 @@ function ParticipantsList({
   const [search, setSearch] = useState("")
 
   // UC-OPS-04 Modal State
-  const [overrideTicket, setOverrideTicket] =
-    useState<import("../../data/mock").Ticket | null>(null)
+  const [overrideTicket, setOverrideTicket] = useState<ParticipantTicket | null>(null)
   const [newStatus, setNewStatus] = useState<"DaCheckIn" | "DaCheckOut">(
     "DaCheckOut",
   )
@@ -982,11 +1221,13 @@ function ParticipantsList({
   const isEventCompleted =
     event?.trang_thai === "COMPLETED" ||
     event?.status === "ended" ||
-    (event?.date &&
-      new Date().getTime() >
+    (event?.thoi_gian_ket_thuc ? Date.now() > Date.parse(event.thoi_gian_ket_thuc) : false) ||
+    (event?.date
+      ? new Date().getTime() >
         new Date(
           `${event.date}T${event.endTime?.split(" ")[0] || "11:30"}:00+07:00`,
-        ).getTime())
+        ).getTime()
+      : false)
 
   // Quick reason presets
   const REASON_PRESETS = [
@@ -995,7 +1236,7 @@ function ParticipantsList({
     "Sinh viên gặp sự cố mạng, đã đối chiếu thẻ sinh viên vật lý hợp lệ",
   ]
 
-  function openOverrideModal(ticket: import("../../data/mock").Ticket) {
+  function openOverrideModal(ticket: ParticipantTicket) {
     setOverrideTicket(ticket)
     setOverrideError("")
     setOverrideSuccess("")
@@ -1082,7 +1323,7 @@ function ParticipantsList({
       return t.trang_thai === "DaDangKy" || t.status === "pending"
     if (statusFilter === "checkin") return t.trang_thai === "DaCheckIn"
     if (statusFilter === "checkout")
-      return t.trang_thai === "DaCheckOut" || t.status === "attended"
+      return t.trang_thai === "DaCheckOut" || (t.trang_thai !== "DaCheckIn" && t.status === "attended")
     if (statusFilter === "cancelled")
       return t.trang_thai === "DaHuy" || t.status === "cancelled"
     if (statusFilter === "fraud") return Boolean(t.nghi_van_gian_lan)
@@ -1304,7 +1545,7 @@ function ParticipantsList({
                   t.trang_thai === "DaHuy" || t.status === "cancelled"
                 const isCheckin = t.trang_thai === "DaCheckIn"
                 const isCheckout =
-                  t.trang_thai === "DaCheckOut" || t.status === "attended"
+                  t.trang_thai === "DaCheckOut" || (!isCheckin && t.status === "attended")
 
                 return (
                   <tr
@@ -1324,7 +1565,7 @@ function ParticipantsList({
                       {t.faculty}
                     </td>
                     <td className="px-4 py-3.5 text-xs font-mono text-slate-400 whitespace-nowrap">
-                      {t.registeredAt}
+                      {t.registeredAt || "—"}
                     </td>
 
                     {/* Status Badge */}
@@ -1577,14 +1818,10 @@ function ParticipantsList({
                       Phát hiện nghi vấn gian lận thiết bị
                     </h4>
                     <p className="text-xs text-red-700 mt-0.5 leading-relaxed">
-                      Thiết bị{" "}
-                      <code className="bg-red-200/60 px-1 py-0.5 rounded font-mono font-bold text-red-900">
-                        {overrideTicket.ma_thiet_bi_nghi_van ||
-                          "DEV_SCANNER_712"}
-                      </code>{" "}
-                      đã quét cho nhiều tài khoản trong cùng sự kiện. Ban tổ
-                      chức phải đối soát Thẻ sinh viên vật lý trước khi giải tỏa
-                      cờ.
+                      Phát hiện quét thiết bị trùng cho nhiều tài khoản trong cùng sự kiện.
+                      {overrideTicket.ma_thiet_bi_nghi_van && (
+                        <> Mã thiết bị: <code>{overrideTicket.ma_thiet_bi_nghi_van}</code>.</>
+                      )} Ban tổ chức phải đối soát Thẻ sinh viên vật lý trước khi giải tỏa cờ.
                     </p>
                   </div>
                 </div>

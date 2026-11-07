@@ -10,6 +10,14 @@ class AttendanceScoringService
 {
     public function score(SuKien $event, DangKy $ticket, CarbonInterface $checkOut): array
     {
+        $score = $this->scoreWithAttendancePercentage($event, $ticket, $checkOut);
+        unset($score['ty_le_tham_du_pct']);
+
+        return $score;
+    }
+
+    public function scoreWithAttendancePercentage(SuKien $event, DangKy $ticket, CarbonInterface $checkOut): array
+    {
         $eventStart = $event->thoi_gian_bat_dau->getTimestamp();
         $eventEnd = ($event->thoi_gian_ket_thuc_thuc_te ?: $event->thoi_gian_ket_thuc)->getTimestamp();
         $checkIn = $ticket->thoi_gian_check_in->getTimestamp();
@@ -27,6 +35,7 @@ class AttendanceScoringService
             'tham_gia_mot_phan' => $partial,
             'ti_le_drl' => $full ? 1.0 : ($partial ? 0.5 : 0.0),
             'thoi_luong_tham_du_phut' => intdiv($attendedSeconds, 60),
+            'ty_le_tham_du_pct' => $ratio * 100,
         ];
     }
 }

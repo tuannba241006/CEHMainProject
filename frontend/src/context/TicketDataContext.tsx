@@ -10,9 +10,25 @@ import type { UserData } from "./UserContext"
 import { ticketsService } from "../api/services/tickets.service"
 import { bookingsService } from "../api/services/bookings.service"
 import { waitlistService } from "../api/services/waitlist.service"
-import { attendanceService } from "../api/services/attendance.service"
+import {
+  attendanceService,
+  type ManualOverrideData,
+  type ManualOverridePayload,
+} from "../api/services/attendance.service"
 import { getApiErrorMessage } from "../api/errors"
 import { useEventData, type LiveEvent } from "./EventDataContext"
+
+export type ManualOverrideInput = Omit<ManualOverridePayload, "ma_dang_ky"> & {
+  ma_dang_ky?: number
+  ticketId?: string
+  da_doi_soat_the?: boolean
+}
+
+export interface ManualOverrideResult {
+  success: boolean
+  error?: string
+  data?: ManualOverrideData
+}
 
 export type PermissionStatus = "active" | "suspended" | "revoked" | "expired"
 
@@ -164,14 +180,9 @@ export interface TicketDataContextType {
     evidence: string,
   ) => { success: boolean; error?: string }
   requestStudentReview: (recordId: string, reason: string) => { success: boolean; error?: string }
-  manualOverrideAttendance: (payload: {
-    ma_dang_ky?: number
-    ticketId?: string
-    trang_thai_moi: "DaCheckIn" | "DaCheckOut"
-    ti_le_drl_moi: number
-    ly_do: string
-    da_doi_soat_the?: boolean
-  }) => Promise<{ success: boolean; error?: string }>
+  manualOverrideAttendance: (
+    payload: ManualOverrideInput,
+  ) => Promise<ManualOverrideResult>
   ticketsLoading: boolean
   ticketsError: string | null
   refreshTickets: (user?: Partial<UserData> | null) => Promise<void>
@@ -570,36 +581,43 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
-  async function manualOverrideAttendance(payload: {
-    ma_dang_ky?: number
-    ticketId?: string
-    trang_thai_moi: "DaCheckIn" | "DaCheckOut"
-    ti_le_drl_moi: number
-    ly_do: string
-    da_doi_soat_the?: boolean
-  }) {
+  async function manualOverrideAttendance(
+    payload: ManualOverrideInput,
+  ): Promise<ManualOverrideResult> {
+    const targetId = payload.ma_dang_ky || (payload.ticketId ? Number(payload.ticketId) : undefined)
+    if (!targetId) {
+      return { success: false, error: "Không tìm thấy mã đăng ký để điều chỉnh." }
+    }
     try {
-      await attendanceService.manualOverride(payload)
+      const res = await attendanceService.manualOverride({
+        ma_dang_ky: targetId,
+        trang_thai_moi: payload.trang_thai_moi,
+        ti_le_drl_moi: payload.ti_le_drl_moi,
+        ly_do: payload.ly_do,
+      })
+      setTickets((prev) =>
+        prev.map((t) => {
+          if (
+            (payload.ma_dang_ky && t.ma_dang_ky === payload.ma_dang_ky) ||
+            (payload.ticketId && t.id === payload.ticketId)
+          ) {
+            return {
+              ...t,
+              trang_thai: payload.trang_thai_moi,
+              status: "attended",
+              ti_le_drl: payload.ti_le_drl_moi,
+              nghi_van_gian_lan: false,
+              ma_thiet_bi_nghi_van: null,
+              vi_pham_no_show: false,
+            }
+          }
+          return t
+        }),
+      )
+      return { success: true, data: res.data }
     } catch (e) {
       return { success: false, error: getApiErrorMessage(e) }
     }
-    setTickets((prev) =>
-      prev.map((t) => {
-        if (
-          (payload.ma_dang_ky && t.ma_dang_ky === payload.ma_dang_ky) ||
-          (payload.ticketId && t.id === payload.ticketId)
-        ) {
-          return {
-            ...t,
-            trang_thai: payload.trang_thai_moi,
-            status: "attended",
-            ti_le_drl: payload.ti_le_drl_moi,
-          }
-        }
-        return t
-      }),
-    )
-    return { success: true }
   }
 
   return (
