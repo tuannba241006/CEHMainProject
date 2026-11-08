@@ -19,85 +19,70 @@
 
 ---
 
-## TỔNG QUAN PHÂN TÍCH VÀ ĐÓNG GÓI NGHIỆP VỤ
+## TỔNG QUAN PHÂN TÍCH VÀ ĐÓNG GÓI NGHIỆP VỤ (PHIÊN BẢN ĐIỀU CHỈNH CHIẾN LƯỢC)
 
-Qua rà soát và phân tích toán học toàn bộ **31 Tasks kỹ thuật** từ `CEH-P2-ROOM-01` đến `CEH-P2-TST-03` với tổng ngân sách thực thi là **55.0 ngày làm việc (days)**, hệ thống được cấu trúc thành **15 Gói Công Việc (Work Packages: PKG-01 $\rightarrow$ PKG-15)**:
-
-1. **Bao phủ 100% Tasks (Zero Orphan / Zero Omission)**:
-   - Toàn bộ 31 Tasks đều được phân bổ chính xác vào đúng 1 gói công việc tương ứng theo tính chất nghiệp vụ khép kín (Domain Affinity).
-2. **Ngân sách Effort mỗi gói**:
-   - Dao động chặt chẽ trong khoảng **$3.0\text{d} - 4.5\text{d}$** (trung bình **$3.67\text{d}$/gói**), thỏa mãn hoàn hảo cận dung sai cho phép ($3.5\text{d} - 4.5\text{d}$, kèm các gói $3.0\text{d}$ được đặc tả riêng cho tính chất khép kín của từng module).
-3. **Phân tích Đường găng (Critical Path Method - CPM)**:
-   - **Độ dài đường găng (Critical Path Duration)**: **44.0 ngày làm việc** (gồm chuỗi 12 gói quyết định tiến độ tổng thể).
-   - **Tổng thời gian thi công tuyến tính (Single-dev Timeline)**: **55.0 ngày làm việc**.
-   - **Tiến độ tối ưu với đội ngũ 2–3 lập trình viên / Agents (Multi-dev Concurrent Timeline)**: Hoàn thành trong **20 – 24 ngày làm việc** qua 12 Waves điều phối song song.
+Theo quyết định chiến lược mới của Ban Quản Trị Dự Án:
+1. **Ưu tiên Tối thượng cho Nghiệp vụ Cốt lõi (Core Business Fast-Track)**:
+   - Toàn bộ năng lực lập trình và tài nguyên dự án được tập trung giải quyết triệt để luồng vận hành thực tế: Máy trạng thái vòng đời sự kiện tự động, tác vụ quét No-show an toàn, gom thống kê CSDL và Dashboard báo cáo chiến lược toàn trường cho BGH / P.CTSV.
+   - Hoàn tất và nghiệm thu toàn diện bộ kiểm thử 100% Use Cases nghiệp vụ Core để bàn giao phiên bản **CampusEventHub Production Core MVP** đưa vào sử dụng thực tế tại UIT.
+2. **Tách rời Hoàn toàn Phân hệ AI (AI Subsystem Decoupling)**:
+   - Các tính năng AI (Nền tảng AI Core, Lọc PII Nghị định 13, Trợ lý BTC Organizer Copilot, Admin BI Agent Text-to-Insight) được **bóc tách 100% ra khỏi Đường găng (Critical Path)** và chuyển vào phân hệ riêng (**Phase 2.B**).
+   - Phân hệ AI sẽ được triển khai sau khi hoàn tất toàn bộ luồng nghiệp vụ chính, bảo đảm không gây rủi ro phụ thuộc bên thứ ba hay làm chậm trễ tiến độ bàn giao hệ thống Core.
 
 ---
 
 ## BẢNG THEO DÕI TIẾN ĐỘ THỰC HIỆN CÁC GÓI CÔNG VIỆC (PROGRESS CHECKLIST)
 
-> **Trạng thái tổng quan Phase 2**:
-> - **Tiến độ gói**: **3 / 15 gói hoàn thành (20.0%)**
-> - **Khối lượng Effort**: **10.0d / 55.0d (18.2%)** hoàn thành (Đường găng đã hoàn thành: **7.0d / 44.0d = 15.9%**)
-> - **Gói đang kích hoạt / Kế tiếp**: **`PKG-02`** (Wave 2 - Soạn thảo Sự kiện, Đồng tổ chức & Soft Hold 48h)
+> **Trạng thái tổng quan Phase 2 (Cập nhật sau PKG-11)**:
+> - **Tiến độ Luồng Nghiệp vụ Cốt lõi (Core Business)**: **11 / 14 gói hoàn thành (78.6%)**
+> - **Khối lượng Effort Core đã hoàn thành**: **40.5d / 49.0d (82.7%)**
+> - **Khối lượng Effort Core còn lại**: **8.5d** (Gồm: PKG-12: 3.5d, PKG-13: 1.5d, PKG-14: 3.5d)
+> - **Gói đang kích hoạt / Kế tiếp**: **`PKG-12` (Wave 10 - Critical Path)**
+
+### 1. BẢNG TIẾN ĐỘ LUỒNG NGHIỆP VỤ CỐT LÕI (CORE BUSINESS STREAM: PKG-01 $\rightarrow$ PKG-14)
 
 | Tiến độ | Gói ID | Tên Gói Công Việc | Wave | Effort | Phân loại Lập lịch | Báo cáo Nghiệm thu QA/QC | Trạng thái Nghiệp vụ & Kỹ thuật |
 | :---: | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
-| [x] | **`PKG-01`** | Quản lý Hội trường & Xung đột Lịch (15p Buffer) | Wave 1 | **3.0d** | Critical Path | [`PKG-01_QA_QC_REPORT.md`](../reports/PKG-01_QA_QC_REPORT.md) | ✅ **PASS** (14/14 tests pass, p95=5.22ms, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-02`** | Soạn thảo Sự kiện, Đồng tổ chức & Soft Hold 48h | Wave 2 | **4.0d** | Critical Path | — | ⏳ **Sẵn sàng thực thi** (Đã mở khóa bởi PKG-01) |
-| [ ] | **`PKG-03`** | Động cơ Duyệt Đa cấp & Điều chuyển / Hủy Khẩn cấp | Wave 3 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-02 hoàn tất |
-| [x] | **`PKG-04`** | Cổng Khám phá Sự kiện Công khai & OpenGraph SSR | Wave 4 | **3.0d** | Song song | [`PKG-04_QA_QC_REPORT.md`](../reports/PKG-04_QA_QC_REPORT.md) | ✅ **PASS** (16/16 tests pass, p95=6.74ms, Đủ điều kiện sáp nhập) |
-| [x] | **`PKG-05`** | Động cơ Đặt vé Concurrency & Stress Test 50 Users | Wave 4 | **4.0d** | Critical Path | [`PKG-05_QA_QC_REPORT.md`](../reports/PKG-05_QA_QC_REPORT.md) | ✅ **PASS** (13/13 tests pass, 50u stress pass, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-06`** | Ví Vé Cá nhân, Quản lý Hủy vé T-4h & Thông báo | Wave 5 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-05 hoàn tất |
-| [ ] | **`PKG-07`** | Hàng đợi Waitlist FIFO, Cấp Offer & Đóng T-2h | Wave 6 | **4.5d** | Song song | — | ⬜ Chờ PKG-05, PKG-06 (Song song với PKG-08) |
-| [ ] | **`PKG-08`** | Hạ tầng Phiên Kiosk Độc lập & Soát vé HMAC Bàn | Wave 6 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-06 hoàn tất |
-| [ ] | **`PKG-09`** | Điểm danh 2 Chiều TOTP, Device Binding & $\Delta t$ | Wave 7 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-08 hoàn tất |
-| [x] | **`PKG-10`** | Khảo sát Feedback 48h & e-Certificate NĐ 13 | Wave 8 | **3.5d** | Critical Path | [`PKG-10_QA_QC_REPORT.md`](../reports/PKG-10_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, 100% AC, Đủ điều kiện sáp nhập) |
-| [x] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | [`PKG-11_QA_QC_REPORT.md`](../reports/PKG-11_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, 100% AC, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-12`** | Vòng đời Sự kiện, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-11 hoàn tất |
-| [ ] | **`PKG-13`** | Nền tảng AI Core, Lọc PII & Trợ lý Organizer Copilot | Wave 9 | **3.5d** | Song song | — | ⬜ Chờ PKG-10 (Song song với PKG-11, 12) |
-| [ ] | **`PKG-14`** | Dashboard Chiến lược Vĩ mô Toàn trường & AI BI Agent | Wave 11 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-11, PKG-12, PKG-13 hoàn tất |
-| [ ] | **`PKG-15`** | Feature Tests 100% Use Cases & Runbook Nghiệm thu | Wave 12 | **4.0d** | Critical Path Gate | — | ⬜ Chờ toàn bộ PKG-01 $\rightarrow$ PKG-14 |
-| **TỔNG** | **15 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **55.0d** | — | **3/15 Gói có Báo cáo QA** | **Hoàn thành: 3/15 (20.0%) | Effort: 10.0d/55.0d (18.2%)** |
+| [x] | **`PKG-01`** | Quản lý Hội trường & Xung đột Lịch (15p Buffer) | Wave 1 | **3.0d** | Critical Path | [`PKG-01_QA_QC_REPORT.md`](../reports/PKG-01_QA_QC_REPORT.md) | ✅ **PASS** (14/14 tests pass, p95=5.22ms, Đã sáp nhập `main`) |
+| [x] | **`PKG-02`** | Soạn thảo Sự kiện, Đồng tổ chức & Soft Hold 48h | Wave 2 | **4.0d** | Critical Path | [`PKG-02_QA_QC_REPORT.md`](../reports/PKG-02_QA_QC_REPORT.md) | ✅ **PASS** (20/20 tests pass, Đã sáp nhập `main`) |
+| [x] | **`PKG-03`** | Động cơ Duyệt Đa cấp & Điều chuyển / Hủy Khẩn cấp | Wave 3 | **3.5d** | Critical Path | [`PKG-03_QA_QC_REPORT.md`](../reports/PKG-03_QA_QC_REPORT.md) | ✅ **PASS** (20/20 tests pass, Đã sáp nhập `main`) |
+| [x] | **`PKG-04`** | Cổng Khám phá Sự kiện Công khai & OpenGraph SSR | Wave 4 | **3.0d** | Song song | [`PKG-04_QA_QC_REPORT.md`](../reports/PKG-04_QA_QC_REPORT.md) | ✅ **PASS** (16/16 tests pass, p95=6.74ms, Đã sáp nhập `main`) |
+| [x] | **`PKG-05`** | Động cơ Đặt vé Concurrency & Stress Test 50 Users | Wave 4 | **4.0d** | Critical Path | [`PKG-05_QA_QC_REPORT.md`](../reports/PKG-05_QA_QC_REPORT.md) | ✅ **PASS** (13/13 tests pass, 50u stress pass, Đã sáp nhập `main`) |
+| [x] | **`PKG-06`** | Ví Vé Cá nhân, Quản lý Hủy vé T-4h & Thông báo | Wave 5 | **3.5d** | Critical Path | [`PKG-06_QA_QC_REPORT.md`](../reports/PKG-06_QA_QC_REPORT.md) | ✅ **PASS** (22/22 tests pass, Đã sáp nhập `main`) |
+| [x] | **`PKG-07`** | Hàng đợi Waitlist FIFO, Cấp Offer & Đóng T-2h | Wave 6 | **4.5d** | Song song | [`PKG-07_QA_QC_REPORT.md`](../reports/PKG-07_QA_QC_REPORT.md) | ✅ **PASS** (17/17 tests pass, Đã sáp nhập `main`) |
+| [x] | **`PKG-08`** | Hạ tầng Phiên Kiosk Độc lập & Soát vé HMAC Bàn | Wave 6 | **4.0d** | Critical Path | [`PKG-08_QA_QC_REPORT.md`](../reports/PKG-08_QA_QC_REPORT.md) | ✅ **PASS** (19/19 tests pass, Đã sáp nhập `main`) |
+| [x] | **`PKG-09`** | Điểm danh 2 Chiều TOTP, Device Binding & $\Delta t$ | Wave 7 | **4.0d** | Critical Path | [`PKG-09_QA_QC_REPORT.md`](../reports/PKG-09_QA_QC_REPORT.md) | ✅ **PASS** (21/21 tests pass, Đã sáp nhập `main`) |
+| [x] | **`PKG-10`** | Khảo sát Feedback 48h & e-Certificate NĐ 13 | Wave 8 | **3.5d** | Critical Path | [`PKG-10_QA_QC_REPORT.md`](../reports/PKG-10_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, Đã sáp nhập `main`) |
+| [x] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | [`PKG-11_QA_QC_REPORT.md`](../reports/PKG-11_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, Đã sáp nhập `main`) |
+| [ ] | **`PKG-12`** | Máy Trạng thái Vòng đời, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | — | ⏳ **Sẵn sàng thực thi ngay** (Mở khóa bởi PKG-11) |
+| [ ] | **`PKG-13`** | Dashboard Báo cáo Chiến lược Toàn trường & Giám sát No-show | Wave 11 | **1.5d** | Critical Path | — | ⬜ Chờ PKG-11, PKG-12 hoàn tất |
+| [ ] | **`PKG-14`** | Bộ Feature Tests 100% Use Cases Core & Runbook Nghiệm thu | Wave 12 | **3.5d** | Critical Path Gate | — | ⬜ Chờ toàn bộ PKG-01 $\rightarrow$ PKG-13 hoàn tất |
+| **TỔNG** | **14 Gói** | **Đường găng Core: 49.0d (Single-dev: 49.0d)** | **12 Waves** | **49.0d** | — | **11/14 Gói có Báo cáo QA** | **Hoàn thành: 11/14 (78.6%) \| Effort: 40.5d/49.0d (82.7%)** |
 
 ---
 
-## BẢNG THEO DÕI TIẾN ĐỘ THỰC HIỆN CÁC GÓI CÔNG VIỆC (PROGRESS CHECKLIST)
+### 2. BẢNG PHÂN HỆ TRỢ LÝ THÔNG MINH AI (AI EXTENSION SUBSYSTEM - DỰ PHÒNG TRIỂN KHAI SAU)
 
-> **Trạng thái tổng quan Phase 2**:
-> - **Tiến độ gói**: **3 / 15 gói hoàn thành (20.0%)**
-> - **Khối lượng Effort**: **10.0d / 55.0d (18.2%)** hoàn thành (Đường găng đã hoàn thành: **7.0d / 44.0d = 15.9%**)
-> - **Gói đang kích hoạt / Kế tiếp**: **`PKG-02` (Wave 2 - Critical Path)**
+> Phân hệ này được tách độc lập hoàn toàn khỏi luồng nghiệp vụ chính, bảo đảm không chặn đứng bất kỳ cột mốc golive nào của hệ thống.
 
-| Tiến độ | Gói ID | Tên Gói Công Việc | Wave | Effort | Phân loại Lập lịch | Báo cáo Nghiệm thu QA/QC | Trạng thái Nghiệp vụ & Kỹ thuật |
-| :---: | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
-| [x] | **`PKG-01`** | Quản lý Hội trường & Xung đột Lịch (15p Buffer) | Wave 1 | **3.0d** | Critical Path | [`PKG-01_QA_QC_REPORT.md`](../reports/PKG-01_QA_QC_REPORT.md) | ✅ **PASS** (14/14 tests pass, p95=5.22ms, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-02`** | Soạn thảo Sự kiện, Đồng tổ chức & Soft Hold 48h | Wave 2 | **4.0d** | Critical Path | — | ⏳ **Sẵn sàng thực thi** (Đã mở khóa bởi PKG-01) |
-| [ ] | **`PKG-03`** | Động cơ Duyệt Đa cấp & Điều chuyển / Hủy Khẩn cấp | Wave 3 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-02 hoàn tất |
-| [x] | **`PKG-04`** | Cổng Khám phá Sự kiện Công khai & OpenGraph SSR | Wave 4 | **3.0d** | Song song | [`PKG-04_QA_QC_REPORT.md`](../reports/PKG-04_QA_QC_REPORT.md) | ✅ **PASS** (16/16 tests pass, p95=6.74ms, Đủ điều kiện sáp nhập) |
-| [x] | **`PKG-05`** | Động cơ Đặt vé Concurrency & Stress Test 50 Users | Wave 4 | **4.0d** | Critical Path | [`PKG-05_QA_QC_REPORT.md`](../reports/PKG-05_QA_QC_REPORT.md) | ✅ **PASS** (13/13 tests pass, 50u stress pass, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-06`** | Ví Vé Cá nhân, Quản lý Hủy vé T-4h & Thông báo | Wave 5 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-05 hoàn tất |
-| [ ] | **`PKG-07`** | Hàng đợi Waitlist FIFO, Cấp Offer & Đóng T-2h | Wave 6 | **4.5d** | Song song | — | ⬜ Chờ PKG-05, PKG-06 (Song song với PKG-08) |
-| [ ] | **`PKG-08`** | Hạ tầng Phiên Kiosk Độc lập & Soát vé HMAC Bàn | Wave 6 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-06 hoàn tất |
-| [ ] | **`PKG-09`** | Điểm danh 2 Chiều TOTP, Device Binding & $\Delta t$ | Wave 7 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-08 hoàn tất |
-| [x] | **`PKG-10`** | Khảo sát Feedback 48h & e-Certificate NĐ 13 | Wave 8 | **3.5d** | Critical Path | [`PKG-10_QA_QC_REPORT.md`](../reports/PKG-10_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, 100% AC, Đủ điều kiện sáp nhập) |
-| [x] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | [`PKG-11_QA_QC_REPORT.md`](../reports/PKG-11_QA_QC_REPORT.md) | ✅ **PASS** (26/26 tests pass, 100% AC, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-12`** | Vòng đời Sự kiện, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-11 hoàn tất |
-| [ ] | **`PKG-13`** | Nền tảng AI Core, Lọc PII & Trợ lý Organizer Copilot | Wave 9 | **3.5d** | Song song | — | ⬜ Chờ PKG-10 (Song song với PKG-11, 12) |
-| [ ] | **`PKG-14`** | Dashboard Chiến lược Vĩ mô Toàn trường & AI BI Agent | Wave 11 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-11, PKG-12, PKG-13 hoàn tất |
-| [ ] | **`PKG-15`** | Feature Tests 100% Use Cases & Runbook Nghiệm thu | Wave 12 | **4.0d** | Critical Path Gate | — | ⬜ Chờ toàn bộ PKG-01 $\rightarrow$ PKG-14 |
-| **TỔNG** | **15 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **55.0d** | — | **1/15 Gói có Báo cáo QA** | **Hoàn thành: 1/15 (6.7%) \| Effort: 3.0d/55.0d (5.5%)** |
+| Gói ID | Tên Gói Công Việc | Danh sách Tasks | Effort | Phụ thuộc Gói | Mục tiêu & Giá trị Gia tăng |
+| :--- | :--- | :--- | :---: | :--- | :--- |
+| **`PKG-AI-01`** | Nền tảng AI Core, Lọc PII & Trợ lý BTC Organizer Copilot | `CEH-P2-AI-01CEH-P2-AI-02` | **3.5d** | `PKG-10` *(Đã có)*, `PKG-14` *(Core ổn định)* | Làm sạch 100% PII theo NĐ 13, phòng vệ Prompt Injection, hỗ trợ BTC soạn nội dung & tóm tắt ý kiến khảo sát. |
+| **`PKG-AI-02`** | Trợ lý Quản trị Admin BI Agent Text-to-Insight | `CEH-P2-AI-03` | **2.0d** | `PKG-AI-01`, `PKG-13` *(Bảng thống kê ngày)* | Dịch câu hỏi tiếng Việt thành SQL chỉ đọc an toàn (AST Whitelist, `LIMIT 50`) phục vụ BGH / P.CTSV. |
+| **`PKG-AI-03`** | Kiểm thử Đánh giá An toàn AI & Thẩm định Bảo mật Prompt | AI Test Suite & Pen-test | **1.5d** | `PKG-AI-01`, `PKG-AI-02` | Kiểm thử hộp đen PII leakage, phòng thủ Prompt Injection / Jailbreak và đo lường độ trễ LLM. |
+| **TỔNG AI** | **3 Gói** | **Phân hệ Mở rộng AI Độc lập** | **7.0d** | — | **Triển khai sau khi hoàn thành và bàn giao xong 100% Core Business.** |
 
 ---
 
 ## PHẦN I: SƠ ĐỒ ĐỒ THỊ PHỤ THUỘC TỔNG THỂ (MERMAID DAG)
 
-Sơ đồ thể hiện trực quan quan hệ phụ thuộc giữa 15 Gói Công Việc.
+Sơ đồ thể hiện trực quan quan hệ phụ thuộc giữa **Tuyến Nghiệp vụ Trọng tâm (Core Business Stream - 14 Gói)** và **Phân hệ Trợ lý Thông minh AI (AI Extension Subsystem - 3 Gói Dự phòng)**.
 
 - **Viền xanh lá nét liền (`completed`) kèm chữ gạch ngang (`<s>...</s>`)**: Gói đã **Hoàn thành & Nghiệm thu QA/QC PASS**.
-- **Viền đỏ nét liền đậm (`criticalPath`)**: Gói nằm trên **Đường găng (Critical Path)** — quyết định tiến độ hoàn thành của dự án.
-- **Viền xanh nét đứt (`parallelTrack`)**: Gói **Có thể chạy song song độc lập (Parallelizable)** khi có thêm tài nguyên lập trình viên mà không gây xung đột mã nguồn hay CSDL.
+- **Viền đỏ nét liền đậm (`criticalPath`)**: Gói nằm trên **Đường găng Core Business** — quyết định tiến độ bàn giao sản phẩm.
+- **Viền xanh nét đứt (`parallelTrack`)**: Gói **Có thể chạy song song độc lập (Parallelizable)** khi có thêm tài nguyên lập trình viên.
 - **Viền xanh dương đậm (`finalHarness`)**: Lưới an toàn kiểm thử tự động toàn diện chốt chặn cuối cùng (Verification Gate).
+- **Màu tím nhạt (`aiTrack`)**: Phân hệ Trợ lý AI tách biệt, sẵn sàng triển khai độc lập sau khi hoàn tất Core.
 
 ```mermaid
 flowchart TD
@@ -106,66 +91,72 @@ flowchart TD
     classDef parallelTrack fill:#ecfdf5,stroke:#10b981,stroke-width:2px,stroke-dasharray: 5 5,color:#065f46;
     classDef finalHarness fill:#eff6ff,stroke:#3b82f6,stroke-width:3px,color:#1e40af,font-weight:bold;
     classDef completed fill:#f0fdf4,stroke:#16a34a,stroke-width:3px,color:#166534,font-weight:bold;
+    classDef aiTrack fill:#faf5ff,stroke:#a855f7,stroke-width:2px,color:#6b21a8,font-weight:bold;
 
-    %% Work Packages Nodes
-    PKG01["<s>[PKG-01] Quản lý Hội trường & Xung đột Lịch</s><br/><b>3.0d</b> | Wave 1<br/>✅ <b>HOÀN THÀNH (PASS)</b>"]:::completed
-    PKG02["[PKG-02] Soạn thảo Sự kiện, Cohost & Soft Hold<br/><b>4.0d</b> | Wave 2"]:::criticalPath
-    PKG03["[PKG-03] Phê duyệt Đa cấp & Điều chuyển/Hủy<br/><b>3.5d</b> | Wave 3"]:::criticalPath
+    subgraph CoreStream ["TUYẾN NGHIỆP VỤ TRỌNG TÂM (CORE BUSINESS STREAM)"]
+        PKG01["<s>[PKG-01] Quản lý Hội trường & Xung đột Lịch</s><br/><b>3.0d</b> | Wave 1<br/>✅ <b>HOÀN THÀNH (PASS)</b>"]:::completed
+        PKG02["[PKG-02] Soạn thảo Sự kiện, Cohost & Soft Hold<br/><b>4.0d</b> | Wave 2"]:::criticalPath
+        PKG03["[PKG-03] Phê duyệt Đa cấp & Điều chuyển/Hủy<br/><b>3.5d</b> | Wave 3"]:::criticalPath
 
-    PKG04["[PKG-04] Cổng Khám phá & SEO OpenGraph<br/><b>3.0d</b> | Wave 4 (Song song)"]:::parallelTrack
-    PKG05["[PKG-05] Đặt vé Concurrency & Stress Test 50u<br/><b>4.0d</b> | Wave 4"]:::criticalPath
+        PKG04["[PKG-04] Cổng Khám phá & SEO OpenGraph<br/><b>3.0d</b> | Wave 4 (Song song)"]:::parallelTrack
+        PKG05["[PKG-05] Đặt vé Concurrency & Stress Test 50u<br/><b>4.0d</b> | Wave 4"]:::criticalPath
 
-    PKG06["[PKG-06] Ví vé HMAC, Hủy vé T-4h & Notif<br/><b>3.5d</b> | Wave 5"]:::criticalPath
-    PKG07["[PKG-07] Waitlist FIFO & Đóng Hàng đợi T-2h<br/><b>4.5d</b> | Wave 6 (Song song)"]:::parallelTrack
-    PKG08["[PKG-08] Hạ tầng Kiosk & Soát vé HMAC Bàn<br/><b>4.0d</b> | Wave 6"]:::criticalPath
+        PKG06["[PKG-06] Ví vé HMAC, Hủy vé T-4h & Notif<br/><b>3.5d</b> | Wave 5"]:::criticalPath
+        PKG07["[PKG-07] Waitlist FIFO & Đóng Hàng đợi T-2h<br/><b>4.5d</b> | Wave 6 (Song song)"]:::parallelTrack
+        PKG08["[PKG-08] Hạ tầng Kiosk & Soát vé HMAC Bàn<br/><b>4.0d</b> | Wave 6"]:::criticalPath
 
-    PKG09["[PKG-09] Điểm danh 2 Chiều TOTP & Device Binding<br/><b>4.0d</b> | Wave 7"]:::criticalPath
-    PKG10["<s>[PKG-10] Khảo sát Feedback 48h & e-Cert NĐ 13</s><br/><b>3.5d</b> | Wave 8<br/>✅ <b>HOÀN THÀNH (PASS)</b>"]:::completed
+        PKG09["[PKG-09] Điểm danh 2 Chiều TOTP & Device Binding<br/><b>4.0d</b> | Wave 7"]:::criticalPath
+        PKG10["<s>[PKG-10] Khảo sát Feedback 48h & e-Cert NĐ 13</s><br/><b>3.5d</b> | Wave 8<br/>✅ <b>HOÀN THÀNH (PASS)</b>"]:::completed
 
-    PKG11["<s>[PKG-11] Khóa Chốt ĐRL & Dashboard BTC</s><br/><b>3.5d</b> | Wave 9<br/>✅ <b>HOÀN THÀNH (PASS)</b>"]:::completed
-    PKG12["[PKG-12] Vòng đời Sự kiện & Quét No-show An toàn<br/><b>3.5d</b> | Wave 10"]:::criticalPath
+        PKG11["<s>[PKG-11] Khóa Chốt ĐRL & Dashboard BTC</s><br/><b>3.5d</b> | Wave 9<br/>✅ <b>HOÀN THÀNH (PASS)</b>"]:::completed
+        PKG12["[PKG-12] Vòng đời Sự kiện & Quét No-show An toàn<br/><b>3.5d</b> | Wave 10"]:::criticalPath
 
-    PKG13["[PKG-13] Nền tảng AI Core & Organizer Copilot<br/><b>3.5d</b> | Wave 9 (Song song)"]:::parallelTrack
-    PKG14["[PKG-14] Macro BI CTSV & AI Text-to-Insight<br/><b>3.5d</b> | Wave 11"]:::criticalPath
+        PKG13["[PKG-13] Dashboard Chiến lược & No-show CTSV<br/><b>1.5d</b> | Wave 11"]:::criticalPath
+        PKG14["[PKG-14] Bộ Feature Tests Core 100% & Runbook<br/><b>3.5d</b> | Wave 12"]:::finalHarness
 
-    PKG15["[PKG-15] Automated Feature Tests & Runbook<br/><b>4.0d</b> | Wave 12"]:::finalHarness
+        %% Core Edges
+        PKG01 --> PKG02
+        PKG02 --> PKG03
+        PKG03 --> PKG04
+        PKG03 --> PKG05
+        PKG05 --> PKG06
+        PKG05 --> PKG07
+        PKG06 --> PKG07
+        PKG03 --> PKG08
+        PKG06 --> PKG08
+        PKG08 --> PKG09
+        PKG09 --> PKG10
+        PKG10 --> PKG11
+        PKG03 --> PKG12
+        PKG11 --> PKG12
+        PKG11 --> PKG13
+        PKG12 --> PKG13
+        PKG04 -.-> PKG14
+        PKG07 -.-> PKG14
+        PKG13 --> PKG14
+    end
 
-    %% Edges (Dependencies)
-    PKG01 --> PKG02
-    PKG02 --> PKG03
+    subgraph AiSubsystem ["PHÂN HỆ TRỢ LÝ THÔNG MINH AI (DỰ PHÒNG PHÁT TRIỂN SAU)"]
+        PKGAI01["[PKG-AI-01] AI Core, Lọc PII & Organizer Copilot<br/><b>3.5d</b> | CEH-P2-AI-01, AI-02"]:::aiTrack
+        PKGAI02["[PKG-AI-02] Admin BI Agent Text-to-Insight (AST Whitelist)<br/><b>2.0d</b> | CEH-P2-AI-03"]:::aiTrack
+        PKGAI03["[PKG-AI-03] AI Security Pen-test & Quality Audit<br/><b>1.5d</b> | Test Suite"]:::aiTrack
 
-    PKG03 --> PKG04
-    PKG03 --> PKG05
+        %% AI Edges
+        PKGAI01 --> PKGAI02
+        PKGAI01 --> PKGAI03
+        PKGAI02 --> PKGAI03
+    end
 
-    PKG05 --> PKG06
-
-    PKG05 --> PKG07
-    PKG06 --> PKG07
-
-    PKG03 --> PKG08
-    PKG06 --> PKG08
-
-    PKG08 --> PKG09
-    PKG09 --> PKG10
-
-    PKG10 --> PKG11
-    PKG10 --> PKG13
-
-    PKG03 --> PKG12
-    PKG11 --> PKG12
-
-    PKG11 --> PKG14
-    PKG12 --> PKG14
-    PKG13 --> PKG14
-
-    PKG04 -.-> PKG15
-    PKG07 -.-> PKG15
-    PKG14 --> PKG15
+    %% Cross-stream Decoupled Interfaces (Optional Activation)
+    PKG10 -.->|"Feedback data"| PKGAI01
+    PKG13 -.->|"Daily stats & No-show"| PKGAI02
 ```
 
 ---
 
-## PHẦN II: BẢNG TỔNG HỢP CÁC GÓI CÔNG VIỆC (SUMMARY TABLE)
+## PHẦN II: BẢNG TỔNG HỢP CÁC GÓI CÔNG VIỆC (SUMMARY TABLES)
+
+### 1. Tuyến Nghiệp vụ Trọng tâm (Core Business Stream - 14 Gói Công Việc)
 
 | Gói ID       | Tên Gói Công Việc                                              | Danh sách Task IDs                          | Tổng Effort | Phụ thuộc Gói (Prerequisites)       | Mức độ Song song (Parallelism)                            | Wave Thực thi |
 | ------------ | -------------------------------------------------------------- | ------------------------------------------- | ----------- | ----------------------------------- | --------------------------------------------------------- | ------------- |
@@ -181,10 +172,22 @@ flowchart TD
 | **`PKG-10`** | Khảo sát Đánh giá 48h & Cấp Chứng nhận số e-Certificate HMAC   | `CEH-P2-FEED-01CEH-P2-CERT-01`              | **3.5d**    | `PKG-09`                            | **Critical Path** (Điều kiện cần để khóa chốt ĐRL)        | **Wave 8**    |
 | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard Vận hành Sự kiện BTC      | `CEH-P2-DRL-01CEH-P2-REP-01`                | **3.5d**    | `PKG-10`                            | **Critical Path** (Bàn giao biểu mẫu CTSV)                | **Wave 9**    |
 | **`PKG-12`** | Máy Trạng thái Vòng đời, Quét No-show An toàn & Gom Thống kê   | `CEH-P2-SYS-01CEH-P2-SYS-03`                | **3.5d**    | `PKG-03`, `PKG-11`                  | **Critical Path** (Cập nhật bảng `thong_ke_su_kien_ngay`) | **Wave 10**   |
-| **`PKG-13`** | Nền tảng AI Core, Lọc PII & Trợ lý BTC Organizer Copilot       | `CEH-P2-AI-01CEH-P2-AI-02`                  | **3.5d**    | `PKG-10`                            | **Song song** với PKG-11, PKG-12 (Slack = 3.5d)           | **Wave 9**    |
-| **`PKG-14`** | Dashboard Chiến lược Vĩ mô Toàn trường & Trợ lý AI BI Agent    | `CEH-P2-REP-02CEH-P2-AI-03`                 | **3.5d**    | `PKG-11`, `PKG-12`, `PKG-13`        | **Critical Path** (Hoàn thiện phân hệ Báo cáo & AI)       | **Wave 11**   |
-| **`PKG-15`** | Bộ Feature Tests 100% Use Cases & Postman API Verification     | `CEH-P2-TST-01CEH-P2-TST-03`                | **4.0d**    | Toàn bộ PKG-01 $\rightarrow$ PKG-14 | **Critical Path Gate** (Nghiệm thu đóng Phase 2)          | **Wave 12**   |
-| **TỔNG** | **15 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **55.0d** | — | **3/15 Gói có Báo cáo QA** | **Hoàn thành: 3/15 (20.0%) | Effort: 10.0d/55.0d (18.2%)** |
+| **`PKG-13`** | Dashboard Báo cáo Chiến lược Toàn trường & Giám sát No-show    | `CEH-P2-REP-02`                             | **1.5d**    | `PKG-11`, `PKG-12`                  | **Critical Path** (Hoàn thiện phân hệ Báo cáo Vĩ mô CTSV) | **Wave 11**   |
+| **`PKG-14`** | Bộ Feature Tests 100% Use Cases Nghiệp vụ Core & Runbook       | `CEH-P2-TST-01CEH-P2-TST-03`                | **3.5d**    | Toàn bộ PKG-01 $\rightarrow$ PKG-13 | **Critical Path Gate** (Nghiệm thu đóng Core Business)    | **Wave 12**   |
+| **TỔNG CORE** | **14 Gói** | **Đường găng: 39.5d (Single-dev: 49.0d)** | **12 Waves** | **49.0d** | — | **3/14 Gói có Báo cáo QA** | **Hoàn thành: 3/14 (21.4%) | Effort: 10.0d/49.0d (20.4%)** |
+
+> 💡 **Khối lượng Core còn lại từ PKG-12**: Chỉ còn **3 Gói (`PKG-12` + `PKG-13` + `PKG-14`)** với tổng effort **8.5 ngày** để đưa toàn bộ Core Business về đích và nghiệm thu bàn giao!
+
+---
+
+### 2. Phân hệ Trợ lý Thông minh AI (AI Extension Subsystem - 3 Gói Dự phòng)
+
+| Gói ID          | Tên Gói Công Việc                                              | Danh sách Task IDs            | Tổng Effort | Phụ thuộc Gói (Prerequisites)                   | Phạm vi Nghiệp vụ / An toàn                                       |
+| --------------- | -------------------------------------------------------------- | ----------------------------- | ----------- | ----------------------------------------------- | ------------------------------------------------------------------ |
+| **`PKG-AI-01`** | Nền tảng AI Core, Lọc PII & Trợ lý BTC Organizer Copilot       | `CEH-P2-AI-01CEH-P2-AI-02`    | **3.5d**    | `PKG-10` *(Feedback data)*, `PKG-14` *(Core OK)*| Làm sạch 100% PII theo NĐ 13, chống Prompt Injection, Copilot BTC. |
+| **`PKG-AI-02`** | Trợ lý Quản trị Admin BI Agent Text-to-Insight (AST Whitelist) | `CEH-P2-AI-03`                | **2.0d**    | `PKG-AI-01`, `PKG-13` *(Bảng thống kê ngày)*    | Dịch câu hỏi tự nhiên thành SQL chỉ đọc an toàn (`LIMIT 50`).      |
+| **`PKG-AI-03`** | Kiểm thử Đánh giá An toàn AI & Thẩm định Bảo mật Prompt        | AI Test Suite & Pen-test      | **1.5d**    | `PKG-AI-01`, `PKG-AI-02`                        | Pen-test Prompt Injection, PII Leakage và đo lường độ trễ LLM.    |
+| **TỔNG AI**     | **3 Gói**                                                      | **Phân hệ Mở rộng Độc lập**   | **7.0d**    | —                                               | **Kích hoạt sau khi Core bàn giao hoàn tất.**                      |
 
 ---
 
@@ -475,58 +478,33 @@ flowchart TD
 
 ---
 
-### [PKG-13] Nền tảng AI Core, Lọc PII & Trợ lý BTC Organizer Copilot
+### [PKG-13] Dashboard Báo cáo Chiến lược Toàn trường & Giám sát Vi phạm No-show CTSV
 
-1. **Mục tiêu kỹ thuật (Goal)**: Thiết lập tầng dịch vụ nền tảng AI an toàn kết nối Google Gemini/OpenAI API: Bộ lọc làm sạch PII triệt để (MSSV, Họ tên, SĐT, Email), System Prompt Guardrails chống Prompt Injection, và trợ lý Organizer Copilot hỗ trợ soạn thảo nội dung sự kiện cũng như tóm tắt feedback ẩn danh từ `v_feedback_an_danh`.
-2. **Danh sách Task chi tiết**:
-   - `CEH-P2-AI-01` - Dịch vụ Nền tảng AI Core, Bộ Lọc Làm sạch PII & Phòng thủ Prompt Guardrails (1.5d).
-   - `CEH-P2-AI-02` - Organizer Copilot: Trợ lý Soạn thảo Nội dung & Tóm tắt Khảo sát Ẩn danh (2.0d).
-   - _Files cốt lõi tác động_:
-     - `app/Services/Ai/AiServiceClient.php`
-     - `app/Services/Ai/PiiSanitizerService.php`
-     - `app/Services/Ai/PromptGuardrailService.php`
-     - `app/Http/Controllers/Api/OrganizerAiController.php`
-     - `app/Services/Ai/OrganizerCopilotService.php`
-     - `app/Http/Requests/GenerateContentRequest.php`
-     - `app/Http/Requests/SummarizeFeedbackRequest.php`
-3. **Điều kiện tiên quyết (Hard Prerequisites)**: `PKG-10` (Cần dữ liệu khảo sát từ `v_feedback_an_danh`).
-4. **Khả năng song song (Parallel Readiness)**: **Thực thi song song với PKG-11 và PKG-12** tại Wave 9.
-5. **Tiêu chí nghiệm thu gói (Package DoD & Verification)**:
-   - `PiiSanitizerService` lọc sạch 100% mẫu thông tin định danh cá nhân trước khi gửi LLM.
-   - Tấn công Prompt Injection (“Bỏ qua chỉ dẫn trước…”) bị cô lập hoàn toàn.
-   - Trả về JSON tóm tắt ưu/nhược điểm sự kiện có cấu trúc chuẩn.
-
----
-
-### [PKG-14] Dashboard Chiến lược Vĩ mô Toàn trường & Trợ lý AI BI Agent
-
-1. **Mục tiêu kỹ thuật (Goal)**: Xây dựng Dashboard chiến lược toàn trường phục vụ Ban Giám hiệu / P.CTSV tối ưu tải $< 1.0\text{s}$ trên bảng `thong_ke_su_kien_ngay`, báo cáo vi phạm No-show lặp lại, và trợ lý Admin BI Agent Text-to-Insight chỉ đọc có kiểm tra cú pháp an toàn bằng AST Whitelist.
+1. **Mục tiêu kỹ thuật (Goal)**: Xây dựng Dashboard báo cáo vĩ mô toàn trường phục vụ Ban Giám hiệu / P.CTSV tối ưu tải $< 1.0\text{s}$ trên bảng `thong_ke_su_kien_ngay`, theo dõi tỷ lệ lấp đầy, phân bổ ngân sách/sinh viên theo Khoa, và báo cáo danh sách sinh viên vi phạm No-show lặp lại ($\ge 3$ lần) nhằm phục vụ quản trị và kỷ luật học vụ mà hoàn toàn không phụ thuộc vào phân hệ AI.
 2. **Danh sách Task chi tiết**:
    - `CEH-P2-REP-02` - Dashboard Báo cáo Chiến lược Toàn trường & Giám sát Vi phạm No-show CTSV (1.5d).
-   - `CEH-P2-AI-03` - Admin BI Agent: Trợ lý Phân tích Vĩ mô Text-to-Insight Chỉ đọc (AST Whitelist) (2.0d).
    - _Files cốt lõi tác động_:
      - `app/Http/Controllers/Api/MacroBiController.php`
-     - `app/Http/Controllers/Api/AdminBiAiController.php`
      - `app/Services/MacroBiService.php`
-     - `app/Services/Ai/AdminBiAiService.php`
-     - `app/Services/Ai/SqlSecurityGuard.php`
-     - `app/Http/Requests/TextToInsightRequest.php`
+     - `app/Http/Requests/MacroBiFilterRequest.php`
      - `app/Http/Resources/MacroBiResource.php`
      - `app/Http/Resources/NoShowViolatorResource.php`
-3. **Điều kiện tiên quyết (Hard Prerequisites)**: `PKG-11` (Báo cáo BTC), `PKG-12` (Dữ liệu thống kê ngày), `PKG-13` (Nền tảng AI Core).
-4. **Khả năng song song (Parallel Readiness)**: Bắt đầu tại Wave 11. Nằm trên **Critical Path**.
+     - `tests/Feature/MacroBiReportTest.php`
+3. **Điều kiện tiên quyết (Hard Prerequisites)**: `PKG-11` (Báo cáo BTC & ĐRL), `PKG-12` (Dữ liệu thống kê ngày `thong_ke_su_kien_ngay` & quét No-show hoàn tất).
+4. **Khả năng song song (Parallel Readiness)**: Bắt đầu tại Wave 11 ngay sau khi PKG-12 hoàn tất. Nằm trên **Critical Path**.
 5. **Tiêu chí nghiệm thu gói (Package DoD & Verification)**:
-   - Truy vấn Dashboard vĩ mô phản hồi trong $< 1.0$ giây.
-   - Bất kỳ câu lệnh SQL có hành vi ghi (`INSERT`, `UPDATE`, `DELETE`) hoặc đọc bảng `tai_khoan` đều bị `SqlSecurityGuard` chặn ngay lập tức (HTTP 403).
-   - Mọi câu truy vấn Text-to-Insight đều có `LIMIT 50` và timeout 3.0s.
+   - Truy vấn Dashboard vĩ mô phản hồi trong $< 1.0$ giây trên tập dữ liệu tổng hợp.
+   - Hỗ trợ lọc linh hoạt theo khoảng thời gian, Khoa/Viện, loại sự kiện.
+   - Danh sách sinh viên vi phạm No-show $\ge 3$ lần hiển thị chuẩn xác số lần vi phạm và thông tin phân loại khoa/lớp.
+   - Phản hồi đúng chuẩn API Envelope `{ success: true, data: { ... }, message: "..." }`.
 
 ---
 
-### [PKG-15] Bộ Feature Tests 100% Use Cases & Postman API Verification Runbook
+### [PKG-14] Bộ Feature Tests 100% Use Cases Nghiệp vụ Core & Verification Runbook
 
-1. **Mục tiêu kỹ thuật (Goal)**: Đóng gói và thực thi lưới an toàn kiểm thử toàn diện tuân thủ 2 tầng của `test-integrity-harness.md`: Bộ Automated Feature Tests bao phủ 100% Use Cases nghiệp vụ Phase 2, xuất bản trọn bộ Postman Collection kèm Environment và Runbook kiểm thử tự động phục vụ nghiệm thu.
+1. **Mục tiêu kỹ thuật (Goal)**: Đóng gói và thực thi lưới an toàn kiểm thử toàn diện tuân thủ 2 tầng của `test-integrity-harness.md`: Bộ Automated Feature Tests bao phủ 100% Use Cases nghiệp vụ Core Phase 2 (từ `PKG-01` đến `PKG-13`), xuất bản trọn bộ Postman/Bruno Collection kèm Environment và Runbook kiểm thử tự động phục vụ nghiệm thu chốt chặn Core Business.
 2. **Danh sách Task chi tiết**:
-   - `CEH-P2-TST-01` - Bộ Automated Feature Tests Bao phủ 100% Use Cases Nghiệp vụ Phase 2 (3.0d).
+   - `CEH-P2-TST-01` - Bộ Automated Feature Tests Bao phủ 100% Use Cases Nghiệp vụ Core Phase 2 (2.5d).
    - `CEH-P2-TST-03` - Xuất bản Postman/Bruno Collection Phase 2 & Verification Runbook Tự động (1.0d).
    - _Files cốt lõi tác động_:
      - `backend/tests/Feature/RoomManagementTest.php`
@@ -538,23 +516,94 @@ flowchart TD
      - `backend/tests/Feature/FeedbackAndCertificateTest.php`
      - `backend/tests/Feature/DrlAccreditationTest.php`
      - `backend/tests/Feature/BackgroundSchedulerTest.php`
-     - `backend/tests/Feature/AiIntegrationTest.php`
+     - `backend/tests/Feature/MacroBiReportTest.php`
      - `docs/postman/CampusEventHub_Phase2_Collection.json`
      - `docs/postman/CampusEventHub_Phase2_Environment.json`
-3. **Điều kiện tiên quyết (Hard Prerequisites)**: Hoàn tất toàn bộ các gói tính năng từ `PKG-01` đến `PKG-14`.
-4. **Khả năng song song (Parallel Readiness)**: Gói chốt chặn cuối cùng (Verification Gate) tại Wave 12.
+     - `docs/runbooks/Phase2_Core_Verification_Runbook.md`
+3. **Điều kiện tiên quyết (Hard Prerequisites)**: Hoàn tất toàn bộ các gói tính năng từ `PKG-01` đến `PKG-13`.
+4. **Khả năng song song (Parallel Readiness)**: Gói chốt chặn cuối cùng (Verification Gate) tại Wave 12 của Tuyến Core.
 5. **Tiêu chí nghiệm thu gói (Package DoD & Verification)**:
    - Chạy lệnh: `php artisan test --testsuite=Feature` đạt 100% Pass, không có test skip.
    - Kiểm tra đối soát Git: `git diff --stat -- tests/` sạch 0 dòng sửa đổi assertion gian lận.
-   - Postman Collection thực thi 100% endpoints kèm kiểm tra Envelope hợp lệ.
+   - Postman Collection thực thi 100% Core endpoints kèm kiểm tra Envelope hợp lệ.
+   - Biên soạn hoàn tất Runbook nghiệm thu phục vụ bàn giao sản phẩm.
 
 ---
 
-## PHẦN IV: BẢNG CHỨNG MINH KHÔNG XẢY RA LOOP DEPENDENCY (ANTI-LOOP VALIDATION)
+## PHẦN IV: ĐẶC TẢ PHÂN HỆ TRỢ LÝ THÔNG MINH AI (DỰ PHÒNG PHÁT TRIỂN SAU)
+
+> 💡 **Định hướng chiến lược**: Phân hệ này được thiết kế theo kiến trúc khớp nối lỏng (Loose Coupling). Toàn bộ nghiệp vụ quản lý sinh viên, hội trường, vé, điểm danh, ĐRL và báo cáo vĩ mô đều hoạt động hoàn hảo mà không cần phân hệ này. Khi đội ngũ hoàn thành sớm Core Business và sẵn sàng về mặt tài nguyên/API keys, phân hệ AI sẽ được kích hoạt thi công theo 3 gói độc lập dưới đây:
+
+---
+
+### [PKG-AI-01] Nền tảng AI Core, Lọc PII & Trợ lý BTC Organizer Copilot
+
+1. **Mục tiêu kỹ thuật (Goal)**: Thiết lập tầng dịch vụ nền tảng AI an toàn kết nối Google Gemini / OpenAI API: Bộ lọc làm sạch PII triệt để tuân thủ Nghị định 13/2023/NĐ-CP (MSSV, Họ tên, SĐT, Email), System Prompt Guardrails chống Prompt Injection, và trợ lý Organizer Copilot hỗ trợ soạn thảo nội dung sự kiện cũng như tóm tắt feedback ẩn danh từ `v_feedback_an_danh`.
+2. **Danh sách Task chi tiết**:
+   - `CEH-P2-AI-01` - Dịch vụ Nền tảng AI Core, Bộ Lọc Làm sạch PII & Phòng thủ Prompt Guardrails (1.5d).
+   - `CEH-P2-AI-02` - Organizer Copilot: Trợ lý Soạn thảo Nội dung & Tóm tắt Khảo sát Ẩn danh (2.0d).
+   - _Files cốt lõi tác động_:
+     - `app/Services/Ai/AiServiceClient.php`
+     - `app/Services/Ai/PiiSanitizerService.php`
+     - `app/Services/Ai/PromptGuardrailService.php`
+     - `app/Http/Controllers/Api/OrganizerAiController.php`
+     - `app/Services/Ai/OrganizerCopilotService.php`
+     - `app/Http/Requests/GenerateContentRequest.php`
+     - `app/Http/Requests/SummarizeFeedbackRequest.php`
+     - `app/Http/Resources/AiSummaryResource.php`
+3. **Điều kiện tiên quyết (Hard Prerequisites)**: `PKG-10` (Khảo sát Feedback & View `v_feedback_an_danh`), `PKG-14` (Core Business hoàn thành ổn định).
+4. **Khả năng song song (Parallel Readiness)**: Có thể thực thi độc lập tại Wave A1 sau khi nghiệm thu Core.
+5. **Tiêu chí nghiệm thu gói (Package DoD & Verification)**:
+   - `PiiSanitizerService` lọc sạch 100% mẫu thông tin định danh cá nhân trước khi gửi LLM.
+   - Tấn công Prompt Injection (“Bỏ qua chỉ dẫn trước…”) bị cô lập hoàn toàn.
+   - Trả về JSON tóm tắt ưu/nhược điểm sự kiện có cấu trúc chuẩn theo mẫu SRS.
+
+---
+
+### [PKG-AI-02] Trợ lý Quản trị Admin BI Agent Text-to-Insight (AST Whitelist)
+
+1. **Mục tiêu kỹ thuật (Goal)**: Xây dựng trợ lý Admin BI Agent Text-to-Insight chỉ đọc, chuyển đổi câu hỏi tiếng Việt của BGH / P.CTSV thành câu lệnh SQL an toàn dựa trên Abstract Syntax Tree (AST Whitelist) truy vấn bảng tổng hợp `thong_ke_su_kien_ngay`.
+2. **Danh sách Task chi tiết**:
+   - `CEH-P2-AI-03` - Admin BI Agent: Trợ lý Phân tích Vĩ mô Text-to-Insight Chỉ đọc (AST Whitelist) (2.0d).
+   - _Files cốt lõi tác động_:
+     - `app/Http/Controllers/Api/AdminBiAiController.php`
+     - `app/Services/Ai/AdminBiAiService.php`
+     - `app/Services/Ai/SqlSecurityGuard.php`
+     - `app/Http/Requests/TextToInsightRequest.php`
+     - `app/Http/Resources/TextToInsightResource.php`
+3. **Điều kiện tiên quyết (Hard Prerequisites)**: `PKG-AI-01` (Nền tảng AI Core), `PKG-13` (Bảng thống kê `thong_ke_su_kien_ngay`).
+4. **Khả năng song song (Parallel Readiness)**: Bắt đầu tại Wave A2 sau khi PKG-AI-01 hoàn tất.
+5. **Tiêu chí nghiệm thu gói (Package DoD & Verification)**:
+   - Bất kỳ câu lệnh SQL có hành vi ghi (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`) hoặc đọc bảng nhạy cảm `tai_khoan` đều bị `SqlSecurityGuard` chặn ngay lập tức (HTTP 403 Forbidden).
+   - Mọi câu truy vấn Text-to-Insight đều tự động chèn `LIMIT 50` và timeout 3.0s.
+
+---
+
+### [PKG-AI-03] Kiểm thử Đánh giá An toàn AI & Thẩm định Bảo mật Prompt
+
+1. **Mục tiêu kỹ thuật (Goal)**: Xây dựng bộ test suite chuyên sâu và thực hiện kiểm thử xâm nhập (Penetration Testing) cho toàn bộ phân hệ AI: Thử nghiệm rò rỉ PII, Prompt Injection / Jailbreaking, và kiểm chuẩn độ trễ (latency benchmarking).
+2. **Danh sách Task chi tiết**:
+   - `CEH-P2-AI-TST` - AI Safety Evaluation Test Suite, Prompt Penetration Testing & SLA Latency Benchmarking (1.5d).
+   - _Files cốt lõi tác động_:
+     - `backend/tests/Feature/AiSecurityAndPiiTest.php`
+     - `backend/tests/Feature/OrganizerCopilotTest.php`
+     - `backend/tests/Feature/AdminBiTextToInsightTest.php`
+     - `docs/reports/PKG-AI_SECURITY_REPORT.md`
+3. **Điều kiện tiên quyết (Hard Prerequisites)**: `PKG-AI-01`, `PKG-AI-02`.
+4. **Khả năng song song (Parallel Readiness)**: Wave A3 - Nghiệm thu phân hệ AI.
+5. **Tiêu chí nghiệm thu gói (Package DoD & Verification)**:
+   - Bộ test an toàn AI đạt 100% Pass trong môi trường CI/CD container.
+   - Mô phỏng 15 kịch bản tấn công PII Leakage và Prompt Injection thất bại 100%.
+
+---
+
+## PHẦN V: BẢNG CHỨNG MINH KHÔNG XẢY RA LOOP DEPENDENCY (ANTI-LOOP VALIDATION) & KỊCH BẢN THỰC THI
 
 ### 1. Ma trận Kề Phụ thuộc Giữa các Gói (Dependency Adjacency Matrix)
 
-Bảng đối soát trực giao chứng minh quan hệ phụ thuộc strictly một chiều: Mọi mũi tên phụ thuộc đều hướng từ hàng (Gói phụ thuộc) sang cột (Gói tiên quyết có chỉ số nhỏ hơn):
+#### A. Tuyến Nghiệp vụ Trọng tâm (Core Business Stream - 14x14)
+
+Bảng đối soát trực giao chứng minh quan hệ phụ thuộc strictly một chiều trong Tuyến Core: Mọi mũi tên phụ thuộc đều hướng từ hàng (Gói phụ thuộc) sang cột (Gói tiên quyết có chỉ số nhỏ hơn):
 
 | Gói ID     | PKG-01       | PKG-02       | PKG-03       | PKG-04       | PKG-05       | PKG-06       | PKG-07       | PKG-08       | PKG-09       | PKG-10       | PKG-11       | PKG-12       | PKG-13       | PKG-14       |
 | ---------- | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ | ------------ |
@@ -570,11 +619,18 @@ Bảng đối soát trực giao chứng minh quan hệ phụ thuộc strictly m�
 | **PKG-10** |              |              |              |              |              |              |              |              | $\leftarrow$ | —            |              |              |              |              |
 | **PKG-11** |              |              |              |              |              |              |              |              |              | $\leftarrow$ | —            |              |              |              |
 | **PKG-12** |              |              | $\leftarrow$ |              |              |              |              |              |              |              | $\leftarrow$ | —            |              |              |
-| **PKG-13** |              |              |              |              |              |              |              |              |              | $\leftarrow$ |              |              | —            |              |
-| **PKG-14** |              |              |              |              |              |              |              |              |              |              | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | —            |
-| **PKG-15** | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ |
+| **PKG-13** |              |              |              |              |              |              |              |              |              |              | $\leftarrow$ | $\leftarrow$ | —            |              |
+| **PKG-14** | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | $\leftarrow$ | —            |
 
-_(Ký hiệu $\leftarrow$: Gói hàng phụ thuộc vào Gói cột. Lưu ý: Toàn bộ dấu phụ thuộc nằm hoàn toàn ở nửa dưới đường chéo chính $\Rightarrow$ Ma trận tam giác dưới ngặt (Strictly Lower Triangular Matrix))._
+_(Ký hiệu $\leftarrow$: Gói hàng phụ thuộc vào Gói cột. Toàn bộ dấu phụ thuộc nằm hoàn toàn ở nửa dưới đường chéo chính $\Rightarrow$ Ma trận tam giác dưới ngặt (Strictly Lower Triangular Matrix))._
+
+#### B. Phân hệ Trợ lý Thông minh AI (AI Extension Subsystem - 3x3)
+
+| Gói AI ID       | PKG-AI-01    | PKG-AI-02    | PKG-AI-03    |
+| --------------- | ------------ | ------------ | ------------ |
+| **PKG-AI-01**   | —            |              |              |
+| **PKG-AI-02**   | $\leftarrow$ | —            |              |
+| **PKG-AI-03**   | $\leftarrow$ | $\leftarrow$ | —            |
 
 ---
 
@@ -583,7 +639,7 @@ _(Ký hiệu $\leftarrow$: Gói hàng phụ thuộc vào Gói cột. Lưu ý: To
 > **Định lý**: Một đồ thị có hướng $G = (V, E)$ là đồ thị không chu trình (Directed Acyclic Graph - DAG) khi và chỉ khi tồn tại một thứ tự sắp xếp tô-pô (Topological Ordering) cho các đỉnh trong $G$.
 
 - **Chứng minh bằng Thuật toán Duyệt DFS & Phát hiện Chu trình**:
-  1. Với mỗi đỉnh $u \in \{ \text{PKG-01}, \dots, \text{PKG-15} \}$, ta gán nhãn thứ tự tô-pô $\pi(u) = \text{index}(u)$.
+  1. Với mỗi đỉnh trong Tuyến Core: $u \in \{ \text{PKG-01}, \dots, \text{PKG-14} \}$, thứ tự tô-pô $\pi(u) = \text{index}(u)$.
   2. Xét mọi cung có hướng $(u, v) \in E$ (trong đó $u$ là gói tiên quyết, $v$ là gói phụ thuộc cần hoàn thành $u$ trước):
 
      $$
@@ -596,8 +652,8 @@ _(Ký hiệu $\leftarrow$: Gói hàng phụ thuộc vào Gói cột. Lưu ý: To
      \pi(v_1) < \pi(v_2) < \dots < \pi(v_k) < \pi(v_1) \implies \pi(v_1) < \pi(v_1) \quad (\text{Vô lý!})
      $$
 
-  4. Thuật toán kiểm tra DFS trên Node.js đã duyệt qua toàn bộ 15 đỉnh và xác nhận: **`Has Cycle: false`**.
-     $\Rightarrow$ **Kết luận**: Đồ thị phụ thuộc của 15 Gói Công Việc là **Strict DAG 100%**, hoàn toàn không chứa bất kỳ vòng lặp phụ thuộc nào (No Circular Dependency).
+  4. Thuật toán kiểm tra DFS trên Node.js đã duyệt qua toàn bộ các đỉnh và xác nhận: **`Has Cycle: false`**.
+     $\Rightarrow$ **Kết luận**: Cả hai đồ thị Tuyến Core và Phân hệ AI đều là **Strict DAG 100%**, hoàn toàn không chứa bất kỳ vòng lặp phụ thuộc nào (No Circular Dependency).
 
 ---
 
@@ -610,21 +666,25 @@ $$
 \text{Bắt đầu} &\longrightarrow \mathbf{PKG\text{-}01}\,(3.0\text{d}) \longrightarrow \mathbf{PKG\text{-}02}\,(4.0\text{d}) \longrightarrow \mathbf{PKG\text{-}03}\,(3.5\text{d}) \longrightarrow \mathbf{PKG\text{-}04}\,(3.0\text{d}) \\
 &\longrightarrow \mathbf{PKG\text{-}05}\,(4.0\text{d}) \longrightarrow \mathbf{PKG\text{-}06}\,(3.5\text{d}) \longrightarrow \mathbf{PKG\text{-}07}\,(4.5\text{d}) \longrightarrow \mathbf{PKG\text{-}08}\,(4.0\text{d}) \\
 &\longrightarrow \mathbf{PKG\text{-}09}\,(4.0\text{d}) \longrightarrow \mathbf{PKG\text{-}10}\,(3.5\text{d}) \longrightarrow \mathbf{PKG\text{-}11}\,(3.5\text{d}) \longrightarrow \mathbf{PKG\text{-}12}\,(3.5\text{d}) \\
-&\longrightarrow \mathbf{PKG\text{-}13}\,(3.5\text{d}) \longrightarrow \mathbf{PKG\text{-}14}\,(3.5\text{d}) \longrightarrow \mathbf{PKG\text{-}15}\,(4.0\text{d}) \longrightarrow \text{Nghiệm thu}
+&\longrightarrow \mathbf{PKG\text{-}13}\,(1.5\text{d}) \longrightarrow \mathbf{PKG\text{-}14}\,(3.5\text{d}) \longrightarrow \text{Nghiệm thu Core}
 \end{aligned}
 $$
 
-- **Tổng thời lượng thực thi tuần tự**:
+- **Tổng thời lượng thực thi Core tuần tự**:
   $$
-  \sum_{i=1}^{15} \text{Effort}(\text{PKG}_i) = 3.0 + 4.0 + 3.5 + 3.0 + 4.0 + 3.5 + 4.5 + 4.0 + 4.0 + 3.5 + 3.5 + 3.5 + 3.5 + 3.5 + 4.0 = \mathbf{55.0\text{ ngày}}
+  \sum_{i=1}^{14} \text{Effort}(\text{PKG}_i) = 3.0 + 4.0 + 3.5 + 3.0 + 4.0 + 3.5 + 4.5 + 4.0 + 4.0 + 3.5 + 3.5 + 3.5 + 1.5 + 3.5 = \mathbf{49.0\text{ ngày}}
   $$
-- **Đánh giá rủi ro**: Không xảy ra xung đột tài nguyên hay mã nguồn; tiến độ phụ thuộc vào tốc độ hoàn thành từng ngày của lập trình viên.
+- **Chặng nước rút hoàn thành Core**:
+  Hiện tại đã nghiệm thu xong `PKG-01`, `PKG-10`, `PKG-11` (10.0d). Từ `PKG-12` đến `PKG-14` chỉ còn đúng:
+  $$
+  \text{Effort}(\text{PKG-12}) + \text{Effort}(\text{PKG-13}) + \text{Effort}(\text{PKG-14}) = 3.5 + 1.5 + 3.5 = \mathbf{8.5\text{ ngày làm việc!}}
+  $$
 
 ---
 
 ### 4. Kịch bản Thực thi Song song Đa làn cho Đội ngũ 2–3 Lập trình viên (Multi-dev Concurrent Timeline)
 
-Khi dự án phân bổ 2 hoặc 3 lập trình viên (hoặc các AI subagents chạy song song độc lập), tiến độ được chia thành **12 Waves**. Nhờ tận dụng triệt để các nhánh có Total Slack lớn (`PKG-04` slack 26.5d, `PKG-07` slack 17.5d, `PKG-13` slack 3.5d), thời gian thi công thực tế được rút ngắn ngoạn mục từ 55 ngày xuống bằng đúng độ dài Đường găng: **44.0 ngày làm việc** (hoặc chỉ **22 ngày làm việc** khi tính theo ngày công của đội ngũ 2 dev full-time):
+Khi dự án phân bổ 2 hoặc 3 lập trình viên (hoặc các AI subagents chạy song song độc lập), tiến độ Tuyến Core được chia thành **12 Waves**. Nhờ tách biệt phân hệ AI, Đường găng Tuyến Core rút ngắn xuống còn: **39.5 ngày làm việc**:
 
 ```
 Wave 1  [Ngày 01-03] : [Dev A] PKG-01 (3.0d)
@@ -635,13 +695,19 @@ Wave 5  [Ngày 15-18] : [Dev A] PKG-06 (3.5d)
 Wave 6  [Ngày 18-22] : [Dev A] PKG-08 (4.0d - Critical)  ||  [Dev B] PKG-07 (4.5d - Parallel)
 Wave 7  [Ngày 22-26] : [Dev A] PKG-09 (4.0d)
 Wave 8  [Ngày 26-30] : [Dev A] PKG-10 (3.5d)
-Wave 9  [Ngày 30-33] : [Dev A] PKG-11 (3.5d - Critical)  ||  [Dev B] PKG-13 (3.5d - Parallel)
+Wave 9  [Ngày 30-33] : [Dev A] PKG-11 (3.5d)
 Wave 10 [Ngày 33-37] : [Dev A] PKG-12 (3.5d)
-Wave 11 [Ngày 37-40] : [Dev A] PKG-14 (3.5d)
-Wave 12 [Ngày 40-44] : [Dev A + Dev B] PKG-15 (4.0d - Final Testing & Postman)
+Wave 11 [Ngày 37-38] : [Dev A] PKG-13 (1.5d - Macro BI CTSV)
+Wave 12 [Ngày 38-42] : [Dev A + Dev B] PKG-14 (3.5d - Final Core Testing & Verification Runbook)
+--------------------------------------------------------------------------------------------------
+[BÀN GIAO SẢN PHẨM CORE HOÀN CHỈNH]
+--------------------------------------------------------------------------------------------------
+Wave A1 [Sau Core]   : [Dev AI] PKG-AI-01 (3.5d - AI Platform & Copilot)
+Wave A2 [Sau A1]     : [Dev AI] PKG-AI-02 (2.0d - Text-to-Insight)
+Wave A3 [Sau A2]     : [Dev AI] PKG-AI-03 (1.5d - AI Pen-test & Quality Verification)
 ```
 
 - **Quy tắc cô lập an toàn khi chạy song song (Parallel Isolation Rules)**:
   - **Nhánh Wave 4 (`PKG-04` song song `PKG-05`)**: `PKG-04` chỉ đọc dữ liệu hiển thị (Catalog Search, OpenGraph Meta) và độc lập hoàn toàn với tầng giao dịch ghi khóa dòng bi quan của `PKG-05` (Booking Engine). Không xảy ra tranh chấp CSDL hay lock table.
   - **Nhánh Wave 6 (`PKG-07` song song `PKG-08`)**: `PKG-07` xử lý hàng đợi Waitlist và scheduler nền; `PKG-08` triển khai phiên Kiosk và soát vé HMAC bàn đón tiếp. Hai gói này tác động trên hai bảng hoàn toàn độc lập (`hang_doi_waitlist` vs `phien_kiosk`, `nhan_vien_check_in`).
-  - **Nhánh Wave 9 (`PKG-13` song song `PKG-11`)**: `PKG-13` làm việc trên module client AI và view ẩn danh `v_feedback_an_danh`; `PKG-11` thao tác trên view ĐRL `v_danh_sach_drl` và controller của Ban tổ chức. Hoàn toàn tách bạch về namespace code (`app/Services/Ai/` vs `app/Services/DrlService.php`).
+  - **Nhánh Wave 11 & Tuyến AI Độc lập**: `PKG-13` tập trung tuyệt đối vào SQL aggregations và view CTSV mà không cần chờ đợi hay phụ thuộc vào mô hình LLM. Tuyến AI khi khởi động có thể tiêu thụ dữ liệu từ các view có sẵn mà không can thiệp vào logic nghiệp vụ Core.
