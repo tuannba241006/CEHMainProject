@@ -11,7 +11,8 @@
     "lint:js": "eslint .",
     "lint:html": "html-validate \"**/*.html\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@zxing/browser": "^0.2.1",
@@ -30,6 +31,7 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^10.14.0",
     "globals": "^17.14.0",
     "html-validate": "^11.18.0",
