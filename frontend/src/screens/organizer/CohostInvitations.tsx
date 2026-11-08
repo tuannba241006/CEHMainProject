@@ -99,7 +99,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     eventsService
       .getCohostInvitations()
       .then((res) => {
-        if (!cancelled && res.data && Array.isArray(res.data) && res.data.length > 0) {
+        if (!cancelled && res.data && Array.isArray(res.data)) {
           const mapped: CohostInvitation[] = res.data.map((item) => {
             const startDateStr = item.thoi_gian_bat_dau || "2026-11-15T08:00:00+07:00"
             const endDateStr = item.thoi_gian_ket_thuc || "2026-11-15T11:30:00+07:00"

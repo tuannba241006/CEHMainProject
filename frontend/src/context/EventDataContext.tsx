@@ -258,7 +258,7 @@ export function EventDataProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       const res = await eventsService.listPublic()
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      if (res.data && Array.isArray(res.data)) {
         setEvents(res.data.map(mapContractEventToLiveEvent))
       }
     } catch (err) {
@@ -280,6 +280,8 @@ export function EventDataProvider({ children }: { children: ReactNode }) {
     if (!reason.trim()) {
       return { success: false, error: "Vui lòng nhập lý do hủy sự kiện." }
     }
+    const numId = Number(eventId.replace(/\D/g, "")) || eventId
+    eventsService.emergencyCancel(numId, reason.trim()).catch(() => {})
     setEvents((prev) =>
       prev.map((e) =>
         e.id === eventId || String(e.ma_su_kien) === eventId

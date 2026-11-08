@@ -3,7 +3,9 @@ import { STAFF_LIST } from "../../data/mock"
 import { OrgLayout } from "./OrgLayout"
 import { useUser } from "../../context/UserContext"
 import { useApp } from "../../context/AppContext"
+import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
+import { attendanceService } from "../../api/services/attendance.service"
 import { getApiErrorMessage } from "../../api/errors"
 import type { EventCard } from "../../data/contract"
 
@@ -21,9 +23,15 @@ const ACCOUNT_STATUS = {
 export default function Staff({ onNavigate, onLogout }: Props) {
   const { user, role } = useUser()
   const { events } = useApp()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [apiEvents, setApiEvents] = useState<EventCard[]>([])
+  const [staffItems, setStaffItems] = useState(STAFF_LIST)
+  const [selectedEventId, setSelectedEventId] = useState<number | string>(101)
+  const [newStaffMssv, setNewStaffMssv] = useState("")
+  const [newStaffName, setNewStaffName] = useState("")
+  const [submittingStaff, setSubmittingStaff] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -34,6 +42,9 @@ export default function Staff({ onNavigate, onLogout }: Props) {
       .then((res) => {
         if (!cancelled && res.data && Array.isArray(res.data)) {
           setApiEvents(res.data)
+          if (res.data.length > 0 && !selectedEventId) {
+            setSelectedEventId(res.data[0].ma_su_kien)
+          }
         }
       })
       .catch((err) => {
@@ -46,6 +57,30 @@ export default function Staff({ onNavigate, onLogout }: Props) {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!selectedEventId) return
+    attendanceService
+      .staff(selectedEventId)
+      .then((res) => {
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped = res.data.map((item, idx) => ({
+            id: `STF-${item.id || idx + 1}`,
+            name: `Cộng tác viên ${item.ma_tai_khoan}`,
+            email: `staff${item.ma_tai_khoan}@gm.uit.edu.vn`,
+            assignedEvent:
+              apiEvents.find((e) => e.ma_su_kien === item.ma_su_kien)?.ten_su_kien ||
+              "Sự kiện điểm danh",
+            permission: "Điểm danh (Kiosk/Staff Scanner)",
+            accountStatus: "active" as const,
+            lastActive: "Vừa xong",
+            userId: item.ma_tai_khoan,
+          }))
+          setStaffItems(mapped)
+        }
+      })
+      .catch(() => {})
+  }, [selectedEventId, apiEvents])
 
   const [showModal, setShowModal] = useState(false)
   const [activationModal, setActivationModal] = useState(false)
@@ -60,6 +95,55 @@ export default function Staff({ onNavigate, onLogout }: Props) {
     setToken(t)
     setActivationModal(true)
     setShowModal(false)
+  }
+
+  async function handleAssignStaff() {
+    if (!newStaffMssv.trim()) {
+      showToast("Vui lòng nhập MSSV sinh viên cần phân công.", "error")
+      return
+    }
+    const targetEvent = Number(selectedEventId) || 101
+    setSubmittingStaff(true)
+    try {
+      await attendanceService.assignStaff(targetEvent, [newStaffMssv.trim()])
+      showToast(
+        `Đã phân công quyền Staff thành công cho MSSV ${newStaffMssv.trim()}!`,
+        "success",
+      )
+      setStaffItems((prev) => [
+        {
+          id: `STF-${Date.now()}`,
+          name: newStaffName.trim() || `Sinh viên ${newStaffMssv.trim()}`,
+          email: `${newStaffMssv.trim()}@gm.uit.edu.vn`,
+          assignedEvent:
+            apiEvents.find((e) => e.ma_su_kien === targetEvent)?.ten_su_kien ||
+            "Sự kiện điểm danh",
+          permission: "Điểm danh (Kiosk/Staff Scanner)",
+          accountStatus: "active" as const,
+          lastActive: "Vừa xong",
+          userId: Number(newStaffMssv.trim()) || Date.now(),
+        },
+        ...prev,
+      ])
+      generateToken()
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    } finally {
+      setSubmittingStaff(false)
+    }
+  }
+
+  async function handleRevokeStaff(staffId: string, userId?: number) {
+    const targetEvent = Number(selectedEventId) || 101
+    try {
+      if (userId) {
+        await attendanceService.revokeStaff(targetEvent, userId)
+      }
+      setStaffItems((prev) => prev.filter((s) => s.id !== staffId))
+      showToast("Đã thu hồi quyền nhân viên soát vé thành công.", "success")
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
   // Data scoping cô lập tuyệt đối: Bất kỳ đơn vị nào (kể cả P.CTSV hay CLB/Khoa)
@@ -79,7 +163,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
       ? "sinh viên"
       : rawUnit.toLowerCase().trim()
 
-    const filtered = STAFF_LIST.filter((s) => {
+    const filtered = staffItems.filter((s) => {
       const matchingEvent =
         events.find((e) => (e.title || e.ten_su_kien) === s.assignedEvent) ||
         apiEvents.find((e) => e.ten_su_kien === s.assignedEvent)
@@ -114,8 +198,8 @@ export default function Staff({ onNavigate, onLogout }: Props) {
       )
     })
 
-    return filtered.length > 0 ? filtered : STAFF_LIST
-  }, [role, user, events, apiEvents])
+    return filtered.length > 0 ? filtered : staffItems
+  }, [role, user, events, apiEvents, staffItems])
 
   return (
     <OrgLayout current="org-staff" onNavigate={onNavigate} onLogout={onLogout}>
@@ -320,8 +404,9 @@ export default function Staff({ onNavigate, onLogout }: Props) {
                           </svg>
                         </button>
                         <button
+                          onClick={() => handleRevokeStaff(s.id, (s as unknown as { userId?: number }).userId)}
                           className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                          title="Khóa tài khoản"
+                          title="Thu hồi quyền nhân viên"
                         >
                           <svg
                             className="w-4 h-4"
@@ -438,26 +523,59 @@ export default function Staff({ onNavigate, onLogout }: Props) {
               </button>
             </div>
             <div className="space-y-3">
-              <Field label="Họ và tên" placeholder="Nguyễn Văn A" />
-              <Field
-                label="Email"
-                type="email"
-                placeholder="nhanvien@campus.edu.vn"
-              />
               <div>
                 <label
                   className="block text-sm font-medium mb-1.5"
                   style={{ color: "#475569" }}
                 >
-                  Sự kiện được phân công
+                  MSSV Sinh viên được phân công *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 22521999"
+                  value={newStaffMssv}
+                  onChange={(e) => setNewStaffMssv(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: "#e2e8f0" }}
+                />
+              </div>
+              <div>
+                <label
+                  className="block text-sm font-medium mb-1.5"
+                  style={{ color: "#475569" }}
+                >
+                  Họ và tên nhân viên (tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Trần Minh Phúc"
+                  value={newStaffName}
+                  onChange={(e) => setNewStaffName(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none"
+                  style={{ borderColor: "#e2e8f0" }}
+                />
+              </div>
+              <div>
+                <label
+                  className="block text-sm font-medium mb-1.5"
+                  style={{ color: "#475569" }}
+                >
+                  Sự kiện được phân công *
                 </label>
                 <select
+                  value={selectedEventId}
+                  onChange={(e) => setSelectedEventId(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none"
                   style={{ borderColor: "#e2e8f0" }}
                 >
-                  <option>Ngày hội nghề nghiệp AI</option>
-                  <option>Hội thảo Điện toán đám mây</option>
-                  <option>Ngày hội Đổi mới sáng tạo</option>
+                  {apiEvents.map((e) => (
+                    <option key={e.ma_su_kien} value={e.ma_su_kien}>
+                      {e.ten_su_kien}
+                    </option>
+                  ))}
+                  {apiEvents.length === 0 && (
+                    <option value={101}>Ngày hội nghề nghiệp AI</option>
+                  )}
                 </select>
               </div>
               <div>
@@ -471,7 +589,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
                   className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none"
                   style={{ borderColor: "#e2e8f0" }}
                 >
-                  <option>Điểm danh</option>
+                  <option>Điểm danh (Kiosk & Scanner)</option>
                   <option>Điểm danh + Xem báo cáo</option>
                 </select>
               </div>
@@ -485,11 +603,12 @@ export default function Staff({ onNavigate, onLogout }: Props) {
                 Hủy bỏ
               </button>
               <button
-                onClick={generateToken}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
+                onClick={handleAssignStaff}
+                disabled={submittingStaff}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
                 style={{ background: "#4f46e5" }}
               >
-                Tạo mã kích hoạt
+                {submittingStaff ? "Đang phân công..." : "Phân công quyền Staff"}
               </button>
             </div>
           </div>

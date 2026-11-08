@@ -7,7 +7,7 @@ import { notificationsService } from "../api/services/notifications.service"
 
 export interface NotificationDataContextType {
   notifications: Notification[]
-  markNotificationRead: (id: string) => void
+  markNotificationRead: (id: string | number) => void
   markAllRead: () => void
 }
 
@@ -21,7 +21,7 @@ export function NotificationDataProvider({ children }: { children: ReactNode }) 
     notificationsService
       .list()
       .then((res) => {
-        if (!cancelled && res.data && Array.isArray(res.data) && res.data.length > 0) {
+        if (!cancelled && res.data && Array.isArray(res.data)) {
           const mapped: Notification[] = res.data.map((n, idx) => ({
             id: n.id ?? idx + 1,
             tieu_de: n.tieu_de,
@@ -47,19 +47,25 @@ export function NotificationDataProvider({ children }: { children: ReactNode }) 
     }
   }, [])
 
-  function markNotificationRead(id: string) {
+  function markNotificationRead(id: string | number) {
     const numId = Number(id)
     if (!isNaN(numId)) {
       notificationsService.read(numId).catch(() => {})
     }
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      prev.map((n) =>
+        n.id === id || String(n.id) === String(id)
+          ? { ...n, read: true, da_doc: true }
+          : n,
+      ),
     )
   }
 
   function markAllRead() {
     notificationsService.readAll().catch(() => {})
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, read: true, da_doc: true })),
+    )
   }
 
   return (

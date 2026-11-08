@@ -279,6 +279,19 @@ export async function handleMockRequest<T>(
     } as T
   }
 
+  if (cleanPath === "/waitlist/my-entries") {
+    return {
+      success: true,
+      data: [],
+      meta: {
+        trang_hien_tai: 1,
+        tong_so_trang: 1,
+        tong_so_ban_ghi: 0,
+        kich_thuoc_trang: 20,
+      },
+    } as T
+  }
+
   if (cleanPath.includes("/book") || cleanPath.includes("/waitlist")) {
     return {
       success: true,
@@ -329,6 +342,35 @@ export async function handleMockRequest<T>(
         ma_su_kien: e.ma_su_kien,
         ten_su_kien: e.ten_su_kien || e.title,
       })),
+    } as T
+  }
+
+  if (cleanPath.match(/^\/events\/[^/]+\/staff\/[^/]+/) && method === "DELETE") {
+    return {
+      success: true,
+      data: null,
+      message: "Thu hồi quyền nhân viên soát vé thành công",
+    } as T
+  }
+
+  if (cleanPath.match(/^\/events\/[^/]+\/staff/) && method === "GET") {
+    return {
+      success: true,
+      data: [
+        { id: 1, ma_su_kien: 101, ma_tai_khoan: 10 },
+        { id: 2, ma_su_kien: 101, ma_tai_khoan: 11 },
+      ],
+      message: "Danh sách nhân viên soát vé",
+    } as T
+  }
+
+  if (cleanPath.match(/^\/events\/[^/]+\/staff/) && method === "POST") {
+    return {
+      success: true,
+      data: [
+        { id: 99, ma_su_kien: 101, ma_tai_khoan: 22521999 },
+      ],
+      message: "Phân công nhân viên soát vé thành công",
     } as T
   }
 

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { eventsService } from "../api/services/events.service"
+import { certificatesService } from "../api/services/certificates.service"
 import { getApiErrorMessage } from "../api/errors"
 
 export type ApprovalStatus =
@@ -275,31 +276,30 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
   async function refreshReviewQueue() {
     try {
       const res = await eventsService.reviewQueue()
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      if (res.data && Array.isArray(res.data)) {
         const apiCases: ApprovalCase[] = res.data.map((card) => {
+          const isPendingFaculty = card.trang_thai === "PENDING_FACULTY"
           const existing = SEED_APPROVALS.find(
             (s) =>
               s.eventId === String(card.ma_su_kien) ||
               s.id === `HS-${card.ma_su_kien}`,
           )
-          if (existing) return existing
-          const isPendingFaculty = card.trang_thai === "PENDING_FACULTY"
           return {
             id: `HS-${card.ma_su_kien}`,
             eventId: String(card.ma_su_kien),
             title: card.ten_su_kien,
-            unit: card.ten_don_vi_host || "Khoa Hệ thống Thông tin",
+            unit: card.ten_don_vi_host || existing?.unit || "Khoa Hệ thống Thông tin",
             faculty: (card.ten_don_vi_host || "").includes("Khoa")
               ? card.ten_don_vi_host
-              : "Khoa Công nghệ Thông tin",
-            submitter: card.dien_gia || "Ban tổ chức",
+              : existing?.faculty || "Khoa Công nghệ Thông tin",
+            submitter: card.dien_gia || existing?.submitter || "Ban tổ chức",
             submittedAt: (card.thoi_gian_bat_dau || "").slice(0, 10),
             eventDate: (card.thoi_gian_bat_dau || "").slice(0, 10),
             status: isPendingFaculty ? "faculty_pending" : "affairs_pending",
             lifecycle: "scheduled",
             description: card.ten_su_kien,
-            plan: "Kế hoạch tổ chức chi tiết được đính kèm.",
-            documents: ["Ke_hoach_to_chuc.pdf"],
+            plan: existing?.plan || "Kế hoạch tổ chức chi tiết được đính kèm.",
+            documents: existing?.documents || ["Ke_hoach_to_chuc.pdf"],
             proposedPoints: card.diem_drl_du_kien ?? 5,
             semester: "HK1 2026–2027",
             criteriaCode:
@@ -311,23 +311,11 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
             certificateCondition: "Tham dự tối thiểu 80% thời lượng",
             ruleBasis: "Quy chế CTSV",
             ruleVersion: "DK-2026.2",
-            history: [],
+            history: existing?.history || [],
           }
         })
 
-        setApprovalCases((prev) => {
-          const merged = [...apiCases]
-          for (const item of prev) {
-            if (
-              !merged.some(
-                (m) => m.id === item.id || m.eventId === item.eventId,
-              )
-            ) {
-              merged.push(item)
-            }
-          }
-          return merged
-        })
+        setApprovalCases(apiCases)
       }
     } catch {
       // Keep static
@@ -442,22 +430,28 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
     const targetCase = approvalCases.find((c) => c.id === caseId)
     if (targetCase) {
       const eventNum = Number(targetCase.eventId.replace(/\D/g, "")) || 101
-      const isApproved =
-        action === "faculty_approve" ||
-        action === "faculty_approve_by_admin" ||
-        action === "affairs_approve"
-      eventsService
-        .review(eventNum, {
-          trang_thai: isApproved
-            ? "APPROVED"
-            : action === "reject"
-              ? "REJECTED"
-              : "REVISION",
-          ly_do_tu_choi: reason,
-          ghi_chu: reason,
-          hanh_dong: action,
-        })
-        .catch(() => {})
+      let mappedHanhDong: "APPROVE_FACULTY" | "APPROVE_ADMIN" | "APPROVE_FACULTY_BY_ADMIN" | "REJECT_FACULTY" | "REJECT_ADMIN" | "REQUEST_EDIT" = "REQUEST_EDIT"
+      if (action === "faculty_approve") mappedHanhDong = "APPROVE_FACULTY"
+      else if (action === "faculty_approve_by_admin") mappedHanhDong = "APPROVE_FACULTY_BY_ADMIN"
+      else if (action === "affairs_approve") mappedHanhDong = "APPROVE_ADMIN"
+      else if (action === "request_revision") mappedHanhDong = "REQUEST_EDIT"
+      else if (action === "reject") mappedHanhDong = "REJECT_FACULTY"
+
+      if (action === "withdraw") {
+        eventsService.withdraw(eventNum, reason || "Rút đề xuất sự kiện").catch(() => {})
+      } else if (action === "reopen") {
+        eventsService.reopen(eventNum, reason || "Tái mở sửa lại").catch(() => {})
+      } else if (action === "resubmit") {
+        eventsService.submitApproval(eventNum).catch(() => {})
+      } else {
+        eventsService
+          .review(eventNum, {
+            hanh_dong: mappedHanhDong,
+            ly_do: reason,
+            ghi_chu: reason,
+          })
+          .catch(() => {})
+      }
     }
 
     return { success: true }
@@ -474,6 +468,9 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
   }
 
   function issueCertificate(certificateId: string) {
+    const cert = certificates.find((c) => c.id === certificateId)
+    const ticketId = cert ? Number(cert.id.replace(/\D/g, "")) || 1 : 1
+    certificatesService.issue(ticketId).catch(() => {})
     setCertificates((prev) =>
       prev.map((c) => (c.id === certificateId ? { ...c, status: "issued" } : c)),
     )
@@ -481,6 +478,9 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
   }
 
   function revokeCertificate(certificateId: string, reason: string) {
+    const cert = certificates.find((c) => c.id === certificateId)
+    const numId = cert ? Number(cert.id.replace(/\D/g, "")) || 1 : 1
+    certificatesService.revoke(numId, reason).catch(() => {})
     setCertificates((prev) =>
       prev.map((c) =>
         c.id === certificateId

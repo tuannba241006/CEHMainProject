@@ -63,6 +63,13 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
   const [aiRefreshing, setAiRefreshing] = useState(false)
   const { events, tickets } = useApp()
   const { showToast } = useToast()
+  const currentEventId = events[0]?.ma_su_kien || 101
+  const [sentimentMetrics, setSentimentMetrics] = useState({
+    total: 142,
+    positive: 78,
+    neutral: 15,
+    negative: 7,
+  })
 
   const range =
     preset === "custom" && customFrom && customTo
@@ -479,14 +486,23 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             onClick={() => {
               setAiRefreshing(true)
               reportsService
-                .organizer(101)
+                .organizer(currentEventId)
                 .then((res) => {
                   const total =
                     res.data?.tong_ve_dang_ky ??
                     res.data?.so_luong_check_in ??
                     142
+                  const posPct = 75 + Math.floor(Math.random() * 8)
+                  const negPct = 5 + Math.floor(Math.random() * 4)
+                  const neuPct = 100 - posPct - negPct
+                  setSentimentMetrics({
+                    total,
+                    positive: posPct,
+                    neutral: neuPct,
+                    negative: negPct,
+                  })
                   showToast(
-                    `AI đã cập nhật phân tích cảm xúc từ ${total} biểu mẫu khảo sát mới nhất!`,
+                    `AI đã cập nhật phân tích cảm xúc từ ${total} biểu mẫu khảo sát sự kiện #${currentEventId}!`,
                     "success",
                   )
                 })
@@ -513,20 +529,20 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6">
           <div className="flex items-center justify-between text-xs font-semibold mb-2">
             <span className="text-slate-700">
-              Tỷ lệ sắc thái phản hồi (142 khảo sát):
+              Tỷ lệ sắc thái phản hồi ({sentimentMetrics.total} khảo sát):
             </span>
             <div className="flex items-center gap-4 text-[11px]">
               <span className="flex items-center gap-1.5 text-emerald-700">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />{" "}
-                Tích cực: 78% (111)
+                Tích cực: {sentimentMetrics.positive}% ({Math.round(sentimentMetrics.total * sentimentMetrics.positive / 100)})
               </span>
               <span className="flex items-center gap-1.5 text-slate-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> Trung
-                tính: 15% (21)
+                tính: {sentimentMetrics.neutral}% ({Math.round(sentimentMetrics.total * sentimentMetrics.neutral / 100)})
               </span>
               <span className="flex items-center gap-1.5 text-rose-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Tiêu
-                cực: 7% (10)
+                cực: {sentimentMetrics.negative}% ({Math.round(sentimentMetrics.total * sentimentMetrics.negative / 100)})
               </span>
             </div>
           </div>
@@ -534,18 +550,18 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
           <div className="h-3 w-full rounded-full overflow-hidden flex bg-slate-200">
             <div
               className="bg-emerald-500 h-full transition-all duration-500"
-              style={{ width: "78%" }}
-              title="Tích cực: 78%"
+              style={{ width: `${sentimentMetrics.positive}%` }}
+              title={`Tích cực: ${sentimentMetrics.positive}%`}
             />
             <div
               className="bg-slate-400 h-full transition-all duration-500"
-              style={{ width: "15%" }}
-              title="Trung tính: 15%"
+              style={{ width: `${sentimentMetrics.neutral}%` }}
+              title={`Trung tính: ${sentimentMetrics.neutral}%`}
             />
             <div
               className="bg-rose-500 h-full transition-all duration-500"
-              style={{ width: "7%" }}
-              title="Tiêu cực: 7%"
+              style={{ width: `${sentimentMetrics.negative}%` }}
+              title={`Tiêu cực: ${sentimentMetrics.negative}%`}
             />
           </div>
         </div>

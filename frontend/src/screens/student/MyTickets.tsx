@@ -9,7 +9,6 @@ import {
   CertificatePreview,
 } from "../management/AffairsOperations"
 import type { Certificate } from "../../context/AppContext"
-import { ticketsService } from "../../api/services/tickets.service"
 import { feedbackService } from "../../api/services/feedback.service"
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> =

@@ -268,11 +268,19 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     setTicketsError(null)
     try {
       const res = await ticketsService.mine()
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      if (res.data && Array.isArray(res.data)) {
         const mapped = res.data.map((t) =>
           mapContractTicketToUiTicket(t, currentUser),
         )
         setTickets(mapped)
+      }
+      try {
+        const wlRes = await waitlistService.mine()
+        if (wlRes.data && Array.isArray(wlRes.data)) {
+          setWaitlistEntries(wlRes.data)
+        }
+      } catch {
+        // Fallback for waitlist
       }
     } catch (err) {
       setTicketsError(getApiErrorMessage(err))
@@ -318,6 +326,11 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     }
 
     const baseTicket = TICKETS[0] || ({} as Ticket)
+    const qr = buildQrPayload(
+      uuid,
+      user.ma_tai_khoan || 1,
+      event.ma_su_kien,
+    )
     const newTicket: Ticket = {
       ...baseTicket,
       id: `TKT-${Date.now()}`,
@@ -335,7 +348,8 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
       faculty: user.faculty || "Công nghệ Thông tin",
       status: "pending",
       trang_thai: "DaDangKy",
-      qrCode: `CEH.${uuid}.${user.studentId}.${event.ma_su_kien}`,
+      qrCode: qr,
+      payload_qr: qr,
       registeredAt: new Date().toLocaleString("vi-VN"),
     }
 
@@ -355,8 +369,10 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
   }
 
   async function cancelTicket(ticketId: string, reason: string): Promise<CancelResult> {
+    const targetTicket = tickets.find((t) => t.id === ticketId)
+    const numericId = targetTicket?.ma_dang_ky || Number(ticketId.replace(/\D/g, "")) || 1
     try {
-      await ticketsService.cancel(ticketId, reason, crypto.randomUUID())
+      await ticketsService.cancel(numericId, reason, crypto.randomUUID())
     } catch {
       // Fallback
     }
@@ -397,10 +413,15 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     if (!entry) return { success: false, error: "Không tìm thấy suất chờ." }
     const uuid = crypto.randomUUID()
     try {
-      await waitlistService.claim(id, uuid)
+      const res = await waitlistService.claim(id, uuid)
+      if (res.data) {
+        const mapped = mapContractTicketToUiTicket(res.data as unknown as ContractTicket)
+        setTickets((prev) => [mapped, ...prev])
+      }
     } catch {
       // Fallback
     }
+    setWaitlistEntries((prev) => prev.filter((w) => w.id !== id))
     return { success: true }
   }
 
