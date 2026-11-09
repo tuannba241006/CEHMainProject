@@ -162,21 +162,25 @@ When a flow encounters an unexpected failure (e.g., button unresponsive, red err
 
 ---
 
-## 6. Specification-Driven Verification (SRS / Requirements Traceability)
+## 6. Specification-Driven Verification & Empirical Evidence Mandate
 
-Every audit run must tie directly to requirements documentation:
+Every audit run must tie directly to requirements documentation with non-negotiable empirical evidence:
 
-1. **Pre-Flight Ingestion:**
-   - Read the target Use Case / User Story from project documentation.
-   - Extract:
-     - Actor / Role permissions.
-     - Preconditions (required seeded data, system state).
-     - Step-by-step Normal Course.
-     - Documented Alternative & Exception Courses.
-2. **Execution & Evidence Capture:**
-   - Execute the Normal Course. Record passing assertions.
-   - Intentionally trigger at least one Boundary or Exception Course (e.g., submitting invalid input, duplicate booking, expired action).
-   - Capture live evidence: Target URLs, DOM snapshots, HTTP status codes.
+### 6.1. Pre-Flight Ingestion
+- Read the target Use Case / User Story from project documentation.
+- Extract:
+  - Actor / Role permissions and test credentials.
+  - Preconditions (required seeded data, system state).
+  - Step-by-step Normal Course.
+  - Documented Alternative & Exception Courses.
+
+### 6.2. Empirical Evidence Mandate (Anti-Speculative Verification)
+- ❌ **STRICTLY FORBIDDEN:** Declaring a Use Case "PASS" based solely on visual speculation, optimistic assumption, or high-level summary statements without captured telemetry.
+- ✅ **MANDATORY:** Every tested Use Case (both passing scenarios and failing edge cases) MUST be backed by raw, verifiable **Empirical Telemetry Proof**:
+  1. **Visual / DOM State Mutation**: Specific excerpt from `browser_snapshot` proving the UI state change (e.g., ticket confirmation badge, success alert text, disabled submit button, new table row rendered).
+  2. **Network Telemetry**: Exact HTTP method, requested API endpoint, response HTTP status code (`200 OK`, `201 Created`, `409 Conflict`, `422 Unprocessable Entity`), and relevant payload envelopes.
+  3. **Console Telemetry**: Explicit validation confirming zero unhandled exceptions or React render crashes in `browser_console_messages`.
+  4. **Asynchronous Telemetry (when applicable)**: Mailpit message ID, recipient email, subject line, and extracted token/OTP from `mailpit_helper.py`.
 
 ---
 
@@ -196,15 +200,48 @@ Reports generated from audit sessions must be saved to `docs/reports/` using the
 
 ## 1. Specification Traceability Matrix
 
-| Use Case ID | Scenario / Course | Expected Behavior | Actual Behavior | Result |
-| :--- | :--- | :--- | :--- | :--- |
-| `UC-XXX-01` | Normal Course | Successfully submits form and displays confirmation | As expected, modal confirmed | **PASS** |
-| `UC-XXX-02` | Exception Course (Duplicate) | Rejects with warning toast | Red toast displayed, 409 caught | **PASS** |
-| `UC-XXX-03` | Edge Case (Empty Input) | Highlights invalid fields | Button disabled, no error hint | **DEFECT** |
+| Use Case ID | Scenario / Course | Actor / Role | Expected Behavior | Actual Behavior | Result |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `UC-XXX-01` | Normal Course | Student (`22520001`) | Submits booking and receives confirmation | Modal rendered, quota decremented | **PASS** |
+| `UC-XXX-02` | Exception 3a (Duplicate) | Student (`22520001`) | Rejects with warning toast | Toast 409 displayed, submit disabled | **PASS** |
+| `UC-XXX-03` | Exception 3b (Expired) | Student (`22520001`) | Rejects action past deadline | Button disabled, no error hint | **DEFECT** |
 
 ---
 
-## 2. Defect Log & Root Cause Analysis
+## 2. Empirical Verification Evidence (Use Case by Use Case)
+
+### [EVID-01] `UC-XXX-01`: {Scenario Name}
+- **Test Execution Metadata:**
+  - Route: `http://localhost:5173/...`
+  - Actor: `student@example.com` (Role: Student)
+  - Timestamp: `YYYY-MM-DD HH:mm:ss UTC`
+- **Execution Steps:**
+  1. Navigated to `...`
+  2. Filled input field `...` with value `...`
+  3. Clicked button `"Submit"`
+- **Empirical Telemetry Proof:**
+  - **DOM Snapshot Excerpt:**
+    ```
+    - alert: "Booking registered successfully! Confirmation code: TCK-12345"
+    - button "View Ticket" [enabled]
+    - text: "Status: Confirmed"
+    ```
+  - **Network Request / Response:**
+    ```http
+    POST /api/v1/bookings
+    Status: 201 Created
+    Response Body: {"success": true, "data": {"ticket_code": "TCK-12345", "status": "CONFIRMED"}}
+    ```
+  - **Console Messages:** `0 errors detected`
+  - **Asynchronous Side Effect (Mailpit):**
+    ```json
+    {"id": "msg_01", "to": "student@example.com", "subject": "Ticket Confirmation", "status": "delivered"}
+    ```
+- **Verdict:** **PASS** (Strictly matches SRS Normal Course Step 4-6).
+
+---
+
+## 3. Defect Log & Root Cause Analysis
 
 ### [DEF-01] {Short Defect Title}
 - **Severity:** `P0 (Blocker)` | `P1 (Specification Deviation)` | `P2 (Hygiene / UI Flaw)`
@@ -222,7 +259,7 @@ Reports generated from audit sessions must be saved to `docs/reports/` using the
 
 ---
 
-## 3. Overall Verdict & Recommendations
+## 4. Overall Verdict & Recommendations
 - **Merge-Ready Gate:** `[APPROVED / BLOCKED]`
 - **Key Next Steps:** {Concise list of identified fixes without prescriptive refactoring}
 ```
