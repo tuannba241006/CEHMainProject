@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ExpireSoftHoldJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -39,4 +40,14 @@ Schedule::command('events:send-reminders')
 Schedule::command('ceh:aggregate-daily-stats')
     ->timezone('Asia/Ho_Chi_Minh')
     ->dailyAt('01:00')
+Schedule::command('ceh:expire-offers')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+Schedule::command('ceh:reconcile-waitlists')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
+Schedule::job(new ExpireSoftHoldJob)
+    ->everyFifteenMinutes()
     ->withoutOverlapping();

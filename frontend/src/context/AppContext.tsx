@@ -27,7 +27,24 @@ import { ticketsService } from "../api/services/tickets.service"
 import { waitlistService } from "../api/services/waitlist.service"
 import { getApiErrorMessage } from "../api/errors"
 import { notificationsService } from "../api/services/notifications.service"
-import { attendanceService } from "../api/services/attendance.service"
+import {
+  attendanceService,
+  type ManualOverrideData,
+  type ManualOverridePayload,
+} from "../api/services/attendance.service"
+
+export type ManualOverrideInput = Omit<ManualOverridePayload, "ma_dang_ky"> & {
+  ma_dang_ky?: number
+  ticketId?: string
+  da_doi_soat_the?: boolean
+}
+
+export interface ManualOverrideResult {
+  success: boolean
+  error?: string
+  data?: ManualOverrideData
+}
+
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -917,14 +934,7 @@ interface AppContextType {
     certificateId: string,
   ) => { success: boolean; certificate?: Certificate; error?: string }
   verifyCertificate: (code: string) => Certificate | undefined
-  manualOverrideAttendance: (payload: {
-    ma_dang_ky?: number
-    ticketId?: string
-    trang_thai_moi: "DaCheckIn" | "DaCheckOut"
-    ti_le_drl_moi: number
-    ly_do: string
-    da_doi_soat_the?: boolean
-  }) => Promise<{ success: boolean; error?: string }>
+  manualOverrideAttendance: (payload: ManualOverrideInput) => Promise<ManualOverrideResult>
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -2134,17 +2144,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function manualOverrideAttendance(payload: {
-    ma_dang_ky?: number
-    ticketId?: string
-    trang_thai_moi: "DaCheckIn" | "DaCheckOut"
-    ti_le_drl_moi: number
-    ly_do: string
-    da_doi_soat_the?: boolean
-  }): Promise<{ success: boolean; error?: string }> {
+  async function manualOverrideAttendance(
+    payload: ManualOverrideInput,
+  ): Promise<ManualOverrideResult> {
     if (isApiMode()) {
+      const { ma_dang_ky, trang_thai_moi, ti_le_drl_moi, ly_do } = payload
+      if (!ma_dang_ky) {
+        return { success: false, error: "Không tìm thấy vé hợp lệ để điều chỉnh." }
+      }
+
       try {
-        await attendanceService.manualOverride(payload)
+        const { data } = await attendanceService.manualOverride({
+          ma_dang_ky, trang_thai_moi, ti_le_drl_moi, ly_do,
+        })
+        return { success: true, data }
       } catch (e) {
         return { success: false, error: getApiErrorMessage(e) }
       }

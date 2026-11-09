@@ -16,6 +16,28 @@ const simulatedTimeModes = [
 
 type SimulatedTimeMode = (typeof simulatedTimeModes)[number]["mode"]
 
+// Prevent duplicate start requests during React StrictMode effect replay.
+// Keep only IN-FLIGHT requests: a later real visit may create a fresh session.
+const kioskStartRequests = new Map<
+  string,
+  ReturnType<typeof attendanceService.startKiosk>
+>()
+
+function startKioskOnce(eventId: string) {
+  const pending = kioskStartRequests.get(eventId)
+  if (pending) return pending
+  const request = attendanceService.startKiosk(eventId)
+  kioskStartRequests.set(eventId, request)
+  void request
+    .finally(() => {
+      if (kioskStartRequests.get(eventId) === request) {
+        kioskStartRequests.delete(eventId)
+      }
+    })
+    .catch(() => {})
+  return request
+}
+
 export default function KioskPortal() {
   const { role } = useUser()
   const { eventId = "" } = useParams()
@@ -28,6 +50,7 @@ export default function KioskPortal() {
   const [kioskToken, setKioskToken] = useState("")
   const [loading, setLoading] = useState(isApiMode())
   const [error, setError] = useState("")
+  const [gateError, setGateError] = useState("")
   const [gate, setGate] = useState<"closed" | "checkin" | "checkout">("closed")
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -125,8 +148,7 @@ export default function KioskPortal() {
     }
     if (isApiMode()) {
       setLoading(true)
-      attendanceService
-        .startKiosk(eventId)
+      startKioskOnce(eventId)
         .then((response) => {
           if (!active) return
           const token = response.data.kiosk_token
@@ -174,7 +196,7 @@ export default function KioskPortal() {
 
   async function setGateMode(
     next: typeof gate,
-    payload?: { confirm?: string },
+    payload?: { ma_xac_nhan?: string; ly_do_mo_som?: string },
   ) {
     try {
       if (isApiMode()) {
@@ -184,9 +206,9 @@ export default function KioskPortal() {
         if (next === "closed") await attendanceService.closeGates(eventId)
       }
       setGate(next)
-      setError("")
+      setGateError("")
     } catch (e) {
-      setError(getApiErrorMessage(e))
+      setGateError(getApiErrorMessage(e))
     }
   }
 
@@ -210,7 +232,9 @@ export default function KioskPortal() {
       return
     }
     setShowConfirmModal(false)
-    void setGateMode("checkout", { confirm: confirmKeyword.trim() })
+    void setGateMode("checkout", {
+      ma_xac_nhan: confirmKeyword.trim(),
+    })
   }
 
   async function toggleFullscreen() {
@@ -397,6 +421,11 @@ export default function KioskPortal() {
 
         {/* Gate Control Panel */}
         <aside className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+          {gateError && (
+            <p role="alert" className="text-sm font-semibold text-amber-300">
+              {gateError}
+            </p>
+          )}
           <div>
             <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">
               Trạng thái cổng điểm danh
