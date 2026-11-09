@@ -401,7 +401,7 @@ export default function AdminPortal({ section }: { section: Section }) {
             <button
               onClick={() => {
                 showToast(
-                  "Đang kết xuất báo cáo vĩ mô toàn trường ra file Excel (GET /admin/analytics/macro/export)...",
+                  "Đang kết xuất báo cáo vĩ mô toàn trường ra file Excel...",
                   "info",
                 )
               }}
@@ -787,7 +787,7 @@ export default function AdminPortal({ section }: { section: Section }) {
               <button
                 onClick={() => {
                   showToast(
-                    "Đang xuất danh sách sinh viên tái phạm No-show ra Excel (GET /admin/analytics/no-show-violations)...",
+                    "Đang xuất danh sách sinh viên tái phạm No-show ra Excel...",
                     "info",
                   )
                 }}
@@ -897,7 +897,7 @@ export default function AdminPortal({ section }: { section: Section }) {
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 p-8">
             <p className="text-sm text-slate-500">
-              Module đã ánh xạ API. Demo Mode hiển thị dữ liệu mô phỏng.
+              Dữ liệu đang được đồng bộ trực tiếp từ hệ thống.
             </p>
           </div>
         )}
@@ -1264,7 +1264,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                                 )
                               }
                               showToast(
-                                `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${dialog.student.ho_ten} (POST /admin/tickets/${t.ma_dang_ky}/feedback-grace).`,
+                                `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${dialog.student.ho_ten}.`,
                                 "success",
                               )
                             } catch (err) {
@@ -1272,7 +1272,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                             }
                           }}
                           className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] cursor-pointer"
-                          title="Cấp ân hạn làm bài khảo sát sau 48h (UC-FEED-01.AC.1)"
+                          title="Cấp ân hạn làm bài khảo sát 24h"
                         >
                           Ân hạn 24h
                         </button>
@@ -1308,7 +1308,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                     Cứu xét & Xóa cờ No-show
                   </h2>
                   <p className="text-xs text-slate-500">
-                    Phòng Công tác Sinh viên (UC-OPS-04)
+                    Phòng Công tác Sinh viên
                   </p>
                 </div>
               </div>

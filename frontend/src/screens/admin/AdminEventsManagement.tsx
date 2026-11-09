@@ -680,7 +680,7 @@ export default function AdminEventsManagement({
               className="px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
             >
               <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-              <span>Trợ lý AI gợi ý nội dung (UC-AI-01)</span>
+              <span>Trợ lý AI gợi ý nội dung</span>
             </button>
           </div>
         </div>
@@ -1055,7 +1055,7 @@ export default function AdminEventsManagement({
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100">
               <h2 className="font-display font-bold text-lg text-navy flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Trợ lý AI gợi ý nội dung (UC-AI-01)
+                <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Trợ lý AI gợi ý nội dung
               </h2>
               <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
                 Nhập từ khóa hoặc chủ đề sự kiện, AI Copilot sẽ tự động phác thảo tiêu đề, mô tả và khung lộ trình Agenda chuyên nghiệp chuẩn quy chế CTSV.
@@ -1152,7 +1152,7 @@ export default function AdminEventsManagement({
             <button
               onClick={() => openCreatePage(false)}
               className="px-3.5 py-2 rounded-xl bg-indigo text-white text-xs sm:text-sm font-semibold cursor-pointer hover:bg-indigo-700 shadow-xs flex items-center gap-1.5 transition-colors"
-              title="Khởi tạo sự kiện cấp Trường trực tiếp cho Phòng Công tác Sinh viên (POST /events)"
+              title="Khởi tạo sự kiện cấp Trường trực tiếp cho Phòng Công tác Sinh viên"
             >
               <Plus className="w-4 h-4" />
               <span>Tạo sự kiện cấp Trường (P.CTSV)</span>

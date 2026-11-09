@@ -35,7 +35,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     id: "cohost-01",
     eventId: "evt-01",
     eventTitle: "UIT AI & Cloud Computing Workshop 2026",
-    hostUnit: "CLB WebDev UIT (Host A)",
+    hostUnit: "CLB WebDev UIT",
     invitedUnit: "Phòng Công tác Sinh viên (P.CTSV)",
     hostContact: "Nguyễn Văn An · bch.webdev@uit.edu.vn",
     topic: "Học thuật & Trí tuệ nhân tạo",
@@ -53,7 +53,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     id: "cohost-02",
     eventId: "evt-02",
     eventTitle: "Chung kết Hackathon UIT Code Sprint 2026",
-    hostUnit: "Khoa Hệ thống Thông tin (Host A)",
+    hostUnit: "Khoa Hệ thống Thông tin",
     invitedUnit: "CLB WebDev UIT",
     hostContact: "TS. Nguyễn Minh Hải · bql.httt@uit.edu.vn",
     topic: "Kỹ năng mềm & Công nghệ",
@@ -71,7 +71,7 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     id: "cohost-03",
     eventId: "evt-03",
     eventTitle: "Ngày hội Sách và Văn hóa Đọc Sinh viên",
-    hostUnit: "Đoàn Thanh niên - Hội Sinh viên (Host A)",
+    hostUnit: "Đoàn Thanh niên - Hội Sinh viên",
     invitedUnit: "Khoa Hệ thống Thông tin",
     hostContact: "Đ/c Lê Thanh Tùng · doanthanhnien@uit.edu.vn",
     topic: "Văn hóa & Nghệ thuật",
@@ -192,7 +192,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
         ),
       )
       showToast(
-        `Đã đồng ý (DONG_Y) tham gia đồng tổ chức sự kiện "${inv.eventTitle}". Hồ sơ tiến hành chuyển bước phê duyệt tiếp theo.`,
+        `Đã đồng ý tham gia đồng tổ chức sự kiện "${inv.eventTitle}". Hồ sơ tiến hành chuyển bước phê duyệt tiếp theo.`,
         "success",
       )
     } catch (err) {
@@ -233,7 +233,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
         ),
       )
       showToast(
-        `Đã từ chối (TU_CHOI) lời mời đồng tổ chức cho sự kiện "${selectedDecline.eventTitle}".`,
+        `Đã từ chối lời mời đồng tổ chức cho sự kiện "${selectedDecline.eventTitle}".`,
         "info",
       )
       setSelectedDecline(null)
@@ -284,16 +284,8 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                 Lời mời đồng tổ chức sự kiện
               </h1>
               <p className="text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-                Khi Đơn vị chủ trì chính (Host A) gửi đề xuất có mời đơn vị của
-                bạn đồng tổ chức, bạn có thời hạn 48 giờ để xác nhận Đồng ý (
-                <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">
-                  DONG_Y
-                </code>
-                ) hoặc Từ chối (
-                <code className="text-rose-700 bg-rose-50 px-1 py-0.5 rounded">
-                  TU_CHOI
-                </code>
-                ).
+                Khi Đơn vị chủ trì gửi đề xuất có mời đơn vị của
+                bạn đồng tổ chức, bạn có thời hạn 48 giờ để xác nhận Đồng ý hoặc Từ chối phối hợp.
               </p>
             </div>
 
@@ -320,13 +312,13 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100">
-              <p className="text-xs text-emerald-700">Đã đồng ý (DONG_Y)</p>
+              <p className="text-xs text-emerald-700">Đã đồng ý</p>
               <p className="font-display font-bold text-xl text-emerald-900 mt-0.5">
                 {scopedInvitations.filter((i) => i.status === "accepted").length}
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100">
-              <p className="text-xs text-rose-700">Đã từ chối (TU_CHOI)</p>
+              <p className="text-xs text-rose-700">Đã từ chối</p>
               <p className="font-display font-bold text-xl text-rose-900 mt-0.5">
                 {scopedInvitations.filter((i) => i.status === "declined").length}
               </p>
@@ -413,13 +405,13 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                       {inv.status === "accepted" && (
                         <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                           <Check className="w-3.5 h-3.5" />
-                          <span>Đã đồng ý (DONG_Y)</span>
+                          <span>Đã đồng ý</span>
                         </span>
                       )}
                       {inv.status === "declined" && (
                         <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
                           <X className="w-3.5 h-3.5" />
-                          <span>Đã từ chối (TU_CHOI)</span>
+                          <span>Đã từ chối</span>
                         </span>
                       )}
                     </div>
@@ -431,7 +423,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4 text-xs text-slate-600 mt-3 pt-3 border-t border-slate-100">
                       <div>
                         <span className="text-slate-400">
-                          Đơn vị chủ trì (Host A):
+                          Đơn vị chủ trì:
                         </span>
                         <p className="font-semibold text-slate-900 mt-0.5">
                           {inv.hostUnit}
@@ -486,13 +478,13 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                         onClick={() => handleAccept(inv)}
                         className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer text-center"
                       >
-                        Đồng ý (DONG_Y)
+                        Đồng ý tham gia
                       </button>
                       <button
                         onClick={() => setSelectedDecline(inv)}
                         className="flex-1 py-2.5 px-4 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-semibold text-xs transition-colors cursor-pointer text-center"
                       >
-                        Từ chối (TU_CHOI)
+                        Từ chối lời mời
                       </button>
                     </div>
                   )}

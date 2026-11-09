@@ -595,7 +595,7 @@ function ApprovalDetail({
               onClick={() => setDialog("reopen")}
               disabled={busy}
               className="px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
-              title="Khôi phục sự kiện bị từ chối quay trở lại DRAFT để chỉnh sửa (POST /events/{id}/reopen)"
+              title="Khôi phục sự kiện bị từ chối về bản nháp để chỉnh sửa"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Tái mở bản nháp</span>
@@ -919,7 +919,7 @@ function ApprovalDetail({
                     setReason("")
                   } else if (dialog === "emergency_cancel") {
                     showToast(
-                      "Đã hủy sự kiện khẩn cấp (POST /events/{id}/emergency-cancel). Đã phát lệnh thu hồi vé.",
+                      "Đã hủy sự kiện khẩn cấp. Đã phát lệnh thu hồi vé.",
                       "warning",
                     )
                     setDialog(null)

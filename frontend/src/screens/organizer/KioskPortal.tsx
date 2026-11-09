@@ -331,7 +331,7 @@ export default function KioskPortal() {
       <div className="my-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 text-slate-400">
           <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-slate-400" /> DEMO — Giả lập trạng thái thời gian:
+            <Clock className="w-4 h-4 text-slate-400" /> Giả lập mốc thời gian sự kiện:
           </span>
         </div>
         <div className="flex flex-wrap gap-1">
@@ -568,9 +568,7 @@ export default function KioskPortal() {
           <div className="border-t border-slate-800 pt-3 text-[11px] text-slate-400 space-y-1">
             <p>
               <ShieldCheck className="w-3.5 h-3.5 inline mr-1 text-indigo-400 shrink-0" />
-              <strong>Cơ chế Tách phiên Kiosk:</strong> Phiên Kiosk sử dụng{" "}
-              <code className="text-slate-300">kiosk_token_hash</code> (SHA-256)
-              độc lập, không bị ảnh hưởng khi các tài khoản khác đăng nhập/đăng
+              <strong>Cơ chế Tách phiên Kiosk:</strong> Phiên Kiosk sử dụng mã token độc lập (SHA-256), không bị ảnh hưởng khi các tài khoản khác đăng nhập/đăng
               xuất trên thiết bị cá nhân.
             </p>
             <p>
@@ -589,7 +587,7 @@ export default function KioskPortal() {
         </aside>
       </main>
 
-      {/* Early Checkout Confirmation Modal (UC-OPS-01) */}
+      {/* Early Checkout Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl text-white">
@@ -601,15 +599,7 @@ export default function KioskPortal() {
             </h3>
             <p className="text-xs text-slate-300 mt-2 text-center leading-relaxed">
               Bạn đang yêu cầu mở cổng Check-out sớm hơn giờ kết thúc kế hoạch
-              (trong khung 25 phút cuối). Hành động này sẽ chốt{" "}
-              <strong className="text-amber-300 font-mono">
-                thoi_gian_ket_thuc_thuc_te = NOW()
-              </strong>{" "}
-              và ghi vết kiểm toán{" "}
-              <strong className="text-amber-300 font-mono">
-                EARLY_CHECKOUT_CONFIRM
-              </strong>
-              .
+              (trong khung 25 phút cuối). Hành động này sẽ chốt thời gian kết thúc thực tế và ghi vết vào nhật ký kiểm toán hệ thống.
             </p>
             <div className="mt-4 p-3 rounded-xl bg-slate-800/80 border border-slate-700">
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">

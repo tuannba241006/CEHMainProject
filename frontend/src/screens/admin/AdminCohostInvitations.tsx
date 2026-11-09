@@ -27,7 +27,7 @@ const INITIAL_INVITATIONS: AdminCohostInvitation[] = [
     eventId: 101,
     eventTitle: "Ngày hội nghề nghiệp AI & Kỹ thuật dữ liệu 2026",
     topic: "Trí tuệ Nhân tạo & Khoa học Dữ liệu",
-    hostUnit: "Khoa Hệ thống Thông tin (Host A)",
+    hostUnit: "Khoa Hệ thống Thông tin",
     hostContact: "bqt.is@campus.edu.vn",
     invitedUnit: "Phòng Công tác Sinh viên (CTSV)",
     time: "2026-10-15 (08:30 - 11:30)",
@@ -42,7 +42,7 @@ const INITIAL_INVITATIONS: AdminCohostInvitation[] = [
     eventId: 102,
     eventTitle: "UIT AI & Cloud Computing Workshop 2026",
     topic: "Học thuật & Trí tuệ nhân tạo",
-    hostUnit: "CLB WebDev UIT (Host A)",
+    hostUnit: "CLB WebDev UIT",
     hostContact: "contact@webdevuit.vn",
     invitedUnit: "Khoa Hệ thống Thông tin",
     time: "2026-11-15 (09:00 - 11:30)",
@@ -57,7 +57,7 @@ const INITIAL_INVITATIONS: AdminCohostInvitation[] = [
     eventId: 103,
     eventTitle: "Chung kết Hackathon UIT Code Sprint 2026",
     topic: "Kỹ năng mềm & Công nghệ",
-    hostUnit: "Khoa Hệ thống Thông tin (Host A)",
+    hostUnit: "Khoa Hệ thống Thông tin",
     hostContact: "ts.nguyenminhai@is.uit.edu.vn",
     invitedUnit: "CLB WebDev UIT",
     time: "2026-11-20 (07:30 - 17:00)",
@@ -178,7 +178,7 @@ export default function AdminCohostInvitations() {
         prev.map((item) => (item.id === inv.id ? { ...item, status: "accepted" } : item)),
       )
       showToast(
-        `Đã phê duyệt ĐỒNG Ý (DONG_Y) thay cho đơn vị "${inv.invitedUnit}". Hệ thống giải tỏa hạn giữ phòng tạm 48h và chuyển hồ sơ lên hàng duyệt.`,
+        `Đã phê duyệt ĐỒNG Ý thay cho đơn vị "${inv.invitedUnit}". Hệ thống giải tỏa hạn giữ phòng tạm 48h và chuyển hồ sơ lên hàng duyệt.`,
         "success",
       )
     } catch (err) {
@@ -210,7 +210,7 @@ export default function AdminCohostInvitations() {
         ),
       )
       showToast(
-        `Đã ghi nhận TỪ CHỐI (TU_CHOI) thay cho đơn vị "${selectedDecline.invitedUnit}". Sự kiện chuyển sang COHOST_REJECTED và phòng hội trường đã được giải phóng an toàn.`,
+        `Đã ghi nhận TỪ CHỐI thay cho đơn vị "${selectedDecline.invitedUnit}". Sự kiện chuyển sang trạng thái đã từ chối và phòng hội trường đã được giải phóng an toàn.`,
         "info",
       )
       setSelectedDecline(null)
@@ -229,10 +229,10 @@ export default function AdminCohostInvitations() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 uppercase tracking-wide">
-              Đặc quyền Admin (UC-EVT-02.AC.1 & AC.2)
+              Đặc quyền Quản trị viên
             </span>
             <span className="text-xs text-slate-400">·</span>
-            <span className="text-xs text-slate-500 font-medium">Soft Hold 48h & Override</span>
+            <span className="text-xs text-slate-500 font-medium">Thời hạn giữ chỗ 48h</span>
           </div>
           <h1 className="font-display font-bold text-xl sm:text-2xl text-navy">
             Giám sát & Duyệt thay Lời mời Đồng tổ chức
@@ -274,11 +274,11 @@ export default function AdminCohostInvitations() {
           <p className="text-2xl font-bold text-amber-600 mt-1">{stats.pending}</p>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-2xs">
-          <p className="text-[11px] font-bold text-emerald-600 uppercase">Đã đồng ý (DONG_Y)</p>
+          <p className="text-[11px] font-bold text-emerald-600 uppercase">Đã đồng ý</p>
           <p className="text-2xl font-bold text-emerald-600 mt-1">{stats.accepted}</p>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-2xs">
-          <p className="text-[11px] font-bold text-rose-600 uppercase">Đã từ chối (TU_CHOI)</p>
+          <p className="text-[11px] font-bold text-rose-600 uppercase">Đã từ chối</p>
           <p className="text-2xl font-bold text-rose-600 mt-1">{stats.declined}</p>
         </div>
       </div>
@@ -329,14 +329,14 @@ export default function AdminCohostInvitations() {
                   {inv.status === "accepted" && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                       <Check className="w-3 h-3 text-emerald-600" />
-                      <span>Đã đồng ý (DONG_Y)</span>
+                      <span>Đã đồng ý</span>
                     </span>
                   )}
 
                   {inv.status === "declined" && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
                       <X className="w-3 h-3 text-rose-600" />
-                      <span>Đã từ chối (TU_CHOI)</span>
+                      <span>Đã từ chối</span>
                     </span>
                   )}
                 </div>
@@ -345,7 +345,7 @@ export default function AdminCohostInvitations() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-500 pt-1">
                   <div>
-                    <span className="font-semibold text-slate-700">Đơn vị chủ trì (Host A):</span>{" "}
+                    <span className="font-semibold text-slate-700">Đơn vị chủ trì:</span>{" "}
                     {inv.hostUnit}
                   </div>
                   <div>
@@ -451,7 +451,7 @@ export default function AdminCohostInvitations() {
                 className="w-full p-2.5 rounded-xl border border-rose-200 text-xs focus:outline-none focus:border-rose-500"
               />
               <p className="text-[11px] text-rose-600 mt-1">
-                <span className="flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" /> <span>Khi từ chối, sự kiện chuyển sang COHOST_REJECTED và phòng hội trường được giải phóng an toàn.</span></span>
+                <span className="flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" /> <span>Khi từ chối, sự kiện chuyển sang trạng thái đã từ chối và phòng hội trường được giải phóng an toàn.</span></span>
               </p>
             </div>
 

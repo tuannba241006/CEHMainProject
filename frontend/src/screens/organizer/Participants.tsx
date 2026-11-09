@@ -816,7 +816,7 @@ function ReconciliationView({
                   await drlService.lock(eventId)
                 }
                 setMessage(
-                  "Đã khóa chốt danh sách Điểm Rèn Luyện (POST /events/{id}/drl/lock). Dữ liệu đã được niêm phong gửi về Phòng CTSV.",
+                  "Đã khóa chốt danh sách Điểm Rèn Luyện. Dữ liệu đã được niêm phong gửi về Phòng CTSV.",
                 )
                 showToast(
                   "Đã khóa chốt danh sách Điểm Rèn Luyện thành công.",
@@ -856,7 +856,7 @@ function ReconciliationView({
             Chưa có dữ liệu đối soát cho sự kiện này.
           </p>
           <p className="text-xs text-slate-400 mt-1">
-            Dữ liệu demo đầy đủ có tại sự kiện AI & Kỹ thuật dữ liệu.
+            Bạn có thể xem dữ liệu mẫu tại sự kiện Ngày hội nghề nghiệp AI & Kỹ thuật dữ liệu.
           </p>
         </div>
       ) : (
@@ -1067,7 +1067,7 @@ function SurveyReport({
         <p className="text-sm font-semibold text-purple-800">Báo cáo ẩn danh</p>
         <p className="text-xs text-purple-700 mt-1">
           Không hiển thị danh tính, MSSV, email hoặc danh sách người đã gửi.
-          Ngưỡng ẩn demo là {threshold} phản hồi và có thể cấu hình.
+          Ngưỡng hiển thị tối thiểu là {threshold} phản hồi để bảo vệ tính ẩn danh của sinh viên.
         </p>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">

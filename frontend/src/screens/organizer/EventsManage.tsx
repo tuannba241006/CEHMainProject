@@ -268,7 +268,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                         setReopenModal({ id: item.id, title: item.title })
                       }
                       className="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                      title="Tái mở bản nháp bị từ chối để chỉnh sửa lại (UC-EVT-03.AC.2)"
+                      title="Tái mở bản nháp bị từ chối để chỉnh sửa lại"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Tái mở bản nháp</span>
@@ -568,7 +568,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                             />
                           </ActionBtn>
                           <ActionBtn
-                            title="Tái mở bản nháp để chỉnh sửa lại (UC-EVT-03.AC.2)"
+                            title="Tái mở bản nháp để chỉnh sửa lại"
                             onClick={() =>
                               setReopenModal({
                                 id: event.id,
@@ -583,7 +583,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                             />
                           </ActionBtn>
                           <ActionBtn
-                            title="Hủy sự kiện khẩn cấp (Host A)"
+                            title="Hủy sự kiện khẩn cấp"
                             onClick={() =>
                               setCancelModal({
                                 id: event.id,
@@ -754,10 +754,10 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
               </h2>
             </div>
             <p className="text-xs text-slate-500 mb-3">
-              {reopenModal.title} (POST /events/{reopenModal.id}/reopen)
+              {reopenModal.title}
             </p>
             <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200 text-xs text-indigo-800 mb-4 leading-relaxed">
-              Khôi phục sự kiện bị từ chối quay về trạng thái <b>Bản nháp (Draft)</b> theo quy chuẩn <b>UC-EVT-03.AC.2</b>. Sau khi mở lại, Ban tổ chức có thể tiếp tục chỉnh sửa nội dung, danh sách đồng tổ chức, cấu hình phòng và gửi duyệt lại.
+              Khôi phục sự kiện bị từ chối quay về trạng thái <b>Bản nháp (Draft)</b>. Sau khi mở lại, Ban tổ chức có thể tiếp tục chỉnh sửa nội dung, danh sách đồng tổ chức, cấu hình phòng và gửi duyệt lại.
             </div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Lý do hoặc ghi chú chỉnh sửa (tùy chọn):
@@ -841,12 +841,11 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
             <div className="flex items-center gap-2.5 text-rose-600 mb-2">
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
               <h2 className="font-display font-bold text-lg text-navy">
-                Hủy sự kiện khẩn cấp (Host A)
+                Hủy sự kiện khẩn cấp
               </h2>
             </div>
             <p className="text-xs text-slate-500 mb-3">
-              {cancelModal.title} (RBAC Dòng 8: POST /events/{cancelModal.id}
-              /emergency-cancel)
+              {cancelModal.title}
             </p>
             <div className="p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-800 leading-relaxed mb-4">
               <b>Cảnh báo nghiêm trọng:</b> Khi thực hiện hủy sự kiện, toàn bộ

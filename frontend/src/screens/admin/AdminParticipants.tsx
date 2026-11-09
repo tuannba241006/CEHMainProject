@@ -240,8 +240,6 @@ export default function AdminParticipants() {
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 uppercase tracking-wide">
               Quản trị Vận hành Toàn trường
             </span>
-            <span className="text-xs text-slate-400">·</span>
-            <span className="text-xs text-slate-500 font-medium">UC-OPS-04 & UC-DRL-01</span>
           </div>
           <h1 className="font-display font-bold text-xl sm:text-2xl text-navy">
             Quản trị Người tham gia & Đối soát Điểm danh
@@ -458,7 +456,7 @@ export default function AdminParticipants() {
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-xs text-purple-900 leading-relaxed">
                 <p className="font-bold text-sm mb-1 text-purple-950 flex items-center gap-2">
-                  <ClipboardList className="w-4 h-4 text-purple-700 shrink-0" /> Quy chế Khảo sát Feedback sự kiện (Hạn 48 giờ - UC-FEED-01)
+                  <ClipboardList className="w-4 h-4 text-purple-700 shrink-0" /> Quy chế Khảo sát Feedback sự kiện (Hạn 48 giờ)
                 </p>
                 Sinh viên sau khi hoàn thành Check-out có tối đa <b>48 giờ</b> để nộp phiếu khảo sát đánh giá chất lượng nhằm đủ điều kiện công nhận Điểm Rèn Luyện (ĐRL) và cấp chứng nhận số HMAC-SHA256. 
                 Admin có quyền hạn <b>Tra cứu giám sát</b> toàn bộ phản hồi, thống kê mức độ hài lòng và thực thi ân hạn 24h đối với sinh viên khiếu nại.
@@ -708,7 +706,7 @@ export default function AdminParticipants() {
                                     setGraceReason("")
                                   }}
                                   className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
-                                  title="Cấp ân hạn 24h nộp bài khảo sát sau khi hết hạn 48h (UC-FEED-01)"
+                                  title="Cấp ân hạn 24h nộp bài khảo sát sau khi hết hạn 48h"
                                 >
                                   <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Ân hạn 24h</span>
                                 </button>
@@ -746,15 +744,15 @@ export default function AdminParticipants() {
         </div>
       )}
 
-      {/* FEEDBACK GRACE MODAL (UC-FEED-01) */}
+      {/* FEEDBACK GRACE MODAL */}
       {graceTicket && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
             <h3 className="font-display font-bold text-lg text-navy flex items-center gap-2">
-              <span>⏳</span> Cấp Ân hạn Khảo sát (UC-FEED-01)
+              <Clock className="w-5 h-5 text-purple-600" /> Cấp Ân hạn Khảo sát 24h
             </h3>
             <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
-              Mở hạn ân hạn riêng (<code>han_an_han_feedback = NOW() + 24h</code>) cho sinh viên{" "}
+              Mở ân hạn bổ sung thêm 24 giờ cho sinh viên{" "}
               <b>{graceTicket.studentName}</b> ({graceTicket.studentId}) nộp bù khảo sát chất lượng sau khi đã hết khung giờ 48 giờ tiêu chuẩn.
             </p>
 

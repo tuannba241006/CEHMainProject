@@ -90,12 +90,12 @@ export function ManagementLayout({
     ? [
         {
           id: "faculty-inbox",
-          label: "Hồ sơ chờ khoa duyệt (Bước 1)",
+          label: "Hồ sơ chờ thẩm định",
           icon: icons.inbox,
         },
         {
           id: "org-events",
-          label: "Tổ chức sự kiện Khoa (Host A)",
+          label: "Sự kiện trực thuộc Khoa",
           icon: icons.event,
         },
       ]
@@ -130,7 +130,7 @@ export function ManagementLayout({
     ? "Ban Quản lý Khoa"
     : "Quản trị viên (Admin - P.CTSV / Ban Giám hiệu)"
   const subtitle = isFaculty
-    ? "Ban tổ chức cấp Khoa & Thẩm định bước 1"
+    ? "Ban tổ chức & Thẩm định cấp Khoa"
     : "Quản trị viên cao nhất cấp Trường"
   const initials = isFaculty ? "KQ" : "AD"
   const unread = notifications.filter(
@@ -150,12 +150,6 @@ export function ManagementLayout({
             </p>
             <p className="text-[11px] text-slate-400 truncate">{subtitle}</p>
           </div>
-        </div>
-        <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
-          <p className="text-xs font-semibold text-amber-700">Tài khoản demo</p>
-          <p className="text-xs text-amber-600 mt-0.5">
-            Dữ liệu và thao tác chỉ dùng để mô phỏng.
-          </p>
         </div>
         {unread > 0 && (
           <button
@@ -271,7 +265,7 @@ export function ManagementLayout({
             <p className="font-display font-semibold text-sm text-navy">
               {title}
             </p>
-            <p className="text-xs text-amber-600">Chế độ demo</p>
+            <p className="text-xs text-slate-500">Cổng Quản lý</p>
           </div>
           <div className="w-9 h-9 rounded-full bg-cyan text-white flex items-center justify-center text-xs font-bold">
             {initials}
@@ -282,15 +276,15 @@ export function ManagementLayout({
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
               {isFaculty
-                ? "Ban Quản lý Khoa (Host A & Reviewer)"
+                ? "Ban Quản lý Khoa"
                 : "Quản trị viên (Admin - P.CTSV / Ban Giám hiệu)"}
             </span>
             <span className="text-slate-300">/</span>
             <span className="text-sm font-semibold text-slate-800">
               {current === "faculty-inbox"
-                ? "Thẩm định hồ sơ CLB cấp Khoa (Bước 1)"
+                ? "Thẩm định hồ sơ sự kiện"
                 : current === "affairs-inbox"
-                  ? "Phê duyệt hồ sơ cấp Trường & Phòng ốc (Bước 2)"
+                  ? "Phê duyệt hồ sơ cấp Trường & Phòng ốc"
                   : current === "affairs-results"
                     ? "Phê duyệt kết quả & Điểm ĐRL"
                     : current === "affairs-certificates"

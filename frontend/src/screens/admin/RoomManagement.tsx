@@ -487,7 +487,7 @@ export default function RoomManagement({
                 <h3 className="font-display font-semibold text-base text-navy flex items-center gap-2">
                   <span>Biểu đồ Lịch phòng trực quan</span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                    Chuẩn Buffer 15 phút (UC-ROOM-02)
+                    Chuẩn Buffer 15 phút
                   </span>
                 </h3>
                 <p className="text-xs text-slate-500">

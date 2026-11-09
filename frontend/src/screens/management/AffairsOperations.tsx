@@ -151,7 +151,7 @@ function Results() {
       setIsDrlLocked(true)
       setLockModalOpen(false)
       showToast(
-        "Đã khóa chốt danh sách Điểm Rèn Luyện (da_chot_drl = 1). Dữ liệu đã được niêm phong để gửi Phòng Đào tạo.",
+        "Đã khóa chốt danh sách Điểm Rèn Luyện. Dữ liệu đã được niêm phong để gửi Phòng Đào tạo.",
         "success",
       )
     } catch (err) {
@@ -177,7 +177,7 @@ function Results() {
           unlockTarget === "all_recognized"
             ? "toàn bộ hồ sơ đã chốt"
             : `hồ sơ ${unlockTarget}`
-        } (da_chot_drl = 0). Đã ghi nhận lịch sử kiểm toán UNLOCK_DRL_FINAL.`,
+        }. Đã ghi nhận lịch sử kiểm toán.`,
         "success",
       )
     } catch (err) {
@@ -209,7 +209,7 @@ function Results() {
     try {
       await feedbackService.grantGrace(graceStudent.id, graceReason.trim())
       showToast(
-        `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${graceStudent.studentName} (${graceStudent.studentId}) - UC-FEED-01.`,
+        `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${graceStudent.studentName} (${graceStudent.studentId}).`,
         "success",
       )
       setGraceStudent(null)
@@ -311,38 +311,38 @@ function Results() {
             }`}
           >
             {isDrlLocked ? (
-              <span className="inline-flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-rose-600" /> <span>Đã khóa chốt (da_chot_drl = 1)</span></span>
+              <span className="inline-flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-rose-600" /> <span>Đã khóa sổ</span></span>
             ) : (
-              <span className="inline-flex items-center gap-1.5"><Unlock className="w-3.5 h-3.5 text-emerald-600" /> <span>Đang mở (da_chot_drl = 0)</span></span>
+              <span className="inline-flex items-center gap-1.5"><Unlock className="w-3.5 h-3.5 text-emerald-600" /> <span>Chưa khóa sổ</span></span>
             )}
           </span>
 
-          {/* Xuất file Excel ĐRL (GET /events/{id}/drl/export) */}
+          {/* Xuất file Excel ĐRL */}
           <button
             onClick={() => void handleExportDrl()}
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
-            title="Kết xuất file Excel bảng điểm rèn luyện 12 cột chuẩn mẫu CTSV gửi Phòng Đào tạo (GET /events/{id}/drl/export)"
+            title="Kết xuất file Excel bảng điểm rèn luyện 12 cột chuẩn mẫu CTSV gửi Phòng Đào tạo"
           >
             <Download className="w-4 h-4" />
             <span>Xuất file Excel ĐRL</span>
           </button>
 
-          {/* Khóa chốt ĐRL (POST /events/{id}/drl/lock) */}
+          {/* Khóa chốt ĐRL */}
           {!isDrlLocked ? (
             <button
               onClick={() => setLockModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
-              title="Khóa chốt danh sách ĐRL sự kiện (da_chot_drl = 1) gửi Phòng Đào tạo (POST /events/{id}/drl/lock)"
+              title="Khóa chốt danh sách ĐRL sự kiện gửi Phòng Đào tạo"
             >
               <Lock className="w-4 h-4" />
               <span>Khóa chốt ĐRL</span>
             </button>
           ) : (
-            /* Mở khóa điều chỉnh ĐRL (POST /events/{id}/drl/unlock - UC-DRL-01.AC.1) */
+            /* Mở khóa điều chỉnh ĐRL */
             <button
               onClick={() => setUnlockModalOpen(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
-              title="Admin mở khóa điều chỉnh ĐRL (da_chot_drl = 0) có kiểm toán Audit Log UNLOCK_DRL_FINAL (POST /events/{id}/drl/unlock)"
+              title="Admin mở khóa điều chỉnh ĐRL có kiểm toán ghi nhận"
             >
               <Unlock className="w-4 h-4" />
               <span>Mở khóa điều chỉnh ĐRL</span>
@@ -521,7 +521,7 @@ function Results() {
                   setGraceReason("")
                 }}
                 className="px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold cursor-pointer"
-                title="Cấp ân hạn 24h làm khảo sát đánh giá nếu quá hạn (POST /admin/tickets/{id}/feedback-grace)"
+                title="Cấp ân hạn 24h làm khảo sát đánh giá nếu quá hạn"
               >
                 Ân hạn 24h
               </button>
@@ -676,17 +676,17 @@ function Results() {
                   Khóa chốt Bảng Điểm Rèn Luyện
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Chuẩn quy chế CTSV gửi Phòng Đào tạo (UC-DRL-01)
+                  Chuẩn quy chế CTSV gửi Phòng Đào tạo
                 </p>
               </div>
             </div>
             <div className="mt-4 p-3.5 bg-rose-50/70 border border-rose-200/80 rounded-2xl text-xs text-rose-900 leading-relaxed space-y-2">
               <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" /> Xác nhận niêm phong kết quả:</p>
               <p>
-                Sau khi khóa chốt (<code>da_chot_drl = 1</code>), bảng điểm rèn luyện của sự kiện sẽ được niêm phong để chuyển dữ liệu chính thức cho Phòng Đào tạo. Ban tổ chức cấp dưới sẽ <b>không thể tự ý điều chỉnh</b>.
+                Sau khi khóa chốt, bảng điểm rèn luyện của sự kiện sẽ được niêm phong để chuyển dữ liệu chính thức cho Phòng Đào tạo. Ban tổ chức cấp dưới sẽ <b>không thể tự ý điều chỉnh</b>.
               </p>
               <p>
-                Chỉ có tài khoản Quản trị viên (P.CTSV) mới có thẩm quyền mở khóa điều chỉnh (<code>POST /events/&#123;id&#125;/drl/unlock</code>) khi có đơn khiếu nại của sinh viên.
+                Chỉ có tài khoản Quản trị viên (P.CTSV) mới có thẩm quyền mở khóa điều chỉnh khi có đơn khiếu nại của sinh viên.
               </p>
             </div>
             <div className="flex gap-3 mt-6">
@@ -707,7 +707,7 @@ function Results() {
         </div>
       )}
 
-      {/* MODAL CẤP ÂN HẠN KHẢO SÁT (POST /admin/tickets/{id}/feedback-grace - UC-FEED-01) */}
+      {/* MODAL CẤP ÂN HẠN KHẢO SÁT */}
       {graceStudent && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
@@ -720,13 +720,13 @@ function Results() {
                   Cấp Ân hạn Khảo sát Đánh giá
                 </h2>
                 <p className="text-xs text-purple-600 font-semibold">
-                  Quy chế CTSV (UC-FEED-01)
+                  Quy chế CTSV
                 </p>
               </div>
             </div>
             <div className="mt-4 space-y-4">
               <div className="p-3.5 bg-purple-50/70 border border-purple-200/80 rounded-2xl text-xs text-purple-900 leading-relaxed">
-                Mở hạn ân hạn riêng (<code>han_an_han_feedback = NOW() + 24h</code>) cho sinh viên <b>{graceStudent.studentName}</b> (MSSV: <b>{graceStudent.studentId}</b>) nộp bù khảo sát chất lượng sau khi đã hết khung giờ 48 giờ tiêu chuẩn theo quy chế.
+                Mở ân hạn riêng thêm 24 giờ cho sinh viên <b>{graceStudent.studentName}</b> (MSSV: <b>{graceStudent.studentId}</b>) nộp bù khảo sát chất lượng sau khi đã hết khung giờ 48 giờ tiêu chuẩn theo quy chế.
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -811,7 +811,7 @@ function ResultRow({
           </button>
           <button
             onClick={onGrace}
-            title="Cấp ân hạn 24h làm khảo sát đánh giá nếu quá hạn (POST /admin/tickets/{id}/feedback-grace)"
+            title="Cấp ân hạn 24h làm khảo sát đánh giá chất lượng"
             className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer"
           >
             Ân hạn 24h
@@ -998,7 +998,7 @@ export function Certificates({ embedded = false }: {
               </div>
               <div>
                 <h2 className="font-display font-bold text-lg text-navy">
-                  Thu hồi Giấy chứng nhận số (UC-CERT-01)
+                  Thu hồi Giấy chứng nhận số
                 </h2>
                 <p className="text-xs text-rose-600 font-semibold">
                   Mã HMAC-SHA256 độc bản
@@ -1006,7 +1006,7 @@ export function Certificates({ embedded = false }: {
               </div>
             </div>
             <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Đánh dấu thu hồi (<code>da_thu_hoi = 1</code>) chứng nhận điện tử nếu phát hiện sinh viên gian lận điểm danh hoặc vi phạm kỷ luật sau sự kiện. Lý do bắt buộc lưu trong <b>Audit Log</b> (<code>REVOKE_CERTIFICATE</code>).
+              Đánh dấu thu hồi chứng nhận điện tử nếu phát hiện sinh viên gian lận điểm danh hoặc vi phạm kỷ luật sau sự kiện. Lý do bắt buộc lưu trong <b>Nhật ký kiểm toán hệ thống</b>.
             </p>
             <textarea
               value={reason}
@@ -1118,7 +1118,7 @@ export function CertificatePreview({
             onClick={() => window.print()}
             className="flex-1 py-3 rounded-xl bg-indigo text-white font-semibold text-sm"
           >
-            Tải PDF (bản demo)
+            Tải PDF chứng nhận
           </button>
           <button
             onClick={onClose}

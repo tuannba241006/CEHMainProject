@@ -418,7 +418,7 @@ export default function Login({
             <div className="flex items-center gap-3 mb-3">
               <span className="h-px bg-slate-200 flex-1" />
               <span className="text-xs text-slate-400">
-                Tài khoản demo · nhấn để điền
+                Tài khoản trải nghiệm nhanh
               </span>
               <span className="h-px bg-slate-200 flex-1" />
             </div>
@@ -596,11 +596,10 @@ export default function Login({
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
             <h2 className="font-display font-bold text-lg text-navy">
-              Chọn vai trò đã được cấp
+              Chọn vai trò truy cập
             </h2>
             <p className="text-sm text-slate-500 mt-1 mb-4">
-              Tài khoản demo này có nhiều vai trò. Bạn chỉ có thể vào các vai
-              trò đã được hệ thống cấp.
+              Tài khoản này được phân quyền nhiều vai trò. Vui lòng chọn phân hệ muốn truy cập:
             </p>
             <div className="space-y-2">
               {roleChoices.roles.map((role) => (
