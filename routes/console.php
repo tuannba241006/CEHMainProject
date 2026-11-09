@@ -40,6 +40,8 @@ Schedule::command('events:send-reminders')
 Schedule::command('ceh:aggregate-daily-stats')
     ->timezone('Asia/Ho_Chi_Minh')
     ->dailyAt('01:00')
+    ->withoutOverlapping();
+
 Schedule::command('ceh:expire-offers')
     ->everyMinute()
     ->withoutOverlapping();
