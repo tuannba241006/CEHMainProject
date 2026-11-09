@@ -88,5 +88,34 @@ describe("AuthService Unit Tests (frontend/src/api/services/auth.service.ts)", (
     expect(result.success).toBe(true)
     expect(result.data.ho_ten).toBe("Nguyễn Văn An")
   })
+
+  /**
+   * @test
+   * Target: UC-AUTH-01 (DEF-01: Verify Registration OTP Payload Integrity)
+   * Course: Normal Flow
+   * Expected: POST /auth/verify-registration-otp with email, otp, and ma_otp matching BE schema
+   */
+  it("should send both otp and ma_otp to satisfy backend and OpenAPI contract", async () => {
+    const spy = vi.spyOn(api, "post").mockResolvedValue({
+      success: true,
+      data: {
+        ma_tai_khoan: 1001,
+        ho_ten: "Nguyễn Văn An",
+        email: "22520001@gm.uit.edu.vn",
+      },
+    })
+
+    const result = await authService.verifyRegistrationOtp(
+      "22520001@gm.uit.edu.vn",
+      "123456",
+    )
+
+    expect(spy).toHaveBeenCalledWith("/auth/verify-registration-otp", {
+      email: "22520001@gm.uit.edu.vn",
+      otp: "123456",
+      ma_otp: "123456",
+    })
+    expect(result.success).toBe(true)
+  })
 })
 

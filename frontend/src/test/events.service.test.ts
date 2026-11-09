@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { eventsService } from "../api/services/events.service"
 import { api } from "../api/client"
+import { computeEventStatus } from "../context/EventDataContext"
+import type { LiveEvent } from "../context/EventDataContext"
 import type { EventCreateDraftPayload, EventReviewPayload } from "../data/contract"
 
 describe("EventsService Unit Tests (frontend/src/api/services/events.service.ts)", () => {
@@ -177,6 +179,42 @@ describe("EventsService Unit Tests (frontend/src/api/services/events.service.ts)
 
     expect(spy).toHaveBeenCalledWith("/events/101/change-room", payload)
     expect(result.success).toBe(true)
+  })
+
+  /**
+   * @test
+   * Target: UC-DISC-02 & UC-BOOK-02 (DEF-03: Event Capacity Full vs Closed Status)
+   * Course: Normal Flow / Waitlist Activation
+   * Expected: computeEventStatus returns "full" for sold-out events so FIFO waitlist CTA is shown
+   */
+  it("should compute status as 'full' instead of 'closed' when event reaches capacity", () => {
+    const fullEvent: Partial<LiveEvent> = {
+      capacity: 100,
+      registered: 100,
+      so_ve_con_lai: 0,
+      registrationOpen: true,
+      isCancelled: false,
+      trang_thai: "PUBLISHED",
+    }
+
+    expect(computeEventStatus(fullEvent as LiveEvent)).toBe("full")
+
+    const cancelledEvent: Partial<LiveEvent> = {
+      ...fullEvent,
+      isCancelled: true,
+      trang_thai: "CANCELLED",
+    }
+    expect(computeEventStatus(cancelledEvent as LiveEvent)).toBe("closed")
+
+    const openEvent: Partial<LiveEvent> = {
+      capacity: 100,
+      registered: 50,
+      so_ve_con_lai: 50,
+      registrationOpen: true,
+      isCancelled: false,
+      trang_thai: "PUBLISHED",
+    }
+    expect(computeEventStatus(openEvent as LiveEvent)).toBe("open")
   })
 })
 

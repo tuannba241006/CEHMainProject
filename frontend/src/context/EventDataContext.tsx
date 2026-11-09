@@ -63,9 +63,15 @@ export interface LiveEvent {
 }
 
 export function computeEventStatus(e: LiveEvent): EventStatus {
-  if (e.isCancelled) return "closed"
+  if (e.isCancelled || e.trang_thai === "CANCELLED") return "closed"
+  if (e.trang_thai === "COMPLETED") return "ended"
+  if (
+    e.registered >= e.capacity ||
+    (typeof e.so_ve_con_lai === "number" && e.so_ve_con_lai <= 0)
+  ) {
+    return "full"
+  }
   if (!e.registrationOpen) return "closed"
-  if (e.registered >= e.capacity) return "full"
   const ratio = (e.capacity - e.registered) / e.capacity
   if (ratio <= 0.2) return "nearly_full"
   return "open"
@@ -207,7 +213,11 @@ export function mapContractEventToLiveEvent(
     room: card.ten_phong,
     capacity,
     registered,
-    registrationOpen: card.trang_thai === "PUBLISHED" && remaining > 0,
+    registrationOpen:
+      card.trang_thai === "PUBLISHED" &&
+      (!card.thoi_gian_bat_dau ||
+        new Date(card.thoi_gian_bat_dau).getTime() - Date.now() >
+          2 * 3600 * 1000),
     isCancelled: card.trang_thai === "CANCELLED",
     banner:
       card.anh_bia ||

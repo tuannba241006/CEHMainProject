@@ -46,11 +46,12 @@ export default function MyTickets({
   const { user } = useUser()
   const { showToast } = useToast()
 
+  const userIdentifier = user?.studentId || user?.email || user?.ma_tai_khoan
   useEffect(() => {
     if (refreshTickets) {
       void refreshTickets(user)
     }
-  }, [user, refreshTickets])
+  }, [userIdentifier, refreshTickets])
   const [tab, setTab] = useState<"upcoming" | "waitlist" | "history">(
     initialTab,
   )

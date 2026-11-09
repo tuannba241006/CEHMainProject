@@ -109,6 +109,25 @@ export async function handleMockRequest<T>(
       message: "Đăng xuất thành công",
     } as T
   }
+  if (cleanPath === "/auth/verify-registration-otp") {
+    const p = body as { email?: string; otp?: string; ma_otp?: string } | undefined
+    return {
+      success: true,
+      data: {
+        ...mockUser,
+        email: p?.email || mockUser.email,
+      },
+      message: "Xác thực OTP thành công",
+    } as T
+  }
+  if (cleanPath === "/auth/register") {
+    const p = body as { email?: string } | undefined
+    return {
+      success: true,
+      data: { email: p?.email || "22520001@gm.uit.edu.vn" },
+      message: "Đăng ký thành công. Vui lòng xác thực OTP.",
+    } as T
+  }
   if (cleanPath === "/auth/profile") {
     return {
       success: true,

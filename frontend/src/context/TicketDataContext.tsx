@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from "react"
 import {
   TICKETS,
   type Ticket,
@@ -263,31 +270,34 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
   const [permissions, setPermissions] = useState<CheckInPermission[]>(SEED_PERMISSIONS)
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(SEED_ATTENDANCE)
 
-  async function refreshTickets(currentUser?: Partial<UserData> | null) {
-    setTicketsLoading(true)
-    setTicketsError(null)
-    try {
-      const res = await ticketsService.mine()
-      if (res.data && Array.isArray(res.data)) {
-        const mapped = res.data.map((t) =>
-          mapContractTicketToUiTicket(t, currentUser),
-        )
-        setTickets(mapped)
-      }
+  const refreshTickets = useCallback(
+    async (currentUser?: Partial<UserData> | null) => {
+      setTicketsLoading(true)
+      setTicketsError(null)
       try {
-        const wlRes = await waitlistService.mine()
-        if (wlRes.data && Array.isArray(wlRes.data)) {
-          setWaitlistEntries(wlRes.data)
+        const res = await ticketsService.mine()
+        if (res.data && Array.isArray(res.data)) {
+          const mapped = res.data.map((t) =>
+            mapContractTicketToUiTicket(t, currentUser),
+          )
+          setTickets(mapped)
         }
-      } catch {
-        // Fallback for waitlist
+        try {
+          const wlRes = await waitlistService.mine()
+          if (wlRes.data && Array.isArray(wlRes.data)) {
+            setWaitlistEntries(wlRes.data)
+          }
+        } catch {
+          // Fallback for waitlist
+        }
+      } catch (err) {
+        setTicketsError(getApiErrorMessage(err))
+      } finally {
+        setTicketsLoading(false)
       }
-    } catch (err) {
-      setTicketsError(getApiErrorMessage(err))
-    } finally {
-      setTicketsLoading(false)
-    }
-  }
+    },
+    [],
+  )
 
   useEffect(() => {
     void refreshTickets()

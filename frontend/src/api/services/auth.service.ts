@@ -65,6 +65,7 @@ export const authService = {
     api.post<ApiEnvelope<User>>("/auth/verify-registration-otp", {
       email,
       otp,
+      ma_otp: otp,
     }),
   async login(ten_dang_nhap: string, mat_khau: string) {
     await ensureCsrfToken()

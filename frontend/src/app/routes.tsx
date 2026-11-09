@@ -320,8 +320,8 @@ function LoginRoute({ register = false }: { register?: boolean }) {
         initialRegister={register}
         onBack={() => navigate("/events")}
         onVerify={() => navigate("/certificates/verify")}
-        onLogin={(role, email) => {
-          loginAs(email, role)
+        onLogin={(role, email, authenticatedUser) => {
+          loginAs(email, role, authenticatedUser)
           const isStaffUser =
             email === "22521999@gm.uit.edu.vn" ||
             email === "checkin@demo.edu.vn" ||

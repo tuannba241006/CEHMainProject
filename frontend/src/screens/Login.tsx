@@ -1,12 +1,12 @@
 import { useState } from "react"
 import type { Role } from "../App"
-import { useUser } from "../context/UserContext"
+import { useUser, type UserData } from "../context/UserContext"
 import { getApiErrorMessage } from "../api/errors"
 import { authService } from "../api/services/auth.service"
 import uitCampusImg from "../assets/uit-campus.jpg"
 
 interface Props {
-  onLogin: (role: Role, email: string) => void
+  onLogin: (role: Role, email: string, user?: UserData) => void
   onVerify: () => void
   onBack?: () => void
   initialRegister?: boolean
@@ -141,7 +141,7 @@ export default function Login({
                 user.don_vi.ma_don_vi_cha == null
               ? "faculty_manager"
               : "organizer"
-      onLogin(role, user.email)
+      onLogin(role, user.email, user)
     } catch (caught) {
       setError(getApiErrorMessage(caught))
     } finally {
