@@ -14,7 +14,11 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
 
 function buildUrl(path: string, query?: RequestOptions["query"]) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`
-  const fullPath = `${apiConfig.baseUrl}${normalizedPath}`
+  // Sanctum web routes are served at root domain (/sanctum/csrf-cookie), not under /api
+  const isSanctum = normalizedPath.startsWith("/sanctum/")
+  const fullPath = isSanctum
+    ? (apiConfig.origin ? `${apiConfig.origin}${normalizedPath}` : normalizedPath)
+    : `${apiConfig.baseUrl}${normalizedPath}`
   const base = typeof window !== "undefined" ? window.location.origin : "http://localhost:5173"
   const url = new URL(fullPath, base)
   Object.entries(query || {}).forEach(([key, value]) => {
@@ -23,6 +27,38 @@ function buildUrl(path: string, query?: RequestOptions["query"]) {
     }
   })
   return url.toString()
+}
+
+let csrfPromise: Promise<void> | null = null
+
+export function getXsrfToken(): string | null {
+  if (typeof document === "undefined") return null
+  const xsrfCookie = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("XSRF-TOKEN="))
+    ?.split("=")[1]
+  return xsrfCookie ? decodeURIComponent(xsrfCookie) : null
+}
+
+export async function ensureCsrfToken(force = false): Promise<void> {
+  if (!force && getXsrfToken()) {
+    return
+  }
+  if (csrfPromise) {
+    return csrfPromise
+  }
+  csrfPromise = (async () => {
+    try {
+      await request<void>("/sanctum/csrf-cookie", { method: "GET" })
+    } catch (err) {
+      if (typeof process === "undefined" || process.env?.NODE_ENV !== "test") {
+        console.warn("Sanctum CSRF pre-fetch note:", err)
+      }
+    } finally {
+      csrfPromise = null
+    }
+  })()
+  return csrfPromise
 }
 
 async function parseBody(response: Response) {
@@ -53,6 +89,7 @@ async function parseBody(response: Response) {
 export async function request<T>(
   path: string,
   options: RequestOptions = {},
+  isRetry = false,
 ): Promise<T> {
   // In demo mode, route directly to the service-level mock adapter without leaking into UI
   if (!isApiMode()) {
@@ -77,14 +114,9 @@ export async function request<T>(
     headers.set("Idempotency-Key", options.idempotencyKey)
 
   // Laravel Sanctum XSRF-TOKEN handling
-  if (typeof document !== "undefined") {
-    const xsrfCookie = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("XSRF-TOKEN="))
-      ?.split("=")[1]
-    if (xsrfCookie && !headers.has("X-XSRF-TOKEN")) {
-      headers.set("X-XSRF-TOKEN", decodeURIComponent(xsrfCookie))
-    }
+  const xsrfToken = getXsrfToken()
+  if (xsrfToken && !headers.has("X-XSRF-TOKEN")) {
+    headers.set("X-XSRF-TOKEN", xsrfToken)
   }
 
   let body: BodyInit | undefined
@@ -105,6 +137,13 @@ export async function request<T>(
     })
     const payload = await parseBody(response)
     if (response.status === 401) tokenStore.clear()
+
+    // Automatic 419 CSRF Token Mismatch Recovery (UC-AUTH-02)
+    if (response.status === 419 && !isRetry) {
+      await ensureCsrfToken(true)
+      return request<T>(path, options, true)
+    }
+
     if (!response.ok)
       throw new ApiError(response.status, (payload || {}) as ApiErrorPayload)
     return payload as T

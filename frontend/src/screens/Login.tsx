@@ -143,19 +143,6 @@ export default function Login({
               : "organizer"
       onLogin(role, user.email)
     } catch (caught) {
-      const account = ACCOUNTS.find(
-        (item) =>
-          item.email.toLowerCase() === email.trim().toLowerCase() &&
-          item.password === password,
-      )
-      if (account) {
-        if (account.roles && account.roles.length > 1) {
-          setRoleChoices({ roles: account.roles, email: account.email })
-        } else {
-          onLogin(account.role, account.email)
-        }
-        return
-      }
       setError(getApiErrorMessage(caught))
     } finally {
       setLoading(false)

@@ -51,11 +51,46 @@ export async function handleMockRequest<T>(
   // Simulate minimal async delay for realism
   await new Promise((r) => setTimeout(r, 10))
 
+  // ─── SANCTUM CSRF COOKIE (UC-AUTH-02 / NFR-SEC-01) ──────────────────────────
+  if (cleanPath === "/sanctum/csrf-cookie" || cleanPath.endsWith("/csrf-cookie")) {
+    if (typeof document !== "undefined") {
+      document.cookie = `XSRF-TOKEN=mock_xsrf_token_${Date.now()}; path=/; SameSite=Lax`
+    }
+    return undefined as unknown as T
+  }
+
   // ─── AUTH ENDPOINTS ───────────────────────────────────────────────────────────
   if (cleanPath === "/auth/login") {
+    const creds = body as { ten_dang_nhap?: string } | undefined
+    const email = creds?.ten_dang_nhap || mockUser.email
+    const isOrg = email.includes("webdev") || email.includes("bch")
+    const isAdmin =
+      email.includes("admin") || email.includes("pctsv") || email.includes("ctsv")
+    const role: User["loai_tai_khoan"] = isAdmin
+      ? "Admin"
+      : isOrg
+        ? "ToChuc"
+        : "SinhVien"
+    const currentUser: User = {
+      ...mockUser,
+      email,
+      loai_tai_khoan: role,
+      ho_ten: isAdmin
+        ? "Cán bộ Quản trị"
+        : isOrg
+          ? "Ban Tổ chức CLB WebDev"
+          : mockUser.ho_ten,
+      don_vi: isOrg
+        ? {
+            ma_don_vi: 1,
+            ten_don_vi: "CLB WebDev",
+            loai_don_vi: "CLB_Doi_Nhom",
+          }
+        : null,
+    }
     return {
       success: true,
-      data: mockUser,
+      data: currentUser,
       token: "demo_token_ceh_2026",
       server_time: new Date().toISOString(),
     } as T
@@ -443,6 +478,71 @@ export async function handleMockRequest<T>(
         ti_le_drl: 1,
       },
       message: "Điểm danh Check-out thành công.",
+    } as T
+  }
+
+  // ─── DRL ENDPOINTS (UC-DRL-01) ────────────────────────────────────────────────
+  if (cleanPath.match(/\/events\/[^/]+\/drl\/export$/)) {
+    return new Blob(
+      [
+        "STT,MSSV,Ho_Ten,Lop_Sinh_Hoat,Khoa,Ten_Su_Kien,Dieu_DRL,Diem_Cong,Thoi_Gian_Vao,Thoi_Gian_Ra,Phut_Hop_Le,Ghi_Chu\n1,22520001,Nguyen Van An,KTPM2022.1,Khoa KTPM,Su kien CEH,Dieu3,5,08:30,11:30,180,Du dieu kien",
+      ],
+      {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+    ) as unknown as T
+  }
+
+  if (cleanPath.match(/\/events\/[^/]+\/drl\/lock$/)) {
+    return {
+      success: true,
+      data: { da_chot_drl: 1 },
+      message: "Đã khóa chốt danh sách điểm rèn luyện sự kiện thành công",
+    } as T
+  }
+
+  if (cleanPath.match(/\/events\/[^/]+\/drl\/unlock$/)) {
+    return {
+      success: true,
+      data: { da_chot_drl: 0 },
+      message: "Đã mở khóa điều chỉnh điểm rèn luyện sự kiện thành công",
+    } as T
+  }
+
+  if (cleanPath.match(/\/events\/[^/]+\/drl$/)) {
+    return {
+      success: true,
+      data: [
+        {
+          stt: 1,
+          mssv: "22520001",
+          ho_ten: "Nguyễn Văn An",
+          lop_sinh_hoat: "KTPM2022.1",
+          khoa: "Khoa Kỹ thuật Phần mềm",
+          ten_su_kien: "Chương trình Gặp gỡ Tân sinh viên & Vận hành Điểm danh",
+          dieu_drl: "Dieu3",
+          diem_cong_thuc_nhan: 5,
+          thoi_gian_vao: "08:30:00",
+          thoi_gian_ra: "11:30:00",
+          thoi_luong_tham_du_phut: 180,
+          ghi_chu_tham_du: "Tham dự đầy đủ 100% thời lượng",
+        },
+        {
+          stt: 2,
+          mssv: "22520002",
+          ho_ten: "Trần Thị Bình",
+          lop_sinh_hoat: "HTTT2022.1",
+          khoa: "Khoa Hệ thống Thông tin",
+          ten_su_kien: "Chương trình Gặp gỡ Tân sinh viên & Vận hành Điểm danh",
+          dieu_drl: "Dieu3",
+          diem_cong_thuc_nhan: 5,
+          thoi_gian_vao: "08:32:00",
+          thoi_gian_ra: "11:28:00",
+          thoi_luong_tham_du_phut: 176,
+          ghi_chu_tham_du: "Tham dự đầy đủ",
+        },
+      ],
+      message: "Danh sách điểm rèn luyện sự kiện",
     } as T
   }
 

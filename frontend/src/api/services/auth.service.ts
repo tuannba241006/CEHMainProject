@@ -1,4 +1,4 @@
-import { api } from "../client"
+import { api, ensureCsrfToken } from "../client"
 import { tokenStore } from "../config"
 import type { User } from "../../data/contract"
 
@@ -56,6 +56,7 @@ export interface ResetPasswordPayload {
 }
 
 export const authService = {
+  csrfCookie: () => api.get<void>("/sanctum/csrf-cookie"),
   register: (payload: RegisterPayload) =>
     api.post<ApiEnvelope<{ email: string }>>("/auth/register", payload),
   resendRegistrationOtp: (email: string) =>
@@ -66,6 +67,7 @@ export const authService = {
       otp,
     }),
   async login(ten_dang_nhap: string, mat_khau: string) {
+    await ensureCsrfToken()
     const res = await api.post<ApiEnvelope<User> & { token?: string }>(
       "/auth/login",
       { ten_dang_nhap, mat_khau },

@@ -39,12 +39,40 @@ function Results() {
   const { attendanceRecords, recognizeAttendance, requestAttendanceRevision, events } =
     useApp()
   const { showToast } = useToast()
+
+  // Filter completed events for DRL audit with fallback to all events if none completed yet
+  const completedEvents = (events || []).filter(
+    (e) =>
+      e.trang_thai === "COMPLETED" ||
+      e.status === "closed" ||
+      e.status === "ended",
+  )
+  const selectableEvents =
+    completedEvents.length > 0 ? completedEvents : events || []
+
   const [selectedEventId, setSelectedEventId] = useState<number | string>(() => {
-    return events && events.length > 0 ? (events[0].id || 101) : 101
+    const initial = selectableEvents[0]
+    return initial ? initial.ma_su_kien || initial.id || 101 : 101
   })
+  const [showOnlyCompleted, setShowOnlyCompleted] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [drlApiRecords, setDrlApiRecords] = useState<DrlRecord[]>([])
+  const [isDrlLocked, setIsDrlLocked] = useState(false)
+
+  // Synchronize lock status with selected event's da_chot_drl state
+  useEffect(() => {
+    const current = (events || []).find(
+      (e) =>
+        String(e.ma_su_kien) === String(selectedEventId) ||
+        String(e.id) === String(selectedEventId),
+    )
+    if (current?.da_chot_drl) {
+      setIsDrlLocked(true)
+    } else {
+      setIsDrlLocked(false)
+    }
+  }, [selectedEventId, events])
 
   useEffect(() => {
     let cancelled = false
@@ -68,7 +96,6 @@ function Results() {
     }
   }, [selectedEventId])
 
-  const [isDrlLocked, setIsDrlLocked] = useState(false)
   const [lockModalOpen, setLockModalOpen] = useState(false)
   const [reasonFor, setReasonFor] = useState<string | null>(null)
   const [reason, setReason] = useState("")
@@ -191,6 +218,31 @@ function Results() {
     }
   }
 
+  async function handleExportDrl() {
+    showToast(
+      `Đang kết xuất danh sách sinh viên đủ điều kiện ĐRL chuẩn mẫu CTSV sự kiện #${selectedEventId}...`,
+      "info",
+    )
+    try {
+      const blob = await drlService.export(selectedEventId)
+      if (blob instanceof Blob) {
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `danh_sach_drl_sukien_${selectedEventId}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+        showToast("Tải bảng điểm rèn luyện thành công!", "success")
+      } else {
+        showToast("Đã tải dữ liệu bảng điểm rèn luyện.", "success")
+      }
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl">
       {error && (
@@ -216,20 +268,36 @@ function Results() {
         {/* Action Buttons: Export, Lock, Unlock */}
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-center">
           {/* Dropdown chọn sự kiện */}
-          {events && events.length > 0 && (
+          {selectableEvents && selectableEvents.length > 0 && (
             <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
               <span className="text-[11px] font-bold text-slate-500 uppercase">Sự kiện:</span>
               <select
                 value={selectedEventId}
                 onChange={(e) => setSelectedEventId(e.target.value)}
-                className="text-xs font-semibold text-navy bg-transparent border-0 focus:outline-none cursor-pointer max-w-[200px] truncate"
+                className="text-xs font-semibold text-navy bg-transparent border-0 focus:outline-none cursor-pointer max-w-[220px] truncate"
               >
-                {events.map((evt) => (
-                  <option key={evt.id} value={evt.id}>
-                    {evt.title} ({evt.date || "2026"})
+                {(showOnlyCompleted && completedEvents.length > 0
+                  ? completedEvents
+                  : events
+                ).map((evt) => (
+                  <option
+                    key={evt.ma_su_kien || evt.id}
+                    value={evt.ma_su_kien || evt.id}
+                  >
+                    #{evt.ma_su_kien || evt.id} - {evt.title || evt.ten_su_kien} ({evt.trang_thai || "COMPLETED"})
                   </option>
                 ))}
               </select>
+              {completedEvents.length > 0 && completedEvents.length < events.length && (
+                <button
+                  type="button"
+                  onClick={() => setShowOnlyCompleted((prev) => !prev)}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold underline ml-1 cursor-pointer"
+                  title="Chuyển đổi hiển thị giữa sự kiện COMPLETED và tất cả sự kiện"
+                >
+                  {showOnlyCompleted ? "Tất cả" : "Chỉ COMPLETED"}
+                </button>
+              )}
             </div>
           )}
 
@@ -246,13 +314,7 @@ function Results() {
 
           {/* Xuất file Excel ĐRL (GET /events/{id}/drl/export) */}
           <button
-            onClick={() => {
-              showToast(
-                "Đang kết xuất danh sách sinh viên đủ điều kiện ĐRL chuẩn mẫu CTSV (12 cột)...",
-                "info",
-              )
-            }}
-            onClickCapture={() => void drlService.export(selectedEventId).catch(() => null)}
+            onClick={() => void handleExportDrl()}
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
             title="Kết xuất file Excel bảng điểm rèn luyện 12 cột chuẩn mẫu CTSV gửi Phòng Đào tạo (GET /events/{id}/drl/export)"
           >

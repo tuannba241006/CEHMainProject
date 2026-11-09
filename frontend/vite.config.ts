@@ -9,6 +9,14 @@ export default defineConfig({
     port: 5173,
     host: "0.0.0.0",
     proxy: {
+      "/sanctum": {
+        target:
+          process.env.VITE_BACKEND_URL ||
+          process.env.VITE_MOCK_URL ||
+          "http://localhost:8000",
+        changeOrigin: true,
+        secure: false,
+      },
       "/api": {
         target:
           process.env.VITE_BACKEND_URL ||

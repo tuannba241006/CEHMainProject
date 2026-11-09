@@ -1,1 +1,0 @@
-import{l as o}from"./index-CUFXGsUF.js";const t={organizer:a=>o.get(`/organizer/events/${a}/analytics`),adminMacro:a=>o.get("/admin/analytics/macro",{query:a}),noShow:a=>o.get("/admin/analytics/no-show-violations",{query:a}),exportMacro:a=>o.get("/admin/analytics/macro/export",{query:a})};export{t as r};
