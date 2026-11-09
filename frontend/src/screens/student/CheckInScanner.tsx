@@ -6,6 +6,7 @@ import { ticketsService } from "../../api/services/tickets.service"
 import { getApiErrorMessage } from "../../api/errors"
 import type { Ticket } from "../../data/contract"
 import { kioskQrPattern, useKioskCamera } from "../../hooks/useKioskCamera"
+import { MapPin, LogIn, LogOut, AlertTriangle, Check } from "lucide-react"
 
 type ScanMode = "checkin" | "checkout"
 
@@ -293,8 +294,9 @@ export default function CheckInScanner({ onNavigate }: Props) {
               </select>
             )}
             {selectedEvent && (
-              <p className="text-[11px] text-slate-500 mt-1.5">
-                📍 {selectedEvent.room} · {selectedEvent.location}
+              <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>{selectedEvent.room} · {selectedEvent.location}</span>
               </p>
             )}
           </div>
@@ -320,7 +322,8 @@ export default function CheckInScanner({ onNavigate }: Props) {
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <span>➡️ Quét vào (Check-in)</span>
+              <LogIn className="w-4 h-4" />
+              <span>Quét vào (Check-in)</span>
             </button>
             <button
               disabled={loading}
@@ -335,7 +338,8 @@ export default function CheckInScanner({ onNavigate }: Props) {
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <span>⬅️ Quét ra (Check-out)</span>
+              <LogOut className="w-4 h-4" />
+              <span>Quét ra (Check-out)</span>
             </button>
           </div>
 
@@ -480,8 +484,9 @@ export default function CheckInScanner({ onNavigate }: Props) {
               </button>
             </div>
             {error && (
-              <p className="mt-3 text-xs text-rose-600 font-medium bg-rose-50 p-2.5 rounded-xl border border-rose-100">
-                ⚠️ {error}
+              <p className="mt-3 text-xs text-rose-600 font-medium bg-rose-50 p-2.5 rounded-xl border border-rose-100 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{error}</span>
               </p>
             )}
           </div>
@@ -498,7 +503,7 @@ export default function CheckInScanner({ onNavigate }: Props) {
                 <div
                   className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-xl bg-emerald-600 text-white"
                 >
-                  ✓
+                  <Check className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-base">

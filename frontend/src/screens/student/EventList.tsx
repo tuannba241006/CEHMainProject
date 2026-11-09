@@ -9,6 +9,21 @@ import {
   type EventStatus,
 } from "../../context/AppContext"
 
+import {
+  Search,
+  Calendar,
+  MapPin,
+  User as UserIcon,
+  Clock,
+  Sparkles,
+  Ticket,
+  CheckCircle2,
+  Check,
+  Filter,
+  X,
+  GraduationCap,
+} from "lucide-react"
+
 export { TOPIC_LABELS }
 
 interface Props {
@@ -103,7 +118,8 @@ export default function EventList({
                 </div>
               ) : (
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 mb-3">
-                  <span>👋 Xin chào, {user.displayName}</span>
+                  <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Xin chào, {user.displayName}</span>
                   <span>·</span>
                   <span>{user.faculty}</span>
                 </div>
@@ -447,10 +463,10 @@ function EventCard({
           >
             {status === "full" && !isRegistered
               ? waitlistEntry?.trang_thai === "OFFERED"
-                ? "🎉 Có suất nhận vé (Sàn 15p)"
+                ? "Có suất nhận vé (Hạn 15p)"
                 : waitlistEntry
-                  ? `⏳ Trong hàng chờ #${waitlistEntry.so_thu_tu}`
-                  : "⏳ Hết vé · Mở hàng chờ FIFO"
+                  ? `Hàng chờ FIFO #${waitlistEntry.so_thu_tu}`
+                  : "Hết vé · Hàng chờ FIFO mở"
               : EVENT_STATUS_LABELS[status]}
           </span>
         </div>
@@ -477,22 +493,22 @@ function EventCard({
           </div>
           {isRegistered && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
-              ✓ Đã có vé
+              Đã có vé
             </span>
           )}
           {!isRegistered && waitlistEntry?.trang_thai === "OFFERED" && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-xs animate-pulse">
-              🎉 Có suất vé chờ xác nhận
+              Suất vé chờ xác nhận
             </span>
           )}
           {!isRegistered && waitlistEntry?.trang_thai === "WAITING" && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white shadow-xs">
-              ⏳ Hàng chờ #{waitlistEntry.so_thu_tu}
+              Hàng chờ #{waitlistEntry.so_thu_tu}
             </span>
           )}
           {!isRegistered && !waitlistEntry && status === "full" && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600/90 text-white shadow-xs">
-              ⏳ Hàng chờ FIFO mở
+              Hàng chờ FIFO mở
             </span>
           )}
         </div>
@@ -611,13 +627,13 @@ function EventCard({
             }}
           >
             {!isGuest && isRegistered
-              ? "✓ Xem vé của bạn"
+              ? "Xem vé của bạn →"
               : waitlistEntry?.trang_thai === "OFFERED"
-                ? "🎉 Bạn có suất nhận vé — Mở Ví vé →"
+                ? "Có suất nhận vé — Mở Ví vé →"
                 : waitlistEntry
-                  ? `⏳ Đang trong hàng chờ FIFO #${waitlistEntry.so_thu_tu} →`
+                  ? `Trong hàng chờ FIFO #${waitlistEntry.so_thu_tu} →`
                   : status === "full"
-                    ? "⏳ Hết vé · Đăng ký hàng chờ FIFO →"
+                    ? "Hết vé · Đăng ký hàng chờ FIFO →"
                     : isGuest
                       ? "Xem chi tiết sự kiện →"
                       : "Xem chi tiết & Đăng ký →"}

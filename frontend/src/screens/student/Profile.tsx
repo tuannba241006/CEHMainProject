@@ -3,6 +3,7 @@ import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
 import { authService } from "../../api/services/auth.service"
 import { getApiErrorMessage } from "../../api/errors"
+import { Camera, Trash2, AlertTriangle, X } from "lucide-react"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -307,7 +308,8 @@ export default function Profile({ onNavigate, onLogout }: Props) {
             >
               {passError && (
                 <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-100 font-medium">
-                  ⚠️ {passError}
+                  <AlertTriangle className="w-3.5 h-3.5 inline mr-1 text-rose-600" />
+                  <span>{passError}</span>
                 </p>
               )}
               <div>
@@ -467,9 +469,10 @@ export default function Profile({ onNavigate, onLogout }: Props) {
               </h3>
               <button
                 onClick={() => setShowAvatarModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                title="Đóng"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -500,7 +503,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
                 className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left flex items-center justify-between cursor-pointer"
               >
                 <span>Chọn ảnh mẫu chân dung sinh viên</span>
-                <span>📸</span>
+                <Camera className="w-4 h-4 text-slate-500" />
               </button>
 
               <button
@@ -512,7 +515,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
                 className="w-full py-2.5 px-4 rounded-xl border border-rose-100 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left flex items-center justify-between cursor-pointer"
               >
                 <span>Xóa ảnh đại diện (sử dụng chữ cái đầu)</span>
-                <span>🗑️</span>
+                <Trash2 className="w-4 h-4 text-rose-500" />
               </button>
             </div>
 

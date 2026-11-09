@@ -7,6 +7,7 @@ import {
   useParams,
 } from "react-router"
 import { lazy, Suspense, useEffect, type ReactNode } from "react"
+import { AlertTriangle } from "lucide-react"
 import StudentLayout from "../components/StudentLayout"
 import { useUser, type AppRole } from "../context/UserContext"
 import type { Ticket } from "../data/mock"
@@ -60,8 +61,8 @@ export function RouteErrorBoundary() {
   return (
     <div className="flex min-h-[60vh] w-full flex-col items-center justify-center p-8 text-center">
       <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-2xl text-amber-600">
-          ⚠️
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+          <AlertTriangle className="h-7 w-7" />
         </div>
         <h2 className="font-display text-lg font-bold text-slate-900">
           Phiên bản giao diện đã được cập nhật

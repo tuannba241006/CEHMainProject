@@ -10,6 +10,7 @@ import { getApiErrorMessage } from "../../api/errors"
 import { organizationsService } from "../../api/services/organizations.service"
 import { roomsService } from "../../api/services/rooms.service"
 import { api } from "../../api/client"
+import { Sparkles, Calendar, MapPin, Users, X } from "lucide-react"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -319,8 +320,8 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                   onClick={() => setShowAiModal(true)}
                   className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-purple-200"
                 >
-                  <span>✨</span>
-                  <span>Trợ lý AI gợi ý nội dung</span>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Trợ lý gợi ý nội dung & Agenda</span>
                 </button>
               </div>
               <FormField label="Tên sự kiện" required error={errors.title}>
@@ -667,21 +668,18 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                   {form.title || "Tên sự kiện sẽ hiển thị ở đây"}
                 </h4>
                 <div className="space-y-1.5">
-                  {[
-                    form.eventDate
-                      ? `📅 ${formatCalendarDate(form.eventDate)}`
-                      : "📅 Chưa chọn ngày",
-                    form.room || form.location
-                      ? `📍 ${form.room || form.location}`
-                      : "📍 Chưa có địa điểm",
-                    form.capacity
-                      ? `👥 0/${form.capacity} chỗ`
-                      : "👥 Chưa có sức chứa",
-                  ].map((t, i) => (
-                    <p key={i} className="text-xs" style={{ color: "#94a3b8" }}>
-                      {t}
-                    </p>
-                  ))}
+                  <p className="text-xs flex items-center gap-1.5 text-slate-500">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{form.eventDate ? formatCalendarDate(form.eventDate) : "Chưa chọn ngày"}</span>
+                  </p>
+                  <p className="text-xs flex items-center gap-1.5 text-slate-500">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{form.room || form.location || "Chưa có địa điểm"}</span>
+                  </p>
+                  <p className="text-xs flex items-center gap-1.5 text-slate-500">
+                    <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{form.capacity ? `0/${form.capacity} chỗ` : "Chưa có sức chứa"}</span>
+                  </p>
                 </div>
               </div>
             </div>
@@ -740,30 +738,31 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-lg">
-                    ✨
+                  <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-purple-700" />
                   </div>
                   <div>
                     <h3 className="font-display font-bold text-lg text-slate-900">
-                      Trợ lý AI Gợi ý Nội dung & Agenda
+                      Gợi ý Nội dung & Timeline Sự kiện
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Trợ lý sáng tạo nội dung sự kiện
+                      Hỗ trợ soạn thảo khung chương trình chuẩn CTSV
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowAiModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                  title="Đóng"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               <p className="text-xs text-slate-600 mb-4 leading-relaxed">
                 Nhập từ khóa hoặc ý tưởng chủ đề sự kiện của bạn (ví dụ:{" "}
                 <em>"Workshop AI Agent & React cho sinh viên UIT"</em>,{" "}
-                <em>"Giải bóng đá tân sinh viên 2026"</em>). AI sẽ tự động sinh
+                <em>"Giải bóng đá tân sinh viên 2026"</em>). Hệ thống sẽ tự động sinh
                 tiêu đề thu hút, mô tả chi tiết và khung timeline chương trình.
               </p>
 
@@ -783,11 +782,11 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                   {aiGenerating ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>AI đang sáng tạo nội dung...</span>
+                      <span>Đang tạo nội dung đề xuất...</span>
                     </>
                   ) : (
                     <>
-                      <span>✨</span>
+                      <Sparkles className="w-3.5 h-3.5" />
                       <span>Tạo nội dung & Agenda ngay</span>
                     </>
                   )}

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react"
 import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
+import { CheckCircle2, XCircle, RefreshCw, AlertTriangle, Building2, Clock, Check, X } from "lucide-react"
 
 export interface AdminCohostInvitation {
   id: string
@@ -244,18 +245,19 @@ export default function AdminCohostInvitations() {
         {/* Dropdown chọn Đơn vị nhận lời mời */}
         <div className="flex items-center gap-2 self-start lg:self-center">
           <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-2xl border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">🏛️ Đơn vị đại diện:</span>
+            <Building2 className="w-3.5 h-3.5 text-slate-500" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Đơn vị đại diện:</span>
             <select
               value={selectedUnit}
               onChange={(e) => setSelectedUnit(e.target.value)}
               className="text-xs font-bold text-navy bg-transparent border-0 focus:outline-none cursor-pointer"
             >
-              <option value="all">🏛️ Toàn trường (Tất cả đơn vị)</option>
-              <option value="pctsv">🏢 Phòng Công tác Sinh viên (P.CTSV)</option>
-              <option value="Khoa Hệ thống Thông tin">🎓 Khoa Hệ thống Thông tin</option>
-              <option value="CLB WebDev UIT">⚡ CLB WebDev UIT</option>
-              <option value="Khoa Kỹ thuật Phần mềm">💻 Khoa Kỹ thuật Phần mềm</option>
-              <option value="CLB Sách & Tri Thức">📚 CLB Sách & Tri Thức</option>
+              <option value="all">Toàn trường (Tất cả đơn vị)</option>
+              <option value="pctsv">Phòng Công tác Sinh viên (P.CTSV)</option>
+              <option value="Khoa Hệ thống Thông tin">Khoa Hệ thống Thông tin</option>
+              <option value="CLB WebDev UIT">CLB WebDev UIT</option>
+              <option value="Khoa Kỹ thuật Phần mềm">Khoa Kỹ thuật Phần mềm</option>
+              <option value="CLB Sách & Tri Thức">CLB Sách & Tri Thức</option>
             </select>
           </div>
         </div>
@@ -318,20 +320,23 @@ export default function AdminCohostInvitations() {
                   </span>
 
                   {inv.status === "pending" && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-                      ⏱️ Thời hạn Soft Hold còn {inv.softHoldRemainingHours} giờ
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      <span>Thời hạn Soft Hold còn {inv.softHoldRemainingHours} giờ</span>
                     </span>
                   )}
 
                   {inv.status === "accepted" && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      ✓ Đã đồng ý (DONG_Y)
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span>Đã đồng ý (DONG_Y)</span>
                     </span>
                   )}
 
                   {inv.status === "declined" && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                      ✗ Đã từ chối (TU_CHOI)
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                      <X className="w-3 h-3 text-rose-600" />
+                      <span>Đã từ chối (TU_CHOI)</span>
                     </span>
                   )}
                 </div>
@@ -380,7 +385,7 @@ export default function AdminCohostInvitations() {
                       disabled={submitting}
                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      <span>✅</span>
+                      <CheckCircle2 className="w-4 h-4" />
                       <span>Duyệt thay: Đồng ý</span>
                     </button>
                     <button
@@ -391,7 +396,7 @@ export default function AdminCohostInvitations() {
                       disabled={submitting}
                       className="px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      <span>❌</span>
+                      <XCircle className="w-4 h-4" />
                       <span>Duyệt thay: Từ chối</span>
                     </button>
                   </>
@@ -407,7 +412,7 @@ export default function AdminCohostInvitations() {
                     }}
                     className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600 cursor-pointer"
                   >
-                    🔄 Đổi quyết định
+                    <span className="flex items-center gap-1.5"><RefreshCw className="w-3.5 h-3.5" /> Đổi quyết định</span>
                   </button>
                 )}
               </div>
@@ -427,7 +432,7 @@ export default function AdminCohostInvitations() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
             <h3 className="font-display font-bold text-lg text-navy flex items-center gap-2">
-              <span>❌</span> Duyệt thay: Từ chối lời mời phối hợp
+              <XCircle className="w-5 h-5 text-rose-600" /> Duyệt thay: Từ chối lời mời phối hợp
             </h3>
             <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
               Bạn đang thực thi thẩm quyền Admin để từ chối lời mời đồng tổ chức cho sự kiện{" "}
@@ -446,7 +451,7 @@ export default function AdminCohostInvitations() {
                 className="w-full p-2.5 rounded-xl border border-rose-200 text-xs focus:outline-none focus:border-rose-500"
               />
               <p className="text-[11px] text-rose-600 mt-1">
-                ⚠️ Khi từ chối, sự kiện chuyển sang COHOST_REJECTED và phòng hội trường được giải phóng an toàn.
+                <span className="flex items-start gap-1"><AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" /> <span>Khi từ chối, sự kiện chuyển sang COHOST_REJECTED và phòng hội trường được giải phóng an toàn.</span></span>
               </p>
             </div>
 

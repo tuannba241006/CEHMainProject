@@ -5,6 +5,19 @@ import { useNavigate, useParams } from "react-router"
 import { attendanceService } from "../../api/services/attendance.service"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
+import {
+  Maximize2,
+  Minimize2,
+  Lock,
+  Check,
+  LogIn,
+  LogOut,
+  AlertTriangle,
+  Zap,
+  CheckCircle2,
+  ShieldCheck,
+  Clock,
+} from "lucide-react"
 
 const simulatedTimeModes = [
   { mode: "real", label: "Thời gian thực" },
@@ -292,7 +305,7 @@ export default function KioskPortal() {
             onClick={toggleFullscreen}
             className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors"
           >
-            <span>{isFullscreen ? "🗗" : "⛶"}</span>
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             <span className="hidden sm:inline">
               {isFullscreen ? "Thu nhỏ" : "Toàn màn hình"}
             </span>
@@ -317,8 +330,8 @@ export default function KioskPortal() {
       {/* Simulation Controls are intentionally unavailable against the API. */}
       <div className="my-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 text-slate-400">
-          <span className="font-semibold text-slate-300">
-            ⏱️ DEMO — Giả lập trạng thái thời gian:
+          <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-slate-400" /> DEMO — Giả lập trạng thái thời gian:
           </span>
         </div>
         <div className="flex flex-wrap gap-1">
@@ -358,7 +371,7 @@ export default function KioskPortal() {
                 />
                 {gate === "closed" && (
                   <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-xs rounded-3xl flex flex-col items-center justify-center p-4">
-                    <span className="text-3xl mb-2">🔒</span>
+                    <Lock className="w-8 h-8 text-slate-300 mb-2" />
                     <p className="font-display font-bold text-lg text-white">
                       Cổng đang đóng
                     </p>
@@ -441,8 +454,9 @@ export default function KioskPortal() {
               </p>
             </div>
             {gate !== "closed" && (
-              <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
-                <span>✓</span> Sinh viên có thể quét mã trực tiếp trên màn hình
+              <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Sinh viên có thể quét mã trực tiếp trên màn hình</span>
               </p>
             )}
           </div>
@@ -465,7 +479,7 @@ export default function KioskPortal() {
                       : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60"
                 }`}
               >
-                <span>🚪</span>
+                <LogIn className="w-5 h-5" />
                 <span>Mở cổng Check-in</span>
               </button>
               {!canOpenCheckin && (
@@ -499,7 +513,7 @@ export default function KioskPortal() {
                       : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60"
                 }`}
               >
-                <span>🏁</span>
+                <LogOut className="w-5 h-5" />
                 <span>
                   {isEarlyCheckout
                     ? "Mở sớm Check-out (25m cuối)"
@@ -510,7 +524,8 @@ export default function KioskPortal() {
               {/* Ràng buộc Check-out (T_end - 25m) message per SRS UC-OPS-01 */}
               {isCheckoutLocked ? (
                 <p className="text-[11px] text-amber-400 mt-1.5 leading-relaxed">
-                  ⚠️ <strong>Ràng buộc T_end - 25m:</strong> Chỉ được mở cổng
+                  <AlertTriangle className="w-3.5 h-3.5 inline mr-1 text-amber-400 shrink-0" />
+                  <strong>Ràng buộc T_end - 25m:</strong> Chỉ được mở cổng
                   Check-out tối đa 25 phút trước giờ kết thúc kế hoạch (từ{" "}
                   {new Date(tEndMinus25m).toLocaleTimeString("vi-VN", {
                     hour: "2-digit",
@@ -520,7 +535,8 @@ export default function KioskPortal() {
                 </p>
               ) : isEarlyCheckout ? (
                 <p className="text-[11px] text-amber-300 mt-1.5 leading-relaxed">
-                  ⚡ <strong>Khung mở sớm (T_end - 25m):</strong> Mở Check-out
+                  <Zap className="w-3.5 h-3.5 inline mr-1 text-amber-300 shrink-0" />
+                  <strong>Khung mở sớm (T_end - 25m):</strong> Mở Check-out
                   lúc này yêu cầu nhập xác nhận từ khóa{" "}
                   <code className="bg-amber-950 px-1 rounded text-amber-200">
                     CONFIRM
@@ -533,7 +549,8 @@ export default function KioskPortal() {
                 </p>
               ) : (
                 <p className="text-[11px] text-emerald-400 mt-1.5 leading-relaxed">
-                  ✓ Đã chạm/vượt giờ kết thúc kế hoạch (
+                  <CheckCircle2 className="w-3.5 h-3.5 inline mr-1 text-emerald-400 shrink-0" />
+                  Đã chạm/vượt giờ kết thúc kế hoạch (
                   {event?.endTime || "11:30"}). Mở bình thường.
                 </p>
               )}
@@ -550,13 +567,15 @@ export default function KioskPortal() {
 
           <div className="border-t border-slate-800 pt-3 text-[11px] text-slate-400 space-y-1">
             <p>
-              🔒 <strong>Cơ chế Tách phiên Kiosk:</strong> Phiên Kiosk sử dụng{" "}
+              <ShieldCheck className="w-3.5 h-3.5 inline mr-1 text-indigo-400 shrink-0" />
+              <strong>Cơ chế Tách phiên Kiosk:</strong> Phiên Kiosk sử dụng{" "}
               <code className="text-slate-300">kiosk_token_hash</code> (SHA-256)
               độc lập, không bị ảnh hưởng khi các tài khoản khác đăng nhập/đăng
               xuất trên thiết bị cá nhân.
             </p>
             <p>
-              ⏰ <strong>Thời gian thu hồi tự động:</strong> Cổng và phiên tự
+              <Clock className="w-3.5 h-3.5 inline mr-1 text-slate-400 shrink-0" />
+              <strong>Thời gian thu hồi tự động:</strong> Cổng và phiên tự
               động đóng tại{" "}
               <code className="text-slate-300">
                 {new Date(tKioskExpiry).toLocaleTimeString("vi-VN", {
@@ -574,8 +593,8 @@ export default function KioskPortal() {
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl text-white">
-            <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto mb-3 text-2xl">
-              ⚠️
+            <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto mb-3">
+              <AlertTriangle className="w-6 h-6 text-amber-400" />
             </div>
             <h3 className="font-display font-bold text-lg text-center text-white">
               Xác nhận mở cổng Check-out sớm

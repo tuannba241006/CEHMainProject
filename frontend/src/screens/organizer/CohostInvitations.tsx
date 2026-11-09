@@ -4,6 +4,7 @@ import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
+import { AlertTriangle, Mail, Check, X, Calendar, MapPin } from "lucide-react"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -356,8 +357,8 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
-            <span>⚠️</span>
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2.5 text-sm">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -378,8 +379,8 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
           </div>
         ) : filtered.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-3">
-              ✉️
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <Mail className="w-7 h-7" />
             </div>
             <h3 className="font-display font-bold text-base text-slate-900">
               Không có lời mời nào
@@ -410,13 +411,15 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                         </span>
                       )}
                       {inv.status === "accepted" && (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          ✓ Đã đồng ý (DONG_Y)
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Đã đồng ý (DONG_Y)</span>
                         </span>
                       )}
                       {inv.status === "declined" && (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                          ✕ Đã từ chối (TU_CHOI)
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                          <X className="w-3.5 h-3.5" />
+                          <span>Đã từ chối (TU_CHOI)</span>
                         </span>
                       )}
                     </div>
@@ -441,16 +444,18 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                         <span className="text-slate-400">
                           Thời gian tổ chức:
                         </span>
-                        <p className="font-semibold text-slate-900 mt-0.5">
-                          📅 {inv.eventDate} ({inv.eventTime})
+                        <p className="font-semibold text-slate-900 mt-0.5 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span>{inv.eventDate} ({inv.eventTime})</span>
                         </p>
                       </div>
                       <div>
                         <span className="text-slate-400">
                           Địa điểm / Hội trường:
                         </span>
-                        <p className="font-semibold text-slate-900 mt-0.5">
-                          📍 {inv.roomName}
+                        <p className="font-semibold text-slate-900 mt-0.5 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span>{inv.roomName}</span>
                         </p>
                       </div>
                     </div>

@@ -11,6 +11,18 @@ import { useUser } from "../../context/UserContext"
 import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
+import {
+  Calendar,
+  MapPin,
+  Award,
+  User as UserIcon,
+  Clock,
+  Share2,
+  CheckCircle2,
+  ShieldCheck,
+  AlertCircle,
+  ArrowLeft,
+} from "lucide-react"
 
 const TOPIC_COLORS: Record<string, string> = {
   academic: "#4f46e5",
@@ -534,8 +546,8 @@ export default function EventDetail({
                         key={i}
                         className="flex items-center gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0 text-xs font-bold">
-                          ✓
+                        <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center flex-shrink-0 text-xs font-bold border border-emerald-100">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         </div>
                         <span className="text-xs sm:text-sm font-medium text-slate-800">
                           {b}
@@ -606,7 +618,7 @@ export default function EventDetail({
             {/* Key Event Facts */}
             <div className="space-y-3.5 mb-6 text-xs border-y border-slate-100 py-4">
               <div className="flex items-start gap-3">
-                <span className="text-slate-400 text-sm">📅</span>
+                <Calendar className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-slate-800">
                     {dateFormatted}
@@ -618,7 +630,7 @@ export default function EventDetail({
               </div>
 
               <div className="flex items-start gap-3">
-                <span className="text-slate-400 text-sm">📍</span>
+                <MapPin className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-slate-800">{event.room}</p>
                   <p className="text-slate-500 mt-0.5">{event.location}</p>
@@ -626,7 +638,7 @@ export default function EventDetail({
               </div>
 
               <div className="flex items-start gap-3">
-                <span className="text-slate-400 text-sm">🎖️</span>
+                <Award className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-slate-800">
                     +5 Điểm rèn luyện
@@ -638,7 +650,7 @@ export default function EventDetail({
               </div>
 
               <div className="flex items-start gap-3">
-                <span className="text-slate-400 text-sm">👤</span>
+                <UserIcon className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-slate-800">
                     {isGuest ? "Dành cho sinh viên toàn trường" : user.name}
@@ -656,7 +668,7 @@ export default function EventDetail({
             {status === "full" && (
               <div className="mb-4 p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-xs space-y-2.5">
                 <div className="flex items-center gap-2 text-amber-900 font-bold">
-                  <span className="text-base">⏳</span>
+                  <Clock className="w-4 h-4 text-amber-700 shrink-0" />
                   <span>Hàng đợi danh sách chờ (FIFO)</span>
                 </div>
                 <p className="text-amber-800 leading-relaxed">
@@ -672,7 +684,7 @@ export default function EventDetail({
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping flex-shrink-0" />
                           <p className="font-bold text-amber-950">
-                            🎉 Chúc mừng! Bạn đang có suất nhận vé!
+                            Suất nhận vé ưu tiên đã sẵn sàng!
                           </p>
                         </div>
                         <p className="text-[11px] text-amber-800">
@@ -800,7 +812,7 @@ export default function EventDetail({
               className="w-full mt-2.5 py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
               title="Sao chép liên kết chia sẻ sự kiện"
             >
-              <span>🔗</span>
+              <Share2 className="w-3.5 h-3.5 text-slate-500" />
               <span>Chia sẻ liên kết sự kiện</span>
             </button>
 

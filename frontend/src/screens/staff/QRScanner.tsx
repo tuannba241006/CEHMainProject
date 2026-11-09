@@ -5,6 +5,7 @@ import { useApp, type CheckInResult } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
 import { attendanceService } from "../../api/services/attendance.service"
 import { getApiErrorMessage } from "../../api/errors"
+import { Camera, Calendar, Ticket } from "lucide-react"
 
 interface Props {
   onLogout: () => void
@@ -288,7 +289,7 @@ export default function QRScanner({
         <div className="pt-3 flex items-center justify-between gap-3">
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-1">
-              <span>📷</span>
+              <Camera className="w-3 h-3 text-amber-300" />
               <span>
                 {isFaculty
                   ? "Ban Quản lý Khoa soát vé"
@@ -331,9 +332,10 @@ export default function QRScanner({
             {isFaculty && onNavigateToEvents && (
               <button
                 onClick={onNavigateToEvents}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 bg-white/10 hover:bg-white/20 transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                🎪 Sự kiện Khoa
+                <Calendar className="w-3.5 h-3.5 text-slate-300" />
+                <span>Sự kiện Khoa</span>
               </button>
             )}
             <button
@@ -636,15 +638,17 @@ export default function QRScanner({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 onClick={() => handleScan("TKT-2026-001928|EVT001|22521088")}
-                className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-colors bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 cursor-pointer"
+                className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-colors bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 cursor-pointer flex items-center gap-1.5"
               >
-                🎟️ Vé SV: Nguyễn Ngọc Mai (22521088)
+                <Ticket className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+                <span>Vé SV: Nguyễn Ngọc Mai (22521088)</span>
               </button>
               <button
                 onClick={() => handleScan("TKT-2026-003412|EVT005|22521001")}
-                className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-colors bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/30 cursor-pointer"
+                className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-colors bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/30 cursor-pointer flex items-center gap-1.5"
               >
-                🎟️ Vé SV: Cao Duy Anh (22521001)
+                <Ticket className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                <span>Vé SV: Cao Duy Anh (22521001)</span>
               </button>
             </div>
           </div>

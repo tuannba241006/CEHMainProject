@@ -2,6 +2,27 @@ import { useState, useRef, useEffect } from "react"
 import { useUser } from "../context/UserContext"
 import { useApp } from "../context/AppContext"
 import { getNotifIcon, type Notification } from "../data/notifications"
+import {
+  Camera,
+  Building2,
+  Calendar,
+  CalendarDays,
+  Users,
+  Sliders,
+  ClipboardList,
+  Shield,
+  Search,
+  Bell,
+  Ticket,
+  Award,
+  User as UserIcon,
+  LogOut,
+  Menu,
+  X,
+  CheckCircle2,
+  QrCode,
+  Compass,
+} from "lucide-react"
 
 interface Props {
   current: string
@@ -204,10 +225,10 @@ export default function WebNavbar({
                   {hasCheckinPermission && (
                     <button
                       onClick={() => onNavigate("staff-scanner")}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-xs transition-all cursor-pointer"
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-all cursor-pointer"
                       title="Chức năng dành cho CTV: Hướng camera quét mã QR trên vé của sinh viên"
                     >
-                      <span>📷</span>
+                      <Camera className="w-4 h-4 shrink-0" />
                       <span>Soát vé CTV (Quét vé SV)</span>
                     </button>
                   )}
@@ -220,21 +241,21 @@ export default function WebNavbar({
                     onClick={() => onNavigate("/faculty/approvals")}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
                   >
-                    <span>🏢</span>
+                    <Building2 className="w-4 h-4 shrink-0 text-indigo-600" />
                     <span>Bàn làm việc Khoa</span>
                   </button>
                   <button
                     onClick={() => onNavigate("/organizer/events")}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
                   >
-                    <span>📅</span>
+                    <Calendar className="w-4 h-4 shrink-0 text-slate-500" />
                     <span>Sự kiện Khoa</span>
                   </button>
                   <button
                     onClick={() => onNavigate("staff-scanner")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer border border-amber-200"
                   >
-                    <span>📷</span>
+                    <Camera className="w-4 h-4 shrink-0 text-amber-600" />
                     <span>Soát vé Camera</span>
                   </button>
                 </>
@@ -246,21 +267,21 @@ export default function WebNavbar({
                     onClick={() => onNavigate("/organizer/events")}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
                   >
-                    <span>🎪</span>
+                    <CalendarDays className="w-4 h-4 shrink-0 text-indigo-600" />
                     <span>Quản lý sự kiện</span>
                   </button>
                   <button
                     onClick={() => onNavigate("/organizer/participants")}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
                   >
-                    <span>👥</span>
+                    <Users className="w-4 h-4 shrink-0 text-slate-500" />
                     <span>Người tham gia</span>
                   </button>
                   <button
                     onClick={() => onNavigate("staff-scanner")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer border border-amber-200"
                   >
-                    <span>📷</span>
+                    <Camera className="w-4 h-4 shrink-0 text-amber-600" />
                     <span>Soát vé Camera</span>
                   </button>
                 </>
@@ -272,14 +293,14 @@ export default function WebNavbar({
                     onClick={() => onNavigate("/admin/dashboard")}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
                   >
-                    <span>⚙️</span>
+                    <Sliders className="w-4 h-4 shrink-0 text-indigo-600" />
                     <span>Cổng Quản trị viên</span>
                   </button>
                   <button
                     onClick={() => onNavigate(role === "student_affairs" ? "/affairs/approvals" : "/admin/reports")}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
                   >
-                    <span>📋</span>
+                    <ClipboardList className="w-4 h-4 shrink-0 text-slate-500" />
                     <span>Duyệt hồ sơ sự kiện</span>
                   </button>
                 </>
@@ -520,7 +541,7 @@ export default function WebNavbar({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
                           >
-                            <span>📊</span>
+                            <Sliders className="w-4 h-4 shrink-0 text-indigo-600" />
                             <span>Bảng điều khiển Ban tổ chức →</span>
                           </button>
                         )}
@@ -532,7 +553,7 @@ export default function WebNavbar({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
                           >
-                            <span>🛡️</span>
+                            <Shield className="w-4 h-4 shrink-0 text-indigo-600" />
                             <span>Bảng điều khiển Quản trị viên →</span>
                           </button>
                         )}
@@ -545,7 +566,7 @@ export default function WebNavbar({
                               }}
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
                             >
-                              <span>📋</span>
+                              <ClipboardList className="w-4 h-4 shrink-0 text-indigo-600" />
                               <span>Hồ sơ Thẩm định cấp Khoa →</span>
                             </button>
                             <button
@@ -555,7 +576,7 @@ export default function WebNavbar({
                               }}
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors cursor-pointer"
                             >
-                              <span>🎪</span>
+                              <CalendarDays className="w-4 h-4 shrink-0 text-slate-500" />
                               <span>Không gian Quản lý sự kiện →</span>
                             </button>
                             <button
@@ -563,9 +584,9 @@ export default function WebNavbar({
                                 setUserMenuOpen(false)
                                 onNavigate("staff-scanner")
                               }}
-                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 text-left transition-colors cursor-pointer border border-amber-200"
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 text-left transition-colors cursor-pointer border border-amber-200"
                             >
-                              <span>📷</span>
+                              <Camera className="w-4 h-4 shrink-0 text-amber-600" />
                               <span>Máy quét soát vé Camera →</span>
                             </button>
                           </>
@@ -675,7 +696,7 @@ export default function WebNavbar({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 text-left transition-colors cursor-pointer border border-amber-200"
                           >
-                            <span>📷</span>
+                            <Camera className="w-4 h-4 shrink-0 text-amber-600" />
                             <span>Bàn soát vé CTV (Quét mã vé SV)</span>
                           </button>
                         )}
@@ -816,7 +837,7 @@ export default function WebNavbar({
                       className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-left bg-amber-50 text-amber-900 border border-amber-200 cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <span>📷</span>
+                        <Camera className="w-4 h-4 text-amber-600" />
                         <span>Bàn Soát Vé CTV (Quét vé SV)</span>
                       </div>
                       <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">
@@ -836,7 +857,10 @@ export default function WebNavbar({
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-indigo-50 text-indigo-700 cursor-pointer"
                   >
-                    <span>🏢 Bàn làm việc Khoa</span>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-indigo-600" />
+                      <span>Bàn làm việc Khoa</span>
+                    </div>
                     <span>→</span>
                   </button>
                   <button
@@ -846,7 +870,10 @@ export default function WebNavbar({
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left text-slate-700 cursor-pointer"
                   >
-                    <span>📅 Sự kiện Khoa</span>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-slate-500" />
+                      <span>Sự kiện Khoa</span>
+                    </div>
                     <span>→</span>
                   </button>
                   <button
@@ -854,9 +881,12 @@ export default function WebNavbar({
                       onNavigate("staff-scanner")
                       setMobileMenuOpen(false)
                     }}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-left bg-amber-50 text-amber-800 cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer"
                   >
-                    <span>📷 Soát vé Camera</span>
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <span>Soát vé Camera</span>
+                    </div>
                     <span>→</span>
                   </button>
                 </>
@@ -871,7 +901,10 @@ export default function WebNavbar({
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-indigo-50 text-indigo-700 cursor-pointer"
                   >
-                    <span>🎪 Quản lý sự kiện</span>
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-indigo-600" />
+                      <span>Quản lý sự kiện</span>
+                    </div>
                     <span>→</span>
                   </button>
                   <button
@@ -881,7 +914,10 @@ export default function WebNavbar({
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left text-slate-700 cursor-pointer"
                   >
-                    <span>👥 Người tham gia</span>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-slate-500" />
+                      <span>Người tham gia</span>
+                    </div>
                     <span>→</span>
                   </button>
                   <button
@@ -889,9 +925,12 @@ export default function WebNavbar({
                       onNavigate("staff-scanner")
                       setMobileMenuOpen(false)
                     }}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-left bg-amber-50 text-amber-800 cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer"
                   >
-                    <span>📷 Soát vé Camera</span>
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <span>Soát vé Camera</span>
+                    </div>
                     <span>→</span>
                   </button>
                 </>
@@ -906,7 +945,10 @@ export default function WebNavbar({
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-indigo-50 text-indigo-700 cursor-pointer"
                   >
-                    <span>⚙️ Cổng Quản trị viên</span>
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-indigo-600" />
+                      <span>Cổng Quản trị viên</span>
+                    </div>
                     <span>→</span>
                   </button>
                   <button
@@ -916,7 +958,10 @@ export default function WebNavbar({
                     }}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left text-slate-700 cursor-pointer"
                   >
-                    <span>📋 Duyệt hồ sơ sự kiện</span>
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4 text-slate-500" />
+                      <span>Duyệt hồ sơ sự kiện</span>
+                    </div>
                     <span>→</span>
                   </button>
                 </>
@@ -940,10 +985,10 @@ export default function WebNavbar({
                   onVerify()
                   setMobileMenuOpen(false)
                 }}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 text-left border border-slate-200 mt-2 cursor-pointer"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 text-left border border-slate-200 mt-2 cursor-pointer hover:bg-slate-50"
               >
                 <span>Tra cứu chứng chỉ số công khai</span>
-                <span>🔍</span>
+                <Search className="w-4 h-4 text-slate-400" />
               </button>
             </>
           ) : (
@@ -953,10 +998,10 @@ export default function WebNavbar({
                   onVerify()
                   setMobileMenuOpen(false)
                 }}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 text-left border border-slate-200 cursor-pointer"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 text-left border border-slate-200 cursor-pointer hover:bg-slate-50"
               >
                 <span>Tra cứu chứng chỉ số công khai</span>
-                <span>🔍</span>
+                <Search className="w-4 h-4 text-slate-400" />
               </button>
 
               <div className="pt-2 border-t border-slate-200 space-y-2">

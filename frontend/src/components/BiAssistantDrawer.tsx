@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { EVENTS } from "../data/mock"
+import { Bot, BarChart3, X, Sparkles } from "lucide-react"
 
 interface Props {
   role?: "admin" | "student_affairs"
@@ -117,12 +118,12 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
       <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={() => setShowAiChat((prev) => !prev)}
-          className="flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white font-semibold text-xs sm:text-sm shadow-xl hover:shadow-2xl hover:scale-105 transition-all cursor-pointer border border-white/20"
+          className="flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm shadow-xl hover:shadow-2xl transition-all cursor-pointer border border-slate-700"
         >
-          <span className="text-base animate-pulse">✨</span>
-          <span>Trợ lý AI BI (Text-to-Insight)</span>
+          <BarChart3 className="w-4 h-4 text-indigo-400" />
+          <span>Trợ lý Phân tích BI (Text-to-Insight)</span>
           {showAiChat ? (
-            <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded-full">
+            <span className="text-xs bg-slate-800 px-1.5 py-0.5 rounded-full border border-slate-700">
               Đóng
             </span>
           ) : (
@@ -133,27 +134,27 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
 
       {/* UC-AI-02: Text-to-Insight Drawer / Modal */}
       {showAiChat && (
-        <div className="fixed bottom-22 right-4 sm:right-6 z-50 w-[92vw] sm:w-[480px] max-h-[600px] flex flex-col bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-22 right-4 sm:right-6 z-50 w-[92vw] sm:w-[480px] max-h-[600px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
           {/* Header */}
-          <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between border-b border-slate-800">
+          <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-lg">
-                ✨
+              <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-indigo-400" />
               </div>
               <div>
                 <h3 className="font-display font-bold text-sm">
-                  Trợ lý AI BI Analytics
+                  Trợ lý Phân tích BI Toàn trường
                 </h3>
-                <p className="text-[11px] text-slate-300">
-                  Phân tích dữ liệu thông minh
+                <p className="text-[11px] text-slate-400">
+                  Truy vấn dữ liệu vĩ mô & Báo cáo quản trị
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowAiChat(false)}
-              className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer text-sm"
+              className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
 

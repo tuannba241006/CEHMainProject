@@ -10,6 +10,19 @@ import {
 } from "../management/AffairsOperations"
 import type { Certificate } from "../../context/AppContext"
 import { feedbackService } from "../../api/services/feedback.service"
+import {
+  QrCode,
+  Calendar,
+  MapPin,
+  User as UserIcon,
+  CheckCircle2,
+  Sun,
+  AlertTriangle,
+  Clock,
+  Sparkles,
+  X,
+  Star,
+} from "lucide-react"
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> =
   {
@@ -138,7 +151,8 @@ export default function MyTickets({
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 text-white font-semibold text-xs hover:bg-cyan-700 transition-colors shadow-xs cursor-pointer"
             >
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              <span>📷 Tự quét mã Kiosk Hội trường</span>
+              <QrCode className="w-4 h-4 shrink-0" />
+              <span>Tự quét mã Kiosk Hội trường</span>
             </button>
             <button
               onClick={() => onNavigate("home")}
@@ -318,7 +332,7 @@ export default function MyTickets({
 
       {ticketsError && (
         <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between text-xs">
-          <span>⚠️ {ticketsError}</span>
+          <span className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" /> {ticketsError}</span>
           <button
             onClick={() => refreshTickets && refreshTickets(user)}
             className="underline font-semibold cursor-pointer"
@@ -413,7 +427,7 @@ export default function MyTickets({
                     {/* Metadata rows */}
                     <div className="space-y-2 text-xs text-slate-600 mb-5">
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400">📅</span>
+                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="font-medium text-slate-800">
                           {(
                             parseCalendarDate(ticket.eventDate) ?? new Date(0)
@@ -428,12 +442,12 @@ export default function MyTickets({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400">📍</span>
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="truncate">{ticket.eventLocation}</span>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400">👤</span>
+                        <UserIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span>
                           {ticket.studentName} ({ticket.studentId})
                         </span>
@@ -441,7 +455,7 @@ export default function MyTickets({
 
                       {ticket.checkinTime && (
                         <div className="flex items-center gap-2 text-emerald-700 font-medium pt-1">
-                          <span>✓</span>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           <span>Check-in lúc {ticket.checkinTime}</span>
                         </div>
                       )}
@@ -526,9 +540,10 @@ export default function MyTickets({
               </h2>
               <button
                 onClick={() => setShowQR(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                title="Đóng"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -542,7 +557,7 @@ export default function MyTickets({
 
             {wakeLockActive && (
               <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full mb-4 border border-emerald-100">
-                <span>☀️</span>
+                <Sun className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>Screen Wake Lock đang giữ sáng màn hình</span>
               </div>
             )}
@@ -756,9 +771,10 @@ function AfterEvent({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+            title="Đóng"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -1068,13 +1084,13 @@ function Rating({
             key={star}
             type="button"
             onClick={() => onChange(star)}
-            className={`w-8 h-8 rounded-lg text-base cursor-pointer transition-colors ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
               star <= value
-                ? "bg-amber-50 text-amber-500 font-bold"
+                ? "bg-amber-50 text-amber-500"
                 : "bg-slate-50 text-slate-300"
             }`}
           >
-            ★
+            <Star className={`w-4 h-4 ${star <= value ? "fill-amber-400" : ""}`} />
           </button>
         ))}
       </div>

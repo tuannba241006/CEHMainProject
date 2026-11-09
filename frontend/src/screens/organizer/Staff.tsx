@@ -8,6 +8,7 @@ import { eventsService } from "../../api/services/events.service"
 import { attendanceService } from "../../api/services/attendance.service"
 import { getApiErrorMessage } from "../../api/errors"
 import type { EventCard } from "../../data/contract"
+import { Camera, AlertTriangle, UserCheck, Users } from "lucide-react"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -224,7 +225,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
               title="Mở giao diện máy quét camera trên điện thoại để tự soát vé cho sự kiện"
             >
-              <span>📷</span>
+              <Camera className="w-4 h-4" />
               <span>Mở máy quét soát vé (Camera)</span>
             </button>
             <button
@@ -251,8 +252,8 @@ export default function Staff({ onNavigate, onLogout }: Props) {
         </div>
 
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
-            <span>⚠️</span>
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2.5 text-sm">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -306,7 +307,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
                 <tr>
                   <td colSpan={7} className="py-12 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-400">
-                      <span className="text-4xl mb-3">🧑‍💼</span>
+                      <UserCheck className="w-12 h-12 text-slate-300 mb-3" />
                       <p className="text-base font-semibold text-slate-700">
                         Chưa có nhân viên nào
                       </p>
@@ -435,8 +436,8 @@ export default function Staff({ onNavigate, onLogout }: Props) {
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
           {scopedStaff.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-sm">
-              <span className="text-3xl mb-2 inline-block">🧑‍💼</span>
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-sm flex flex-col items-center">
+              <UserCheck className="w-8 h-8 text-slate-300 mb-2" />
               <p className="text-sm font-semibold text-slate-700">Chưa có nhân viên nào</p>
               <p className="text-xs text-slate-400 mt-1">Đơn vị chưa phân quyền nhân sự điểm danh.</p>
               <button

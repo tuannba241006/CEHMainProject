@@ -6,6 +6,22 @@ import { drlService } from "../../api/services/drl.service"
 import { feedbackService } from "../../api/services/feedback.service"
 import { getApiErrorMessage } from "../../api/errors"
 import type { Ticket } from "../../data/mock"
+import {
+  Building2,
+  Users,
+  MapPin,
+  Download,
+  Monitor,
+  BarChart3,
+  ClipboardList,
+  MessageSquare,
+  Scale,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowLeft,
+  Search,
+  Clock,
+} from "lucide-react"
 
 interface SurveyResponseItem {
   id: string | number
@@ -238,7 +254,10 @@ export default function AdminParticipants() {
         {/* Dropdown chọn Đơn vị Tổ chức (Đặc quyền Admin) */}
         <div className="flex items-center gap-2 self-start lg:self-center">
           <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-2xl border border-slate-200 shadow-2xs">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">🏛️ Phạm vi Đơn vị:</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+              <span>Phạm vi Đơn vị:</span>
+            </span>
             <select
               value={selectedUnit}
               onChange={(e) => {
@@ -247,13 +266,13 @@ export default function AdminParticipants() {
               }}
               className="text-xs font-bold text-navy bg-transparent border-0 focus:outline-none cursor-pointer"
             >
-              <option value="all">🏛️ Toàn trường (Tất cả đơn vị)</option>
-              <option value="pctsv">🏢 Phòng Công tác Sinh viên (P.CTSV)</option>
-              <option value="Khoa Hệ thống Thông tin">🎓 Khoa Hệ thống Thông tin</option>
-              <option value="Khoa Công nghệ Thông tin">💻 Khoa Công nghệ Thông tin</option>
-              <option value="CLB WebDev UIT">⚡ CLB WebDev UIT</option>
-              <option value="CLB Trí tuệ Nhân tạo">🤖 CLB Trí tuệ Nhân tạo (AI Club)</option>
-              <option value="Đoàn Thanh niên - Hội Sinh viên">🚩 Đoàn Thanh niên - Hội Sinh viên</option>
+              <option value="all">Toàn trường (Tất cả đơn vị)</option>
+              <option value="pctsv">Phòng Công tác Sinh viên (P.CTSV)</option>
+              <option value="Khoa Hệ thống Thông tin">Khoa Hệ thống Thông tin</option>
+              <option value="Khoa Công nghệ Thông tin">Khoa Công nghệ Thông tin</option>
+              <option value="CLB WebDev UIT">CLB WebDev UIT</option>
+              <option value="CLB Trí tuệ Nhân tạo">CLB Trí tuệ Nhân tạo (AI Club)</option>
+              <option value="Đoàn Thanh niên - Hội Sinh viên">Đoàn Thanh niên - Hội Sinh viên</option>
             </select>
           </div>
 
@@ -273,7 +292,7 @@ export default function AdminParticipants() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-bold text-base text-navy flex items-center gap-2">
-              <span>📋</span> Danh sách sự kiện thuộc phạm vi ({filteredEvents.length})
+              <ClipboardList className="w-4 h-4 text-indigo-600" /> Danh sách sự kiện thuộc phạm vi ({filteredEvents.length})
             </h2>
             <span className="text-xs text-slate-400">Chọn sự kiện để xem chi tiết người tham dự</span>
           </div>
@@ -309,8 +328,9 @@ export default function AdminParticipants() {
                       <p className="text-white font-display font-bold text-sm leading-snug line-clamp-1">
                         {evt.title || evt.ten_su_kien}
                       </p>
-                      <p className="text-slate-200 text-[11px] mt-0.5">
-                        📍 {evt.room || evt.ten_phong || "Hội trường A"} · {evt.date || "2026"}
+                      <p className="text-slate-200 text-[11px] mt-0.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3 text-slate-300" />
+                        <span>{evt.room || evt.ten_phong || "Hội trường A"} · {evt.date || "2026"}</span>
                       </p>
                     </div>
                   </div>
@@ -338,14 +358,14 @@ export default function AdminParticipants() {
                         onClick={() => setSelectedEventId(eventId)}
                         className="flex-1 py-2.5 rounded-xl bg-indigo hover:bg-indigo-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer text-center"
                       >
-                        👥 Xem người tham gia
+                        <span className="flex items-center justify-center gap-1.5"><Users className="w-3.5 h-3.5" /> Xem người tham gia</span>
                       </button>
                       <button
                         onClick={() => navigate(`/kiosk/${eventId}`)}
                         className="px-3 py-2.5 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 text-xs font-semibold border border-cyan-200 transition-colors cursor-pointer"
                         title="Mở Kiosk điểm danh"
                       >
-                        🖥️
+                        <Monitor className="w-4 h-4 mx-auto" />
                       </button>
                     </div>
                   </div>
@@ -371,8 +391,9 @@ export default function AdminParticipants() {
                   {currentEvent?.ten_don_vi_host || currentEvent?.organizer || "Đơn vị tổ chức"}
                 </span>
                 <span className="text-xs text-slate-400">·</span>
-                <span className="text-xs text-slate-500">
-                  📍 {currentEvent?.room || currentEvent?.ten_phong} · {currentEvent?.date}
+                <span className="text-xs text-slate-500 inline-flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-slate-400" />
+                  <span>{currentEvent?.room || currentEvent?.ten_phong} · {currentEvent?.date}</span>
                 </span>
               </div>
               <h2 className="font-display font-bold text-xl text-navy">
@@ -388,14 +409,14 @@ export default function AdminParticipants() {
                 }}
                 className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <span>📥</span>
+                <Download className="w-4 h-4" />
                 <span>Xuất Excel ĐRL (12 cột)</span>
               </button>
               <button
                 onClick={() => navigate(`/kiosk/${selectedEventId}`)}
                 className="px-3.5 py-2 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 border border-cyan-200 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <span>🖥️</span>
+                <Monitor className="w-4 h-4" />
                 <span>Kiosk điểm danh</span>
               </button>
             </div>
@@ -411,7 +432,7 @@ export default function AdminParticipants() {
                   : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
               }`}
             >
-              <span>👥</span>
+              <Users className="w-4 h-4" />
               <span>Người tham gia & Đối soát ({stats.total})</span>
             </button>
             <button
@@ -422,7 +443,7 @@ export default function AdminParticipants() {
                   : "bg-white text-purple-700 hover:bg-purple-50 border border-purple-200"
               }`}
             >
-              <span>📊</span>
+              <BarChart3 className="w-4 h-4" />
               <span>Khảo sát Feedback (Hạn 48h & Giám sát chất lượng)</span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
                 currentTab === "survey" ? "bg-white/25 text-white" : "bg-purple-100 text-purple-800"
@@ -437,7 +458,7 @@ export default function AdminParticipants() {
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-xs text-purple-900 leading-relaxed">
                 <p className="font-bold text-sm mb-1 text-purple-950 flex items-center gap-2">
-                  <span>📋</span> Quy chế Khảo sát Feedback sự kiện (Hạn 48 giờ - UC-FEED-01)
+                  <ClipboardList className="w-4 h-4 text-purple-700 shrink-0" /> Quy chế Khảo sát Feedback sự kiện (Hạn 48 giờ - UC-FEED-01)
                 </p>
                 Sinh viên sau khi hoàn thành Check-out có tối đa <b>48 giờ</b> để nộp phiếu khảo sát đánh giá chất lượng nhằm đủ điều kiện công nhận Điểm Rèn Luyện (ĐRL) và cấp chứng nhận số HMAC-SHA256. 
                 Admin có quyền hạn <b>Tra cứu giám sát</b> toàn bộ phản hồi, thống kê mức độ hài lòng và thực thi ân hạn 24h đối với sinh viên khiếu nại.
@@ -510,7 +531,7 @@ export default function AdminParticipants() {
                 {/* Actionable Feedback list */}
                 <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs">
                   <h3 className="font-display font-bold text-sm text-navy mb-3 flex items-center gap-2">
-                    <span>💬</span> Góp ý cải thiện thực tế từ sinh viên ({eventSurveys.length})
+                    <MessageSquare className="w-4 h-4 text-purple-600" /> Góp ý cải thiện thực tế từ sinh viên ({eventSurveys.length})
                   </h3>
                   <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                     {eventSurveys.map((sv, idx) => (
@@ -568,7 +589,7 @@ export default function AdminParticipants() {
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:outline-none focus:border-indigo"
                   />
-                  <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
                 </div>
 
                 <div className="flex gap-1.5 overflow-x-auto w-full sm:w-auto">
@@ -643,11 +664,13 @@ export default function AdminParticipants() {
                             <td className="p-3.5">
                               {t.da_feedback ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                                  ✓ Đã nộp (48h)
+                                  <CheckCircle2 className="w-3 h-3 text-purple-700 shrink-0" />
+                                  <span>Đã nộp (48h)</span>
                                 </span>
                               ) : t.han_an_han_feedback ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-                                  ⏳ Đã ân hạn 24h
+                                  <Clock className="w-3 h-3 text-amber-700 shrink-0" />
+                                  <span>Đã ân hạn 24h</span>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">
@@ -658,11 +681,13 @@ export default function AdminParticipants() {
                             <td className="p-3.5">
                               {t.nghi_van_gian_lan ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 animate-pulse">
-                                  ⚠️ Nghi vấn gian lận
+                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                  <span>Nghi vấn gian lận</span>
                                 </span>
                               ) : isAttended ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  ✓ Đã điểm danh
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-700 shrink-0" />
+                                  <span>Đã điểm danh</span>
                                 </span>
                               ) : isCancelled ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
@@ -685,7 +710,7 @@ export default function AdminParticipants() {
                                   className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
                                   title="Cấp ân hạn 24h nộp bài khảo sát sau khi hết hạn 48h (UC-FEED-01)"
                                 >
-                                  ⏳ Ân hạn 24h
+                                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Ân hạn 24h</span>
                                 </button>
 
                                 {/* Can thiệp đối soát thủ công */}
@@ -699,7 +724,7 @@ export default function AdminParticipants() {
                                   className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
                                   title="Can thiệp thủ công giải tỏa nghi vấn hoặc sửa giờ điểm danh"
                                 >
-                                  ⚖️ Can thiệp
+                                  <span className="flex items-center gap-1"><Scale className="w-3.5 h-3.5" /> Can thiệp</span>
                                 </button>
                               </div>
                             </td>
@@ -770,7 +795,7 @@ export default function AdminParticipants() {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
             <h3 className="font-display font-bold text-lg text-navy flex items-center gap-2">
-              <span>⚖️</span> Can thiệp Đối soát & Cứu xét ĐRL
+              <Scale className="w-5 h-5 text-indigo-600" /> Can thiệp Đối soát & Cứu xét ĐRL
             </h3>
             <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
               Giải tỏa nghi vấn gian lận và điều chỉnh kết quả điểm danh cho sinh viên{" "}
@@ -787,9 +812,9 @@ export default function AdminParticipants() {
                   onChange={(e) => setOverrideStatus(e.target.value as "attended" | "pending" | "cancelled")}
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo bg-white"
                 >
-                  <option value="attended">✓ Đã điểm danh hợp lệ</option>
-                  <option value="pending">⏳ Chưa điểm danh</option>
-                  <option value="cancelled">❌ Hủy kết quả</option>
+                  <option value="attended">Đã điểm danh hợp lệ</option>
+                  <option value="pending">Chưa điểm danh</option>
+                  <option value="cancelled">Hủy kết quả</option>
                 </select>
               </div>
 

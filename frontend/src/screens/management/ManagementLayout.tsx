@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { BarChart3 } from "lucide-react"
 import type { Role } from "../../App"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
@@ -167,13 +168,12 @@ export function ManagementLayout({
           </button>
         )}
         {!isFaculty && (
-          <div className="mt-3 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 p-2.5">
-            <p className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-              <span>✨</span> Trợ lý AI BI
+          <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200/80 p-2.5">
+            <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+              <BarChart3 className="w-3.5 h-3.5 text-indigo-600 shrink-0" /> Phân tích Thống kê BI
             </p>
             <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-              Truy vấn số liệu vĩ mô, tỷ lệ No-show & ĐRL toàn trường qua nút
-              bấm góc phải.
+              Truy vấn số liệu vĩ mô, tỷ lệ No-show & ĐRL toàn trường qua bảng điều khiển nhanh.
             </p>
           </div>
         )}

@@ -12,6 +12,7 @@ import { formatCalendarDate, inDateRange } from "../../utils/date"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
 import { ROOMS } from "../../data/mock"
+import { AlertTriangle, Zap, RotateCcw, RefreshCw, Building2, Check } from "lucide-react"
 
 interface Props {
   role: Extract<Role, "faculty_manager" | "student_affairs">
@@ -230,8 +231,8 @@ function ApprovalList({
       </div>
 
       {error && (
-        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
-          <span>⚠️</span>
+        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2.5 text-sm">
+          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -569,10 +570,11 @@ function ApprovalDetail({
             <button
               onClick={() => act("faculty_approve_by_admin")}
               disabled={busy}
-              className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold cursor-pointer shadow-xs transition-colors"
+              className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
               title="Admin/CTSV can thiệp duyệt thay cấp Khoa khi Khoa chậm trễ hoặc gặp sự cố (APPROVE_FACULTY_BY_ADMIN)"
             >
-              ⚡ Duyệt thay cấp Khoa (Sự cố)
+              <Zap className="w-4 h-4" />
+              <span>Duyệt thay cấp Khoa (Sự cố)</span>
             </button>
           )}
 
@@ -580,10 +582,11 @@ function ApprovalDetail({
             <button
               onClick={() => setDialog("withdraw")}
               disabled={busy}
-              className="px-3.5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors"
+              className="px-3.5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
               title="Can thiệp rút hồ sơ đang thẩm định về DRAFT và tự động giải phóng phòng đã giữ chỗ"
             >
-              ↩️ Rút đề xuất cưỡng chế
+              <RotateCcw className="w-4 h-4" />
+              <span>Rút đề xuất cưỡng chế</span>
             </button>
           )}
 
@@ -591,10 +594,11 @@ function ApprovalDetail({
             <button
               onClick={() => setDialog("reopen")}
               disabled={busy}
-              className="px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold cursor-pointer transition-colors"
+              className="px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
               title="Khôi phục sự kiện bị từ chối quay trở lại DRAFT để chỉnh sửa (POST /events/{id}/reopen)"
             >
-              🔄 Tái mở bản nháp
+              <RefreshCw className="w-4 h-4" />
+              <span>Tái mở bản nháp</span>
             </button>
           )}
 
@@ -636,15 +640,17 @@ function ApprovalDetail({
             <>
               <button
                 onClick={() => setDialog("emergency_room")}
-                className="px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold cursor-pointer hover:bg-amber-100"
+                className="px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold cursor-pointer hover:bg-amber-100 flex items-center gap-1.5"
               >
-                🔄 Đổi phòng khẩn cấp
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Đổi phòng khẩn cấp</span>
               </button>
               <button
                 onClick={() => setDialog("emergency_cancel")}
-                className="px-3 py-2 rounded-xl border border-rose-300 bg-rose-50 text-rose-700 text-xs font-semibold cursor-pointer hover:bg-rose-100"
+                className="px-3 py-2 rounded-xl border border-rose-300 bg-rose-50 text-rose-700 text-xs font-semibold cursor-pointer hover:bg-rose-100 flex items-center gap-1.5"
               >
-                ⚠️ Hủy sự kiện khẩn cấp
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Hủy sự kiện khẩn cấp</span>
               </button>
             </>
           )}
@@ -1024,7 +1030,7 @@ function Progress({ status }: { status: ApprovalStatus }) {
                 : "bg-slate-100 text-slate-400"
             }`}
           >
-            {i < index ? "✓" : i + 1}
+            {i < index ? <Check className="w-3.5 h-3.5" /> : i + 1}
           </div>
           <span
             className={`text-sm ${

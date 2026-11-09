@@ -7,6 +7,7 @@ import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
 import { useUser } from "../../context/UserContext"
+import { RefreshCw, Calendar, Users, Camera, AlertTriangle, Building2 } from "lucide-react"
 
 const STATUS_COLORS: Record<EventStatus, { bg: string; text: string }> = {
   open: { bg: "#dcfce7", text: "#15803d" },
@@ -266,10 +267,10 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                       onClick={() =>
                         setReopenModal({ id: item.id, title: item.title })
                       }
-                      className="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
                       title="Tái mở bản nháp bị từ chối để chỉnh sửa lại (UC-EVT-03.AC.2)"
                     >
-                      <span>🔄</span>
+                      <RefreshCw className="w-3.5 h-3.5" />
                       <span>Tái mở bản nháp</span>
                     </button>
                   )}
@@ -404,7 +405,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                   <tr>
                     <td colSpan={8} className="py-12 text-center">
                       <div className="flex flex-col items-center justify-center text-slate-400">
-                        <span className="text-4xl mb-3">📅</span>
+                        <Calendar className="w-12 h-12 text-slate-300 mb-3" />
                         <p className="text-base font-semibold text-slate-700">
                           Chưa có sự kiện nào
                         </p>
@@ -609,8 +610,8 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
         {/* Mobile cards */}
         <div className="md:hidden space-y-3">
           {filtered.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-sm">
-              <span className="text-3xl mb-2 inline-block">📅</span>
+            <div className="bg-white rounded-2xl p-8 text-center border border-slate-100 shadow-sm flex flex-col items-center">
+              <Calendar className="w-8 h-8 text-slate-300 mb-2" />
               <p className="text-sm font-semibold text-slate-700">Chưa có sự kiện nào</p>
               <p className="text-xs text-slate-400 mt-1">Đơn vị chưa có sự kiện trong danh mục này.</p>
               <button
@@ -654,11 +655,13 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                   className="space-y-1.5 text-xs mb-3"
                   style={{ color: "#64748b" }}
                 >
-                  <p>
-                    📅 {formatCalendarDate(event.date)} · {event.room}
+                  <p className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{formatCalendarDate(event.date)} · {event.room}</span>
                   </p>
-                  <p>
-                    👥 {event.registered}/{event.capacity} chỗ ({pct}%)
+                  <p className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{event.registered}/{event.capacity} chỗ ({pct}%)</span>
                   </p>
                 </div>
                 <div
@@ -702,11 +705,12 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                   </button>
                   <button
                     onClick={() => onNavigate("staff-scanner")}
-                    className="py-2 px-3 rounded-xl text-xs font-semibold text-white"
+                    className="py-2 px-3 rounded-xl text-xs font-semibold text-white flex items-center gap-1"
                     style={{ background: "#4f46e5" }}
                     title="Soát vé Camera qua điện thoại"
                   >
-                    📷 Quét vé
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Quét vé</span>
                   </button>
                   <button
                     onClick={() =>
@@ -715,10 +719,11 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                         title: event.title,
                       })
                     }
-                    className="py-2 px-2.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                    className="py-2 px-2.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 flex items-center gap-1"
                     title="Tái mở bản nháp để chỉnh sửa lại"
                   >
-                    🔄 Tái mở
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Tái mở</span>
                   </button>
                   <button
                     onClick={() =>
@@ -743,7 +748,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
             <div className="flex items-center gap-2.5 text-indigo-600 mb-2">
-              <span className="text-xl">🔄</span>
+              <RefreshCw className="w-5 h-5 text-indigo-600 shrink-0" />
               <h2 className="font-display font-bold text-lg text-navy">
                 Tái mở bản nháp sự kiện
               </h2>
@@ -834,7 +839,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100">
             <div className="flex items-center gap-2.5 text-rose-600 mb-2">
-              <span className="text-xl">⚠️</span>
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
               <h2 className="font-display font-bold text-lg text-navy">
                 Hủy sự kiện khẩn cấp (Host A)
               </h2>

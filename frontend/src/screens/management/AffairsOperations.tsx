@@ -11,6 +11,7 @@ import { certificatesService } from "../../api/services/certificates.service"
 import { feedbackService } from "../../api/services/feedback.service"
 import { getApiErrorMessage } from "../../api/errors"
 import type { DrlRecord } from "../../data/contract"
+import { Lock, Unlock, Download, AlertTriangle, CheckCircle2, ShieldAlert, Award, FileSpreadsheet, X, Gift } from "lucide-react"
 
 interface Props {
   mode: "results" | "certificates"
@@ -247,7 +248,7 @@ function Results() {
     <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl">
       {error && (
         <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
-          <span>⚠️</span>
+          <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
           <span>{error}</span>
         </div>
       )}
@@ -309,7 +310,11 @@ function Results() {
                 : "bg-emerald-50 text-emerald-700 border-emerald-200"
             }`}
           >
-            {isDrlLocked ? "🔒 Đã khóa chốt (da_chot_drl = 1)" : "🔓 Đang mở (da_chot_drl = 0)"}
+            {isDrlLocked ? (
+              <span className="inline-flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-rose-600" /> <span>Đã khóa chốt (da_chot_drl = 1)</span></span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5"><Unlock className="w-3.5 h-3.5 text-emerald-600" /> <span>Đang mở (da_chot_drl = 0)</span></span>
+            )}
           </span>
 
           {/* Xuất file Excel ĐRL (GET /events/{id}/drl/export) */}
@@ -318,7 +323,7 @@ function Results() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
             title="Kết xuất file Excel bảng điểm rèn luyện 12 cột chuẩn mẫu CTSV gửi Phòng Đào tạo (GET /events/{id}/drl/export)"
           >
-            <span>📥</span>
+            <Download className="w-4 h-4" />
             <span>Xuất file Excel ĐRL</span>
           </button>
 
@@ -329,7 +334,7 @@ function Results() {
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
               title="Khóa chốt danh sách ĐRL sự kiện (da_chot_drl = 1) gửi Phòng Đào tạo (POST /events/{id}/drl/lock)"
             >
-              <span>🔒</span>
+              <Lock className="w-4 h-4" />
               <span>Khóa chốt ĐRL</span>
             </button>
           ) : (
@@ -339,7 +344,7 @@ function Results() {
               className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs transition-colors shadow-2xs cursor-pointer"
               title="Admin mở khóa điều chỉnh ĐRL (da_chot_drl = 0) có kiểm toán Audit Log UNLOCK_DRL_FINAL (POST /events/{id}/drl/unlock)"
             >
-              <span>🔓</span>
+              <Unlock className="w-4 h-4" />
               <span>Mở khóa điều chỉnh ĐRL</span>
             </button>
           )}
@@ -570,7 +575,7 @@ function Results() {
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 text-lg">
-                  🔓
+                  <Unlock className="w-5 h-5 text-amber-600" />
                 </div>
                 <div>
                   <h2 className="font-display font-bold text-lg text-navy">
@@ -583,16 +588,18 @@ function Results() {
               </div>
               <button
                 onClick={() => setUnlockModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg p-1"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                title="Đóng"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="mt-4 space-y-4">
               <div className="p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-900 leading-relaxed">
-                <span className="font-semibold block mb-0.5">
-                  ⚠️ Quy tắc bảo mật & Kiểm toán dữ liệu:
+                <span className="font-semibold flex items-center gap-1.5 mb-0.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  Quy tắc bảo mật & Kiểm toán dữ liệu:
                 </span>
                 Thao tác mở khóa cho phép điều chỉnh lại điểm rèn luyện của sinh
                 viên sau thời điểm chốt sổ. Hành động này sẽ được mã hóa và lưu
@@ -662,7 +669,7 @@ function Results() {
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
             <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
               <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 text-lg">
-                🔒
+                <Lock className="w-5 h-5 text-rose-600" />
               </div>
               <div>
                 <h2 className="font-display font-bold text-lg text-navy">
@@ -674,7 +681,7 @@ function Results() {
               </div>
             </div>
             <div className="mt-4 p-3.5 bg-rose-50/70 border border-rose-200/80 rounded-2xl text-xs text-rose-900 leading-relaxed space-y-2">
-              <p className="font-semibold">⚠️ Xác nhận niêm phong kết quả:</p>
+              <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" /> Xác nhận niêm phong kết quả:</p>
               <p>
                 Sau khi khóa chốt (<code>da_chot_drl = 1</code>), bảng điểm rèn luyện của sự kiện sẽ được niêm phong để chuyển dữ liệu chính thức cho Phòng Đào tạo. Ban tổ chức cấp dưới sẽ <b>không thể tự ý điều chỉnh</b>.
               </p>
@@ -706,7 +713,7 @@ function Results() {
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
             <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
               <div className="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 text-lg">
-                🎁
+                <Gift className="w-5 h-5 text-purple-600" />
               </div>
               <div>
                 <h2 className="font-display font-bold text-lg text-navy">
@@ -987,7 +994,7 @@ export function Certificates({ embedded = false }: {
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
             <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 mb-4">
               <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 text-lg">
-                ⚠️
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
               </div>
               <div>
                 <h2 className="font-display font-bold text-lg text-navy">

@@ -10,6 +10,7 @@ import { getApiErrorMessage } from "../../api/errors"
 import AdminLayout from "./AdminLayout"
 import { OrgLayout } from "../organizer/OrgLayout"
 import FormDialog, { type FieldSpec } from "./FormDialog"
+import { Wrench, AlertTriangle, ShieldCheck, Zap } from "lucide-react"
 
 interface Props {
   readOnly?: boolean
@@ -445,7 +446,8 @@ export default function RoomManagement({
           {room?.trang_thai === "BaoTri" && (
             <div className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900">
               <p className="font-bold flex items-center gap-1.5 text-rose-800">
-                <span>🛠️</span> Phòng đang trong giai đoạn Bảo trì (BaoTri)
+                <Wrench className="w-4 h-4 text-rose-600" />
+                <span>Phòng đang trong giai đoạn Bảo trì (BaoTri)</span>
               </p>
               <p className="mt-1 text-slate-700">
                 Thời gian bảo trì:{" "}
@@ -574,7 +576,7 @@ export default function RoomManagement({
                           style={{ width: `${widthPct}%` }}
                           title={`${timeLabel}: Đệm an toàn 15 phút kỹ thuật`}
                         >
-                          ⚡
+                          <Zap className="w-2.5 h-2.5 text-amber-950" />
                         </div>
                       )
                     }
@@ -650,14 +652,14 @@ export default function RoomManagement({
               {/* Dynamic Conflict Status Bar */}
               {conflictInfo ? (
                 <div className="mt-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2 text-xs text-rose-800">
-                  <span className="text-sm">⚠️</span>
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>
                     <b>Cảnh báo xung đột lịch:</b> {conflictInfo}
                   </span>
                 </div>
               ) : (
                 <div className="mt-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center gap-2 text-xs text-emerald-800">
-                  <span className="text-sm">🛡️</span>
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>
                     <b>Kiểm tra xung đột tự động:</b> Không phát hiện trùng lịch. Toàn bộ khoảng cách giữa các ca đều thỏa mãn quy tắc bắt buộc <b>Buffer ≥ 15 phút</b>.
                   </span>

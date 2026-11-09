@@ -24,6 +24,7 @@ import { useApp, computeEventStatus } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { reportsService } from "../../api/services/reports.service"
 import { getApiErrorMessage } from "../../api/errors"
+import { Sparkles, RefreshCw, Check } from "lucide-react"
 
 const PIE_COLORS = ["#4f46e5", "#0891b2", "#7c3aed", "#059669", "#d97706"]
 
@@ -463,8 +464,8 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
       <div className="bg-white rounded-3xl p-6 lg:p-8 shadow-xs border border-slate-200 mt-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xl shadow-md">
-              ✨
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-md">
+              <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -516,7 +517,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             disabled={aiRefreshing}
             className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 w-fit cursor-pointer disabled:opacity-50"
           >
-            <span className={aiRefreshing ? "animate-spin" : ""}>⚡</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${aiRefreshing ? "animate-spin" : ""}`} />
             <span>
               {aiRefreshing
                 ? "Đang phân tích lại..."
@@ -569,8 +570,8 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
         {/* AI Executive Summary Box */}
         <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-slate-800 text-xs leading-relaxed mb-6">
           <div className="flex items-center gap-2 font-bold text-indigo-900 mb-1.5">
-            <span>🤖</span>
-            <span>Tóm tắt nhận định của AI:</span>
+            <Sparkles className="w-4 h-4 text-indigo-700" />
+            <span>Tóm tắt nhận định của hệ thống:</span>
           </div>
           <p>
             "Sinh viên đánh giá rất cao chất lượng chuyên môn và phong thái
@@ -587,7 +588,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
             <h3 className="font-semibold text-xs text-emerald-900 flex items-center gap-2 mb-3">
               <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
-                ✓
+                <Check className="w-3.5 h-3.5" />
               </span>
               <span>Điểm khen ngợi hàng đầu (Top Highlights)</span>
             </h3>
@@ -599,7 +600,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                     Diễn giả chia sẻ thực tế & chuyên sâu
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    86 lượt nhắc tích cực · 98% đánh giá 5★
+                    86 lượt nhắc tích cực · 98% đánh giá 5 sao
                   </p>
                 </div>
               </li>
