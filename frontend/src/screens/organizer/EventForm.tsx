@@ -3,10 +3,13 @@ import { OrgLayout } from "./OrgLayout"
 import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { CONTRACT_TOPICS, ROOMS, ORGANIZATIONS } from "../../data/mock"
+import type { RoomPublic, Topic } from "../../data/contract"
 import { formatCalendarDate } from "../../utils/date"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
 import { organizationsService } from "../../api/services/organizations.service"
+import { roomsService } from "../../api/services/rooms.service"
+import { api } from "../../api/client"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -19,6 +22,8 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [orgList, setOrgList] = useState(ORGANIZATIONS)
+  const [roomList, setRoomList] = useState<RoomPublic[]>(ROOMS)
+  const [topicList, setTopicList] = useState<Topic[]>(CONTRACT_TOPICS)
 
   useEffect(() => {
     let cancelled = false
@@ -32,6 +37,50 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       .catch(() => {
         // Fallback to default ORGANIZATIONS
       })
+
+    roomsService
+      .list()
+      .then((res) => {
+        if (!cancelled && res.data && res.data.length > 0) {
+          const rawList = res.data as Array<Partial<RoomPublic> & { suc_chua_toi_da?: number; trang_thiet_bi?: { may_chieu?: boolean; am_thanh?: boolean; wifi?: boolean } }>
+          const mapped: RoomPublic[] = rawList.map((r) => ({
+            ma_phong: Number(r.ma_phong),
+            ten_phong: r.ten_phong || "Hội trường",
+            suc_chua: Number(r.suc_chua_toi_da ?? r.suc_chua ?? 100),
+            co_so: (r.co_so === "CoSo2" ? "CoSo2" : "CoSo1") as RoomPublic["co_so"],
+            toa_nha: r.toa_nha || (r.co_so === "CoSo2" ? "Tòa B" : "Tòa A"),
+            vi_tri_tang: Number(r.vi_tri_tang ?? 1),
+            thiet_bi: {
+              may_chieu: Boolean(
+                r.trang_thiet_bi?.may_chieu ?? r.thiet_bi?.may_chieu ?? true,
+              ),
+              am_thanh: Boolean(
+                r.trang_thiet_bi?.am_thanh ?? r.thiet_bi?.am_thanh ?? true,
+              ),
+              wifi: Boolean(r.trang_thiet_bi?.wifi ?? r.thiet_bi?.wifi ?? true),
+            },
+            trang_thai: r.trang_thai,
+            bao_tri_tu_ngay: r.bao_tri_tu_ngay,
+            bao_tri_den_ngay: r.bao_tri_den_ngay,
+          }))
+          setRoomList(mapped)
+        }
+      })
+      .catch(() => {
+        // Fallback to default ROOMS
+      })
+
+    api
+      .get<{ data: Topic[] }>("/topics")
+      .then((res) => {
+        if (!cancelled && res.data && Array.isArray(res.data) && res.data.length > 0) {
+          setTopicList(res.data)
+        }
+      })
+      .catch(() => {
+        // Fallback to default CONTRACT_TOPICS
+      })
+
     return () => {
       cancelled = true
     }
@@ -114,7 +163,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
     )
       e.capacity = "Sức chứa phải là số nguyên dương."
     if (!form.room) e.room = "Vui lòng chọn phòng từ danh mục."
-    const room = ROOMS.find((item) => String(item.ma_phong) === form.room)
+    const room = roomList.find((item) => String(item.ma_phong) === form.room)
     if (
       room &&
       form.unlimited === "false" &&
@@ -290,7 +339,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                     className={inputClass(!!errors.topic)}
                   >
                     <option value="">Chọn chủ đề</option>
-                    {CONTRACT_TOPICS.map((topic) => (
+                    {topicList.map((topic) => (
                       <option
                         key={topic.ma_chuyen_de}
                         value={topic.ma_chuyen_de}
@@ -461,9 +510,14 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                     className={inputClass(!!errors.room)}
                   >
                     <option value="">Chọn phòng từ danh mục</option>
-                    {ROOMS.map((room) => (
-                      <option key={room.ma_phong} value={room.ma_phong}>
+                    {roomList.map((room) => (
+                      <option
+                        key={room.ma_phong}
+                        value={room.ma_phong}
+                        disabled={room.trang_thai === "BaoTri"}
+                      >
                         {room.ten_phong} · {room.co_so} · {room.suc_chua} chỗ
+                        {room.trang_thai === "BaoTri" ? " [ĐANG BẢO TRÌ]" : ""}
                       </option>
                     ))}
                   </select>

@@ -201,8 +201,13 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
 
   async function handleDeclineConfirm() {
     if (!selectedDecline) return
-    if (!declineReason.trim()) {
+    const trimmed = declineReason.trim()
+    if (!trimmed) {
       showToast("Vui lòng nhập lý do từ chối đồng tổ chức.", "error")
+      return
+    }
+    if (trimmed.length < 5) {
+      showToast("Lý do từ chối đồng tổ chức bắt buộc phải có ít nhất 5 ký tự.", "error")
       return
     }
 
@@ -212,7 +217,8 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
       await eventsService.cohostRespond(numericEventId, {
         dong_y: false,
         trang_thai_xac_nhan: "TU_CHOI",
-        ly_do_tu_choi: declineReason.trim(),
+        ghi_chu_tu_choi: trimmed,
+        ly_do_tu_choi: trimmed,
       })
       setInvitations((prev) =>
         prev.map((item) =>
@@ -220,7 +226,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
             ? {
                 ...item,
                 status: "declined",
-                declineReason: declineReason.trim(),
+                declineReason: trimmed,
               }
             : item,
         ),
@@ -504,9 +510,20 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
               </p>
 
               <div className="mt-4">
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Lý do từ chối tham gia (Bắt buộc theo quy chế kiểm toán)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Lý do từ chối tham gia (bắt buộc)
+                  </label>
+                  <span
+                    className={`text-[11px] font-mono ${
+                      declineReason.trim().length >= 5
+                        ? "text-emerald-600 font-semibold"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {declineReason.trim().length} / 5 ký tự tối thiểu
+                  </span>
+                </div>
                 <textarea
                   value={declineReason}
                   onChange={(e) => setDeclineReason(e.target.value)}
@@ -528,7 +545,8 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                 </button>
                 <button
                   onClick={handleDeclineConfirm}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+                  disabled={declineReason.trim().length < 5}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
                 >
                   Xác nhận từ chối
                 </button>

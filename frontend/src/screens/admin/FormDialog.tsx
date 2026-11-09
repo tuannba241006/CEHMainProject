@@ -5,7 +5,7 @@ import { getApiErrorMessage } from "../../api/errors"
 export interface FieldSpec {
   name: string
   label: string
-  type?: "text" | "number" | "email" | "select" | "checkbox"
+  type?: "text" | "number" | "email" | "select" | "checkbox" | "datetime-local" | "date"
   options?: { value: string; label: string }[]
   required?: boolean
   min?: number

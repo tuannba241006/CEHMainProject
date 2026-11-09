@@ -282,7 +282,27 @@ export async function handleMockRequest<T>(
   }
 
   // Event Mutations (reopen, review, changeRoom, submitApproval, etc.)
-  if (cleanPath.includes("/reopen") || cleanPath.includes("/submit-approval") || cleanPath.includes("/withdraw") || cleanPath.includes("/review") || cleanPath.includes("/change-room") || cleanPath.includes("/emergency-cancel") || cleanPath.includes("/co-host-respond")) {
+  if (cleanPath.includes("/co-host-respond")) {
+    const payload = (options.body ? JSON.parse(options.body as string) : {}) as {
+      dong_y?: boolean
+      trang_thai_xac_nhan?: string
+      ghi_chu_tu_choi?: string
+      ly_do_tu_choi?: string
+    }
+    if (payload.trang_thai_xac_nhan === "TU_CHOI") {
+      const reason = (payload.ghi_chu_tu_choi || payload.ly_do_tu_choi || "").trim()
+      if (reason.length < 5) {
+        throw new Error("Lý do từ chối đồng tổ chức bắt buộc phải có ít nhất 5 ký tự.")
+      }
+    }
+    return {
+      success: true,
+      data: mockEvents[0],
+      message: "Phản hồi lời mời đồng tổ chức thành công",
+    } as T
+  }
+
+  if (cleanPath.includes("/reopen") || cleanPath.includes("/submit-approval") || cleanPath.includes("/withdraw") || cleanPath.includes("/review") || cleanPath.includes("/change-room") || cleanPath.includes("/emergency-cancel")) {
     return {
       success: true,
       data: mockEvents[0],
@@ -547,6 +567,105 @@ export async function handleMockRequest<T>(
   }
 
   // ─── MASTER DATA & ADMIN ─────────────────────────────────────────────────────
+  if (cleanPath.startsWith("/rooms/") && cleanPath.endsWith("/schedule")) {
+    const roomId = Number(cleanPath.split("/")[2])
+    const roomItem = mockRooms.find((r) => r.ma_phong === roomId)
+    const baseSchedule = [
+      {
+        ma_dat_phong: 1,
+        ma_su_kien: 101,
+        tieu_de: "Ngày hội AI & Big Data 2026",
+        ten_su_kien: "Ngày hội AI & Big Data 2026",
+        ten_don_vi_host: "Khoa Hệ thống Thông tin",
+        thoi_gian_bat_dau: "08:00",
+        thoi_gian_ket_thuc: "11:30",
+        trang_thai: "CONFIRMED",
+        loai: "CONFIRMED",
+      },
+      {
+        ma_dat_phong: 2,
+        ma_su_kien: 102,
+        tieu_de: "Workshop DevOps Cloud",
+        ten_su_kien: "Workshop DevOps Cloud",
+        ten_don_vi_host: "CLB WebDev UIT",
+        thoi_gian_bat_dau: "13:45",
+        thoi_gian_ket_thuc: "17:15",
+        trang_thai: "PENDING",
+        loai: "PENDING_HOLD",
+      },
+      {
+        ma_dat_phong: 3,
+        ma_su_kien: 103,
+        tieu_de: "Đêm nhạc Sinh viên UIT 2026",
+        ten_su_kien: "Đêm nhạc Sinh viên UIT 2026",
+        ten_don_vi_host: "Đoàn Thanh niên",
+        thoi_gian_bat_dau: "18:00",
+        thoi_gian_ket_thuc: "21:30",
+        trang_thai: "CONFIRMED",
+        loai: "CONFIRMED",
+      },
+    ]
+
+    let result = roomId === 1 ? baseSchedule : roomId === 2 ? [baseSchedule[1]] : [baseSchedule[0]]
+    if (roomItem?.trang_thai === "BaoTri") {
+      result = [
+        ...result,
+        {
+          ma_dat_phong: 999,
+          ma_su_kien: 0,
+          tieu_de: "BẢO TRÌ PHÒNG HỘI TRƯỜNG",
+          ten_su_kien: "Bảo trì định kỳ cơ sở vật chất",
+          ten_don_vi_host: "Phòng Quản trị Thiết bị",
+          thoi_gian_bat_dau: "07:00",
+          thoi_gian_ket_thuc: "22:00",
+          trang_thai: "BAO_TRI",
+          loai: "BAO_TRI",
+        },
+      ]
+    }
+    return {
+      success: true,
+      data: result,
+      message: "Truy vấn lịch phòng thành công",
+    } as T
+  }
+
+  if (cleanPath.startsWith("/rooms/") && cleanPath.endsWith("/availability")) {
+    const roomId = Number(cleanPath.split("/")[2])
+    const roomItem = mockRooms.find((r) => r.ma_phong === roomId)
+    const isMaintenance = roomItem?.trang_thai === "BaoTri"
+    return {
+      success: true,
+      data: {
+        ma_phong: roomId,
+        trong_lich: !isMaintenance,
+        xung_dot: isMaintenance
+          ? {
+              ma_su_kien: 0,
+              ten_su_kien: "Phòng đang trong thời gian bảo trì",
+              thoi_gian_bat_dau: "07:00",
+              thoi_gian_ket_thuc: "22:00",
+            }
+          : null,
+      },
+      message: "Kiểm tra tính khả dụng phòng thành công",
+    } as T
+  }
+
+  if (cleanPath.startsWith("/rooms/") && method === "PUT") {
+    const roomId = Number(cleanPath.split("/")[2])
+    const body = (options.body ? JSON.parse(options.body as string) : {}) as Partial<RoomPublic>
+    const idx = mockRooms.findIndex((r) => r.ma_phong === roomId)
+    if (idx !== -1) {
+      mockRooms[idx] = { ...mockRooms[idx], ...body }
+    }
+    return {
+      success: true,
+      data: mockRooms[idx] || body,
+      message: "Cập nhật phòng thành công",
+    } as T
+  }
+
   if (cleanPath === "/rooms") {
     return {
       success: true,

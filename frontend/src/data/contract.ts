@@ -177,16 +177,23 @@ export interface RoomPublic {
     am_thanh: boolean
     wifi: boolean
   }
+  trang_thai?: "KhaDung" | "BaoTri"
+  bao_tri_tu_ngay?: string | null
+  bao_tri_den_ngay?: string | null
+  xac_nhan_bo_qua_canh_bao?: boolean
 }
 
 /** Lịch đặt phòng */
 export interface RoomScheduleEntry {
   ma_dat_phong?: number
-  ma_su_kien: number
-  ten_su_kien: string
+  ma_su_kien?: number
+  ten_su_kien?: string
+  tieu_de?: string
+  ten_don_vi_host?: string
   thoi_gian_bat_dau: string
   thoi_gian_ket_thuc: string
   trang_thai: string
+  loai?: "CONFIRMED" | "PENDING_HOLD" | "BAO_TRI" | string
 }
 
 /** Kết quả kiểm tra tình trạng trống của phòng */

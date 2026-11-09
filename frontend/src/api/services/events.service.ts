@@ -42,6 +42,7 @@ export const eventsService = {
     payload: {
       dong_y?: boolean
       trang_thai_xac_nhan?: "DONG_Y" | "TU_CHOI" | string
+      ghi_chu_tu_choi?: string
       ly_do_tu_choi?: string
       [key: string]: unknown
     },
