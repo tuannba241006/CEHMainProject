@@ -30,7 +30,7 @@ export const adminService = {
       `/admin/users/${id}/assign-organizer`,
       payload,
     ),
-  updateUserStatus: (id: number, payload: { hoat_dong: boolean }) =>
+  updateUserStatus: (id: number, payload: { hoat_dong: boolean; ly_do?: string }) =>
     api.put<ApiEnvelope<User>>(`/admin/users/${id}/status`, payload),
   topics: (query?: Record<string, string | number>) =>
     api.get<ApiEnvelope<Topic[]>>("/admin/topics", { query }),

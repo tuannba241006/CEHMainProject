@@ -580,6 +580,55 @@ export async function handleMockRequest<T>(
     } as T
   }
 
+  if (cleanPath === "/admin/organizations") {
+    if (method === "POST") {
+      const payload = (options.body ? JSON.parse(options.body as string) : {}) as Partial<Organization>
+      const newOrg = {
+        ma_don_vi: Math.max(0, ...mockOrgs.map((o) => o.ma_don_vi)) + 1,
+        ten_don_vi: payload.ten_don_vi || "Đơn vị mới",
+        loai_don_vi: payload.loai_don_vi || "CLB_Doi_Nhom",
+        ma_don_vi_cha: payload.ma_don_vi_cha ?? null,
+        hoat_dong: true,
+        thoi_gian_tao: new Date().toISOString(),
+      } as Organization
+      mockOrgs.push(newOrg)
+      return { success: true, data: newOrg } as T
+    }
+    return {
+      success: true,
+      data: mockOrgs,
+      meta: {
+        trang_hien_tai: 1,
+        tong_so_trang: 1,
+        tong_so_ban_ghi: mockOrgs.length,
+        kich_thuoc_trang: 20,
+      },
+    } as T
+  }
+
+  if (cleanPath.startsWith("/admin/organizations/")) {
+    const id = Number(cleanPath.split("/")[3])
+    const payload = (options.body ? JSON.parse(options.body as string) : {}) as Partial<Organization>
+    const org = mockOrgs.find((o) => o.ma_don_vi === id)
+    if (org) Object.assign(org, payload)
+    return { success: true, data: org } as T
+  }
+
+  if (cleanPath.startsWith("/admin/users/") && cleanPath.endsWith("/status")) {
+    const id = Number(cleanPath.split("/")[3])
+    const payload = (options.body ? JSON.parse(options.body as string) : {}) as { hoat_dong?: boolean }
+    const updated = {
+      ...mockUser,
+      ma_tai_khoan: id,
+      hoat_dong: payload.hoat_dong ?? true,
+    }
+    return {
+      success: true,
+      message: "Cập nhật trạng thái tài khoản thành công.",
+      data: updated,
+    } as T
+  }
+
   if (cleanPath === "/admin/users") {
     return {
       success: true,

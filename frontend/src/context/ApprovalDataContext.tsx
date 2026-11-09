@@ -2,6 +2,50 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { eventsService } from "../api/services/events.service"
 import { certificatesService } from "../api/services/certificates.service"
 import { getApiErrorMessage } from "../api/errors"
+import { ORGANIZATIONS } from "../data/mock"
+
+/**
+ * Phân giải Khoa chủ quản từ Đơn vị tổ chức (kể cả CLB trực thuộc Khoa)
+ * Khắc phục triệt để DEF-09: Sự kiện của CLB trực thuộc (như CLB WebDev UIT)
+ * không bị gán nhầm sang Khoa khác khiến bộ lọc Khoa ẩn mất hồ sơ.
+ */
+export function resolveFacultyFromUnit(
+  unitName: string | undefined,
+  fallback?: string,
+): string {
+  if (!unitName) return fallback || "Khoa Hệ thống Thông tin"
+  if (unitName.includes("Khoa")) return unitName
+
+  // Tra cứu cây đơn vị cha-con trong danh mục tổ chức
+  const org = ORGANIZATIONS.find(
+    (o) =>
+      o.ten_don_vi.toLowerCase() === unitName.toLowerCase() ||
+      unitName.toLowerCase().includes(o.ten_don_vi.toLowerCase()),
+  )
+  if (org && org.ma_don_vi_cha) {
+    const parent = ORGANIZATIONS.find((p) => p.ma_don_vi === org.ma_don_vi_cha)
+    if (parent && parent.ten_don_vi.includes("Khoa")) {
+      return parent.ten_don_vi
+    }
+  }
+
+  // Quy tắc ánh xạ danh mục CLB trực thuộc tại UIT
+  const lower = unitName.toLowerCase()
+  if (lower.includes("webdev") || lower.includes("httt") || lower.includes("hệ thống thông tin")) {
+    return "Khoa Hệ thống Thông tin"
+  }
+  if (lower.includes("ai") || lower.includes("khmt") || lower.includes("khoa học máy tính")) {
+    return "Khoa Khoa học Máy tính"
+  }
+  if (lower.includes("mạng") || lower.includes("an toàn") || lower.includes("mmt")) {
+    return "Khoa Mạng máy tính & Truyền thông"
+  }
+  if (lower.includes("phần mềm") || lower.includes("se")) {
+    return "Khoa Kỹ thuật Phần mềm"
+  }
+
+  return fallback || "Khoa Hệ thống Thông tin"
+}
 
 export type ApprovalStatus =
   | "draft"
@@ -289,9 +333,10 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
             eventId: String(card.ma_su_kien),
             title: card.ten_su_kien,
             unit: card.ten_don_vi_host || existing?.unit || "Khoa Hệ thống Thông tin",
-            faculty: (card.ten_don_vi_host || "").includes("Khoa")
-              ? card.ten_don_vi_host
-              : existing?.faculty || "Khoa Công nghệ Thông tin",
+            faculty: resolveFacultyFromUnit(
+              card.ten_don_vi_host,
+              existing?.faculty,
+            ),
             submitter: card.dien_gia || existing?.submitter || "Ban tổ chức",
             submittedAt: (card.thoi_gian_bat_dau || "").slice(0, 10),
             eventDate: (card.thoi_gian_bat_dau || "").slice(0, 10),

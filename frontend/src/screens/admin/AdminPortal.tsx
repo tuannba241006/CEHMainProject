@@ -16,6 +16,7 @@ import { getApiErrorMessage } from "../../api/errors"
 import { reportsService } from "../../api/services/reports.service"
 import { certificatesService } from "../../api/services/certificates.service"
 import FormDialog, { ConfirmDialog, type FieldSpec } from "./FormDialog"
+import Modal from "../../components/Modal"
 import { useApp } from "../../context/AppContext"
 import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
 import { Certificates } from "../management/AffairsOperations"
@@ -164,13 +165,16 @@ export default function AdminPortal({ section }: { section: Section }) {
           return { data: SEED_USERS }
         }
       },
-      create: (i) => adminService.createInternalUser(i),
-      update: () =>
-        Promise.reject(
-          new Error(
-            "API Contract không hỗ trợ sửa toàn bộ hồ sơ qua endpoint trạng thái. Hãy dùng chức năng khóa/mở hoặc phân công Organizer.",
-          ),
-        ),
+      create: (i) =>
+        adminService.createInternalUser({
+          ...i,
+          ma_don_vi_to_chuc: i.ma_don_vi ? Number(i.ma_don_vi) : undefined,
+        }),
+      update: (id, i) =>
+        adminService.updateUserStatus(Number(id), {
+          hoat_dong: !i.bi_khoa,
+          ly_do: i.bi_khoa ? "Quản trị viên mở khóa tài khoản" : "Quản trị viên khóa tài khoản",
+        }),
     },
   )
   const orgCol = useCollection<OrganizationSummary>(
@@ -180,14 +184,42 @@ export default function AdminPortal({ section }: { section: Section }) {
     {
       list: async () => {
         try {
-          const res = (await adminService.organizations()) as { data: unknown[] }
-          return res
+          const res = await adminService.organizations()
+          const rows = ((res.data || []) as unknown) as Array<Record<string, unknown>>
+          const mapped: OrganizationSummary[] = rows.map((r) => {
+            const rawType = String(r.loai_don_vi || "")
+            const loai_don_vi: OrganizationSummary["loai_don_vi"] =
+              rawType === "Khoa"
+                ? "Khoa"
+                : rawType === "PhongBan" || rawType === "DoanHoi"
+                  ? "PhongBan"
+                  : "CLB_Doi_Nhom"
+            return {
+              ma_don_vi: Number(r.ma_don_vi ?? r.ma_don_vi_to_chuc),
+              ten_don_vi: String(r.ten_don_vi || ""),
+              loai_don_vi,
+              ma_don_vi_cha: r.ma_don_vi_cha ? Number(r.ma_don_vi_cha) : null,
+            }
+          })
+          return { data: mapped.length > 0 ? mapped : ORGANIZATIONS }
         } catch (err) {
-          console.warn("Admin organizations API not implemented in backend (404), using seed data:", err)
+          console.warn("Admin organizations API returned error, using fallback seed:", err)
           return { data: ORGANIZATIONS }
         }
       },
-      create: (i) => adminService.createOrganization(i),
+      create: (i) => {
+        const payload = {
+          ...i,
+          ma_dinh_danh:
+            (i as Record<string, unknown>).ma_dinh_danh ||
+            i.ten_don_vi
+              .split(" ")
+              .map((w) => w[0])
+              .join("")
+              .toUpperCase() + "_" + Date.now().toString().slice(-4),
+        }
+        return adminService.createOrganization(payload)
+      },
       update: (id, i) => adminService.updateOrganization(id, i),
     },
   )
@@ -198,10 +230,11 @@ export default function AdminPortal({ section }: { section: Section }) {
     {
       list: async () => {
         try {
-          const res = (await adminService.topics()) as { data: unknown[] }
-          return res
+          const res = await adminService.topics()
+          const rows = (res.data || []) as Topic[]
+          return { data: rows.length > 0 ? rows : CONTRACT_TOPICS }
         } catch (err) {
-          console.warn("Admin topics API not implemented in backend (404), using seed data:", err)
+          console.warn("Admin topics API error, using fallback seed:", err)
           return { data: CONTRACT_TOPICS }
         }
       },
@@ -225,6 +258,7 @@ export default function AdminPortal({ section }: { section: Section }) {
   const [noShowRate, setNoShowRate] = useState<number>(1.0)
   const [noShowReason, setNoShowReason] = useState<string>("")
   const [noShowSubmitting, setNoShowSubmitting] = useState<boolean>(false)
+  const [lockReason, setLockReason] = useState<string>("")
 
   const users = useMemo(
     () =>
@@ -1004,26 +1038,77 @@ export default function AdminPortal({ section }: { section: Section }) {
         />
       )}
       {dialog?.kind === "lock" && (
-        <ConfirmDialog
+        <Modal
           open
-          danger={!dialog.item.bi_khoa}
           title={dialog.item.bi_khoa ? "Mở khóa tài khoản" : "Khóa tài khoản"}
-          message={`${
-            dialog.item.bi_khoa ? "Mở khóa" : "Khóa"
-          } tài khoản ${dialog.item.ho_ten}?`}
-          confirmLabel={dialog.item.bi_khoa ? "Mở khóa" : "Khóa"}
-          onClose={() => setDialog(null)}
-          onConfirm={() =>
-            run(
-              () =>
-                usersCol.save(
-                  { ...dialog.item, bi_khoa: !dialog.item.bi_khoa },
-                  false,
-                ),
-              "Đã cập nhật trạng thái tài khoản.",
-            )
-          }
-        />
+          onClose={() => {
+            setDialog(null)
+            setLockReason("")
+          }}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              {dialog.item.bi_khoa
+                ? `Mở khóa tài khoản ${dialog.item.ho_ten} (${dialog.item.email})? Người dùng sẽ có thể đăng nhập lại bình thường.`
+                : `Khóa tài khoản ${dialog.item.ho_ten} (${dialog.item.email})? Thao tác này sẽ đình chỉ hoạt động và thu hồi toàn bộ phiên làm việc của người dùng.`}
+            </p>
+
+            {!dialog.item.bi_khoa && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Lý do khóa tài khoản (bắt buộc, tối thiểu 5 ký tự) *
+                </label>
+                <textarea
+                  value={lockReason}
+                  onChange={(e) => setLockReason(e.target.value)}
+                  placeholder="Ví dụ: Tái phạm vi phạm quy chế hoặc no-show nhiều lần..."
+                  rows={3}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                />
+                {lockReason.trim().length > 0 && lockReason.trim().length < 5 && (
+                  <p className="text-[11px] text-red-500 mt-1">Lý do phải có tối thiểu 5 ký tự.</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setDialog(null)
+                  setLockReason("")
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={!dialog.item.bi_khoa && lockReason.trim().length < 5}
+                onClick={async () => {
+                  const isLocking = !dialog.item.bi_khoa
+                  await run(
+                    async () => {
+                      await adminService.updateUserStatus(dialog.item.ma_nguoi_dung, {
+                        hoat_dong: !isLocking,
+                        ...(isLocking ? { ly_do: lockReason.trim() } : {}),
+                      })
+                      await usersCol.reload()
+                      setDialog(null)
+                      setLockReason("")
+                    },
+                    isLocking ? "Đã khóa tài khoản thành công." : "Đã mở khóa tài khoản thành công.",
+                  )
+                }}
+                className={`px-4 py-2 rounded-xl text-white text-xs font-semibold disabled:opacity-50 cursor-pointer ${
+                  dialog.item.bi_khoa ? "bg-indigo hover:bg-indigo-700" : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {dialog.item.bi_khoa ? "Mở khóa" : "Khóa tài khoản"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
       {dialog?.kind === "delTopic" && (
         <ConfirmDialog
