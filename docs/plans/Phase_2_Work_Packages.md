@@ -37,8 +37,8 @@ Qua rà soát và phân tích toán học toàn bộ **31 Tasks kỹ thuật** t
 ## BẢNG THEO DÕI TIẾN ĐỘ THỰC HIỆN CÁC GÓI CÔNG VIỆC (PROGRESS CHECKLIST)
 
 > **Trạng thái tổng quan Phase 2**:
-> - **Tiến độ gói**: **3 / 15 gói hoàn thành (20.0%)**
-> - **Khối lượng Effort**: **10.0d / 55.0d (18.2%)** hoàn thành (Đường găng đã hoàn thành: **7.0d / 44.0d = 15.9%**)
+> - **Tiến độ gói**: **10 / 30 gói hoàn thành (33.3%)**
+> - **Khối lượng Effort**: **34.0d / 110.0d (30.9%)** hoàn thành (Đường găng đã hoàn thành: **28.0d / 88.0d = 31.8%**)
 > - **Gói đang kích hoạt / Kế tiếp**: **`PKG-02`** (Wave 2 - Soạn thảo Sự kiện, Đồng tổ chức & Soft Hold 48h)
 
 | Tiến độ | Gói ID | Tên Gói Công Việc | Wave | Effort | Phân loại Lập lịch | Báo cáo Nghiệm thu QA/QC | Trạng thái Nghiệp vụ & Kỹ thuật |
@@ -48,26 +48,26 @@ Qua rà soát và phân tích toán học toàn bộ **31 Tasks kỹ thuật** t
 | [ ] | **`PKG-03`** | Động cơ Duyệt Đa cấp & Điều chuyển / Hủy Khẩn cấp | Wave 3 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-02 hoàn tất |
 | [x] | **`PKG-04`** | Cổng Khám phá Sự kiện Công khai & OpenGraph SSR | Wave 4 | **3.0d** | Song song | [`PKG-04_QA_QC_REPORT.md`](../reports/PKG-04_QA_QC_REPORT.md) | ✅ **PASS** (16/16 tests pass, p95=6.74ms, Đủ điều kiện sáp nhập) |
 | [x] | **`PKG-05`** | Động cơ Đặt vé Concurrency & Stress Test 50 Users | Wave 4 | **4.0d** | Critical Path | [`PKG-05_QA_QC_REPORT.md`](../reports/PKG-05_QA_QC_REPORT.md) | ✅ **PASS** (13/13 tests pass, 50u stress pass, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-06`** | Ví Vé Cá nhân, Quản lý Hủy vé T-4h & Thông báo | Wave 5 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-05 hoàn tất |
+| [x] | **`PKG-06`** | Ví Vé Cá nhân, Quản lý Hủy vé T-4h & Thông báo | Wave 5 | **3.5d** | Critical Path | [`PKG-06_QA_QC_REPORT.md`](../reports/PKG-06_QA_QC_REPORT.md) | ✅ **PASS** (Tự động phát hiện QA/QC Report) |
 | [ ] | **`PKG-07`** | Hàng đợi Waitlist FIFO, Cấp Offer & Đóng T-2h | Wave 6 | **4.5d** | Song song | — | ⬜ Chờ PKG-05, PKG-06 (Song song với PKG-08) |
 | [ ] | **`PKG-08`** | Hạ tầng Phiên Kiosk Độc lập & Soát vé HMAC Bàn | Wave 6 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-06 hoàn tất |
 | [ ] | **`PKG-09`** | Điểm danh 2 Chiều TOTP, Device Binding & $\Delta t$ | Wave 7 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-08 hoàn tất |
 | [ ] | **`PKG-10`** | Khảo sát Feedback 48h & e-Certificate NĐ 13 | Wave 8 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-09 hoàn tất |
 | [ ] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-10 hoàn tất |
-| [ ] | **`PKG-12`** | Vòng đời Sự kiện, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-11 hoàn tất |
+| [x] | **`PKG-12`** | Vòng đời Sự kiện, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | [`PKG-12_QA_QC_REPORT.md`](../reports/PKG-12_QA_QC_REPORT.md) | ✅ **PASS** (27/27 tests pass, 93 assertions, Đủ điều kiện mở khóa PKG-13/14) |
 | [ ] | **`PKG-13`** | Nền tảng AI Core, Lọc PII & Trợ lý Organizer Copilot | Wave 9 | **3.5d** | Song song | — | ⬜ Chờ PKG-10 (Song song với PKG-11, 12) |
 | [ ] | **`PKG-14`** | Dashboard Chiến lược Vĩ mô Toàn trường & AI BI Agent | Wave 11 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-11, PKG-12, PKG-13 hoàn tất |
 | [ ] | **`PKG-15`** | Feature Tests 100% Use Cases & Runbook Nghiệm thu | Wave 12 | **4.0d** | Critical Path Gate | — | ⬜ Chờ toàn bộ PKG-01 $\rightarrow$ PKG-14 |
-| **TỔNG** | **15 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **55.0d** | — | **3/15 Gói có Báo cáo QA** | **Hoàn thành: 3/15 (20.0%) | Effort: 10.0d/55.0d (18.2%)** |
+| **TỔNG** | **30 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **110.0d** | — | **10/30 Gói có Báo cáo QA** | **Hoàn thành: 10/30 (33.3%) | Effort: 34.0d/110.0d (30.9%)** |
 
 ---
 
 ## BẢNG THEO DÕI TIẾN ĐỘ THỰC HIỆN CÁC GÓI CÔNG VIỆC (PROGRESS CHECKLIST)
 
 > **Trạng thái tổng quan Phase 2**:
-> - **Tiến độ gói**: **3 / 15 gói hoàn thành (20.0%)**
-> - **Khối lượng Effort**: **10.0d / 55.0d (18.2%)** hoàn thành (Đường găng đã hoàn thành: **7.0d / 44.0d = 15.9%**)
-> - **Gói đang kích hoạt / Kế tiếp**: **`PKG-02` (Wave 2 - Critical Path)**
+> - **Tiến độ gói**: **10 / 30 gói hoàn thành (33.3%)**
+> - **Khối lượng Effort**: **34.0d / 110.0d (30.9%)** hoàn thành (Đường găng đã hoàn thành: **28.0d / 88.0d = 31.8%**)
+> - **Gói đang kích hoạt / Kế tiếp**: **`PKG-02`** (Wave 2 - Soạn thảo Sự kiện, Đồng tổ chức & Soft Hold 48h)
 
 | Tiến độ | Gói ID | Tên Gói Công Việc | Wave | Effort | Phân loại Lập lịch | Báo cáo Nghiệm thu QA/QC | Trạng thái Nghiệp vụ & Kỹ thuật |
 | :---: | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
@@ -76,17 +76,17 @@ Qua rà soát và phân tích toán học toàn bộ **31 Tasks kỹ thuật** t
 | [ ] | **`PKG-03`** | Động cơ Duyệt Đa cấp & Điều chuyển / Hủy Khẩn cấp | Wave 3 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-02 hoàn tất |
 | [x] | **`PKG-04`** | Cổng Khám phá Sự kiện Công khai & OpenGraph SSR | Wave 4 | **3.0d** | Song song | [`PKG-04_QA_QC_REPORT.md`](../reports/PKG-04_QA_QC_REPORT.md) | ✅ **PASS** (16/16 tests pass, p95=6.74ms, Đủ điều kiện sáp nhập) |
 | [x] | **`PKG-05`** | Động cơ Đặt vé Concurrency & Stress Test 50 Users | Wave 4 | **4.0d** | Critical Path | [`PKG-05_QA_QC_REPORT.md`](../reports/PKG-05_QA_QC_REPORT.md) | ✅ **PASS** (13/13 tests pass, 50u stress pass, Đủ điều kiện sáp nhập) |
-| [ ] | **`PKG-06`** | Ví Vé Cá nhân, Quản lý Hủy vé T-4h & Thông báo | Wave 5 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-05 hoàn tất |
+| [x] | **`PKG-06`** | Ví Vé Cá nhân, Quản lý Hủy vé T-4h & Thông báo | Wave 5 | **3.5d** | Critical Path | [`PKG-06_QA_QC_REPORT.md`](../reports/PKG-06_QA_QC_REPORT.md) | ✅ **PASS** (Tự động phát hiện QA/QC Report) |
 | [ ] | **`PKG-07`** | Hàng đợi Waitlist FIFO, Cấp Offer & Đóng T-2h | Wave 6 | **4.5d** | Song song | — | ⬜ Chờ PKG-05, PKG-06 (Song song với PKG-08) |
 | [ ] | **`PKG-08`** | Hạ tầng Phiên Kiosk Độc lập & Soát vé HMAC Bàn | Wave 6 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-06 hoàn tất |
 | [ ] | **`PKG-09`** | Điểm danh 2 Chiều TOTP, Device Binding & $\Delta t$ | Wave 7 | **4.0d** | Critical Path | — | ⬜ Chờ PKG-08 hoàn tất |
 | [ ] | **`PKG-10`** | Khảo sát Feedback 48h & e-Certificate NĐ 13 | Wave 8 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-09 hoàn tất |
 | [ ] | **`PKG-11`** | Khóa Chốt Điểm Rèn Luyện & Dashboard BTC | Wave 9 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-10 hoàn tất |
-| [ ] | **`PKG-12`** | Vòng đời Sự kiện, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-03, PKG-11 hoàn tất |
+| [x] | **`PKG-12`** | Vòng đời Sự kiện, Quét No-show & Gom Thống kê | Wave 10 | **3.5d** | Critical Path | [`PKG-12_QA_QC_REPORT.md`](../reports/PKG-12_QA_QC_REPORT.md) | ✅ **PASS** (27/27 tests pass, 93 assertions, Đủ điều kiện mở khóa PKG-13/14) |
 | [ ] | **`PKG-13`** | Nền tảng AI Core, Lọc PII & Trợ lý Organizer Copilot | Wave 9 | **3.5d** | Song song | — | ⬜ Chờ PKG-10 (Song song với PKG-11, 12) |
 | [ ] | **`PKG-14`** | Dashboard Chiến lược Vĩ mô Toàn trường & AI BI Agent | Wave 11 | **3.5d** | Critical Path | — | ⬜ Chờ PKG-11, PKG-12, PKG-13 hoàn tất |
 | [ ] | **`PKG-15`** | Feature Tests 100% Use Cases & Runbook Nghiệm thu | Wave 12 | **4.0d** | Critical Path Gate | — | ⬜ Chờ toàn bộ PKG-01 $\rightarrow$ PKG-14 |
-| **TỔNG** | **15 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **55.0d** | — | **1/15 Gói có Báo cáo QA** | **Hoàn thành: 1/15 (6.7%) \| Effort: 3.0d/55.0d (5.5%)** |
+| **TỔNG** | **30 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **110.0d** | — | **10/30 Gói có Báo cáo QA** | **Hoàn thành: 10/30 (33.3%) | Effort: 34.0d/110.0d (30.9%)** |
 
 ---
 
@@ -184,7 +184,7 @@ flowchart TD
 | **`PKG-13`** | Nền tảng AI Core, Lọc PII & Trợ lý BTC Organizer Copilot       | `CEH-P2-AI-01CEH-P2-AI-02`                  | **3.5d**    | `PKG-10`                            | **Song song** với PKG-11, PKG-12 (Slack = 3.5d)           | **Wave 9**    |
 | **`PKG-14`** | Dashboard Chiến lược Vĩ mô Toàn trường & Trợ lý AI BI Agent    | `CEH-P2-REP-02CEH-P2-AI-03`                 | **3.5d**    | `PKG-11`, `PKG-12`, `PKG-13`        | **Critical Path** (Hoàn thiện phân hệ Báo cáo & AI)       | **Wave 11**   |
 | **`PKG-15`** | Bộ Feature Tests 100% Use Cases & Postman API Verification     | `CEH-P2-TST-01CEH-P2-TST-03`                | **4.0d**    | Toàn bộ PKG-01 $\rightarrow$ PKG-14 | **Critical Path Gate** (Nghiệm thu đóng Phase 2)          | **Wave 12**   |
-| **TỔNG** | **15 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **55.0d** | — | **3/15 Gói có Báo cáo QA** | **Hoàn thành: 3/15 (20.0%) | Effort: 10.0d/55.0d (18.2%)** |
+| **TỔNG** | **30 Gói** | **Đường găng: 44.0d (Single-dev: 55.0d)** | **12 Waves** | **110.0d** | — | **10/30 Gói có Báo cáo QA** | **Hoàn thành: 10/30 (33.3%) | Effort: 34.0d/110.0d (30.9%)** |
 
 ---
 
