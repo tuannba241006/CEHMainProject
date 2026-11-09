@@ -4,6 +4,9 @@ use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AttendanceOverrideController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\CertificateController;
+use App\Http\Controllers\Api\DrlController;
+use App\Http\Controllers\Api\EventAnalyticsController;
 use App\Http\Controllers\Api\EventCatalogController;
 use App\Http\Controllers\Api\EventCoHostController;
 use App\Http\Controllers\Api\EventEmergencyController;
@@ -11,6 +14,7 @@ use App\Http\Controllers\Api\EventOrganizerController;
 use App\Http\Controllers\Api\EventPublicDetailController;
 use App\Http\Controllers\Api\EventReviewController;
 use App\Http\Controllers\Api\EventShareController;
+use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\KioskSessionController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoomController;
@@ -19,6 +23,7 @@ use App\Http\Controllers\Api\SelfAttendanceController;
 use App\Http\Controllers\Api\StaffAttendanceController;
 use App\Http\Controllers\Api\TicketCancelController;
 use App\Http\Controllers\Api\TicketController;
+use App\Http\Controllers\Api\WaitlistController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -164,6 +169,19 @@ $notificationRoutes = function () {
     });
 };
 
+// PKG-07: FIFO waitlist and offer claim routes (UC-BOOK-02, UC-BOOK-03).
+$waitlistRoutes = function () {
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
+        Route::post('/events/{id}/waitlist', [WaitlistController::class, 'join'])
+            ->whereNumber('id')->middleware('throttle:10,1')->name('waitlist.join');
+        Route::get('/waitlist/my-entries', [WaitlistController::class, 'index'])->name('waitlist.my-entries');
+        Route::post('/waitlist/{id}/claim', [WaitlistController::class, 'claim'])
+            ->whereNumber('id')->middleware('throttle:10,1')->name('waitlist.claim');
+        Route::post('/waitlist/{id}/decline', [WaitlistController::class, 'decline'])
+            ->whereNumber('id')->name('waitlist.decline');
+    });
+};
+
 // PKG-08: Kiosk, HMAC staff scanning and two-way attendance operations.
 $attendanceRoutes = function () {
     Route::middleware(['auth:sanctum,web', 'role:ToChuc,Admin', 'password.changed'])->group(function () {
@@ -182,14 +200,53 @@ $attendanceRoutes = function () {
         Route::get('/staff/my-events', [StaffAttendanceController::class, 'myStaffEvents']);
         Route::post('/attendance/staff-scan', [StaffAttendanceController::class, 'staffScan']);
     });
-    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed', 'throttle:10,1,attendance:'])->group(function () {
         Route::post('/attendance/self-check-in', [SelfAttendanceController::class, 'selfCheckIn']);
         Route::post('/attendance/self-check-out', [SelfAttendanceController::class, 'selfCheckOut']);
     });
 };
 
+// PKG-10: Feedback 48h survey and e-Certificate HMAC (UC-FEED-01, UC-CERT-01)
+$feedbackAndCertificateRoutes = function () {
+    // Public verification of certificate (no auth required)
+    Route::get('/certificates/verify/{hash}', [CertificateController::class, 'verifyPublic'])->name('certificates.verify');
+
+    // Student operations
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
+        Route::post('/events/{id}/feedback', [FeedbackController::class, 'submitFeedback'])->whereNumber('id')->name('events.feedback');
+        Route::post('/tickets/{id}/certificate', [CertificateController::class, 'issueOrGet'])->whereNumber('id')->name('tickets.certificate');
+        Route::get('/certificates/my-certificates', [CertificateController::class, 'myCertificates'])->name('certificates.my');
+    });
+
+    // Student (owner) and Admin: Download PDF
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien,Admin', 'password.changed'])->group(function () {
+        Route::get('/certificates/{id}/download', [CertificateController::class, 'downloadPdf'])->whereNumber('id')->name('certificates.download');
+    });
+
+    // Admin operations
+    Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
+        Route::post('/admin/tickets/{id}/feedback-grace', [FeedbackController::class, 'grantGrace'])->whereNumber('id')->name('admin.tickets.feedback-grace');
+        Route::get('/admin/certificates', [CertificateController::class, 'adminIndex'])->name('admin.certificates.index');
+        Route::post('/admin/certificates/{id}/revoke', [CertificateController::class, 'revoke'])->whereNumber('id')->name('admin.certificates.revoke');
+    });
+};
+
+// PKG-11: DRL Accreditation & Organizer Analytics (UC-DRL-01, UC-REP-01)
+$drlAndAnalyticsRoutes = function () {
+    Route::middleware(['auth:sanctum,web', 'role:ToChuc,Admin', 'password.changed'])->group(function () {
+        Route::get('/events/{id}/drl', [DrlController::class, 'index'])->whereNumber('id')->name('events.drl.index');
+        Route::post('/events/{id}/drl/lock', [DrlController::class, 'lock'])->whereNumber('id')->name('events.drl.lock');
+        Route::get('/events/{id}/drl/export', [DrlController::class, 'export'])->whereNumber('id')->name('events.drl.export');
+        Route::get('/organizer/events/{id}/analytics', [EventAnalyticsController::class, 'showAnalytics'])->whereNumber('id')->name('organizer.events.analytics');
+    });
+
+    Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
+        Route::post('/events/{id}/drl/unlock', [DrlController::class, 'unlock'])->whereNumber('id')->name('events.drl.unlock');
+    });
+};
+
 // Version 1 API routes (/api/v1/...)
-Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes) {
+Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes, $waitlistRoutes, $feedbackAndCertificateRoutes, $drlAndAnalyticsRoutes) {
     Route::prefix('auth')->group($authRoutes);
     Route::prefix('admin')->group($adminRoutes);
     Route::prefix('rooms')->group($roomRoutes);
@@ -197,7 +254,10 @@ Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRout
     Route::prefix('organizer')->name('v1.')->group($organizerRoutes);
     Route::prefix('tickets')->name('v1.tickets.')->group($ticketRoutes);
     Route::prefix('notifications')->name('v1.notifications.')->group($notificationRoutes);
+    $waitlistRoutes();
     $attendanceRoutes();
+    $feedbackAndCertificateRoutes();
+    $drlAndAnalyticsRoutes();
 });
 
 // Root API alias routes (/api/...)
@@ -208,4 +268,7 @@ Route::prefix('events')->group($eventRoutes);
 Route::prefix('organizer')->group($organizerRoutes);
 Route::prefix('tickets')->name('tickets.')->group($ticketRoutes);
 Route::prefix('notifications')->name('notifications.')->group($notificationRoutes);
+$waitlistRoutes();
 $attendanceRoutes();
+$feedbackAndCertificateRoutes();
+$drlAndAnalyticsRoutes();

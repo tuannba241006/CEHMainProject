@@ -78,19 +78,22 @@ class KioskSessionService
 
     public function verifyTotp(int $eventId, string $code): PhienKiosk
     {
-        if (! preg_match('/^\d{6}$/', $code)) {
-            throw new BusinessException('TOTP_EXPIRED', 'Mã TOTP không hợp lệ hoặc đã hết hạn.', null, 400);
+        if (! preg_match('/\A[0-9]{6}\z/', $code)) {
+            throw new BusinessException('TOTP_INVALID', 'Mã TOTP phải gồm đúng 6 chữ số.', null, 400);
         }
-        $sessions = PhienKiosk::with('suKien')->where('ma_su_kien', $eventId)->where('da_thu_hoi', false)->where('thoi_gian_het_han', '>', now())->get();
-        $counter = intdiv(now()->timestamp, 30);
+
+        $now = now();
+        $sessions = PhienKiosk::where('ma_su_kien', $eventId)->where('da_thu_hoi', false)->where('thoi_gian_het_han', '>', $now)->get();
+        $counter = intdiv($now->timestamp, 30);
         foreach ($sessions as $session) {
-            foreach ([$counter - 1, $counter, $counter + 1] as $candidate) {
+            foreach ([$counter, $counter - 1] as $candidate) {
                 if (hash_equals($this->hotp($session->totp_secret, $candidate), $code)) {
                     return $session;
                 }
             }
         }
-        throw new BusinessException('TOTP_EXPIRED', 'Mã TOTP không hợp lệ hoặc đã quá thời gian cho phép.', null, 400);
+
+        throw new BusinessException('TOTP_INVALID', 'Mã QR đã hết hiệu lực. Vui lòng quét lại mã đang chiếu trên màn hình.', null, 400);
     }
 
     public function openCheckIn(SuKien $event, User $actor): SuKien
