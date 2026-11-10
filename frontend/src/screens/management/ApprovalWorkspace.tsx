@@ -73,7 +73,10 @@ export default function ApprovalWorkspace({
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(getApiErrorMessage(err))
+        console.warn("Review queue API note:", err)
+        if (!cancelled && (!approvalCases || approvalCases.length === 0)) {
+          setError(getApiErrorMessage(err))
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -81,7 +84,7 @@ export default function ApprovalWorkspace({
     return () => {
       cancelled = true
     }
-  }, [refreshReviewQueue])
+  }, [refreshReviewQueue, approvalCases])
 
   const faculty = user.faculty || user.khoa || ""
   const canView = (item: ApprovalCase) =>
@@ -175,6 +178,7 @@ function ApprovalList({
   error?: string | null
 }) {
   const [search, setSearch] = useState("")
+  const [errorDismissed, setErrorDismissed] = useState(false)
   const [status, setStatus] = useState("all")
   const [unit, setUnit] = useState("all")
   const [term, setTerm] = useState("semester")
@@ -230,10 +234,19 @@ function ApprovalList({
         </p>
       </div>
 
-      {error && (
-        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2.5 text-sm">
-          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-          <span>{error}</span>
+      {error && !errorDismissed && (
+        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center justify-between gap-2.5 text-sm">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorDismissed(true)}
+            className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+          >
+            Đóng
+          </button>
         </div>
       )}
 

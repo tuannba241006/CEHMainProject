@@ -7,7 +7,7 @@ import type {
 import { ORGANIZATIONS } from "../data/mock"
 import { tokenStore, isApiMode } from "../api/config"
 import { authService } from "../api/services/auth.service"
-import { ensureCsrfToken } from "../api/client"
+import { ensureCsrfToken, getXsrfToken } from "../api/client"
 
 export type AppRole = "student" | "organizer" | "faculty_manager" | "student_affairs" | "admin"
 
@@ -104,8 +104,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const storedRole = sessionStorage.getItem("ceh_demo_role") as AppRole | null
     const storedEmail = sessionStorage.getItem("ceh_demo_email")
 
-    // Eagerly pre-fetch Sanctum CSRF cookie in the background on app load (UC-AUTH-02)
-    void ensureCsrfToken().catch(() => {})
+    // Pre-fetch Sanctum CSRF cookie only if not yet present in cookies (UC-AUTH-02)
+    if (!getXsrfToken()) {
+      void ensureCsrfToken().catch(() => {})
+    }
 
     if (token || isApiMode()) {
       authService
@@ -121,7 +123,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         })
         .catch(() => {
           if (cancelled) return
-          if (storedRole && storedEmail) {
+          if (!isApiMode() && storedRole && storedEmail) {
             loginAs(storedEmail, storedRole)
           } else {
             setRole(null)

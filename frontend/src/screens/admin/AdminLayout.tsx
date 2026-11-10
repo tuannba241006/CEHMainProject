@@ -39,6 +39,7 @@ const navGroups: NavGroupDef[] = [
     category: "Quản trị cấp Trường",
     items: [
       { path: "/admin/dashboard", label: "Tổng quan toàn trường", icon: LayoutDashboard },
+      { path: "/admin/reports", label: "Báo cáo chiến lược vĩ mô", icon: TrendingUp },
       { path: "/admin/events", label: "Sự kiện cấp trường & Nháp", icon: ClipboardList },
       { path: "/affairs/approvals", label: "Duyệt đề xuất sự kiện", icon: CheckCircle2 },
       { path: "/affairs/drl", label: "Phê duyệt kết quả ĐRL", icon: Award },
@@ -62,7 +63,6 @@ const navGroups: NavGroupDef[] = [
       { path: "/admin/organizations", label: "Cây phân cấp Đơn vị", icon: Network },
       { path: "/admin/users", label: "Tài khoản & Phân quyền", icon: UserCog },
       { path: "/admin/topics", label: "Danh mục Chuyên đề", icon: Tag },
-      { path: "/admin/reports", label: "Báo cáo vĩ mô", icon: TrendingUp },
     ],
   },
 ]

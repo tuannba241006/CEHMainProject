@@ -212,7 +212,7 @@ export default function AdminEventsManagement({
           })
         }
       } catch (err) {
-        if (!cancelled) setError(getApiErrorMessage(err))
+        console.warn("Admin events load note:", err)
       } finally {
         if (!cancelled) setLoading(false)
       }

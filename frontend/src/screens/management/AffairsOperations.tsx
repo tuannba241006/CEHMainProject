@@ -87,7 +87,10 @@ function Results() {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(getApiErrorMessage(err))
+        console.warn("DRL records API note:", err)
+        if (!cancelled && (!attendanceRecords || attendanceRecords.length === 0)) {
+          setError(getApiErrorMessage(err))
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -95,7 +98,7 @@ function Results() {
     return () => {
       cancelled = true
     }
-  }, [selectedEventId])
+  }, [selectedEventId, attendanceRecords])
 
   const [lockModalOpen, setLockModalOpen] = useState(false)
   const [reasonFor, setReasonFor] = useState<string | null>(null)
@@ -247,9 +250,18 @@ function Results() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-screen-xl">
       {error && (
-        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2 text-sm">
-          <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
-          <span>{error}</span>
+        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center justify-between gap-2 text-sm">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+          >
+            Đóng
+          </button>
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

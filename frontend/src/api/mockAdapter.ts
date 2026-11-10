@@ -822,6 +822,102 @@ export async function handleMockRequest<T>(
     } as T
   }
 
+  // ─── ADMIN ANALYTICS & MACRO REPORT (UC-REP-02) ─────────────────────────
+  if (cleanPath === "/admin/analytics/macro/export") {
+    return new Blob(
+      [
+        "BÁO CÁO CHIẾN LƯỢC TOÀN TRƯỜNG\nTổng sự kiện: 48\nTổng lượt SV tham gia: 3850\nTỷ lệ Show-up toàn trường: 91.2%\nTỷ lệ No-show toàn trường: 5.8%\nTốc độ cháy vé trung bình: 132.5 phút\n",
+      ],
+      {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      },
+    ) as unknown as T
+  }
+
+  if (cleanPath === "/admin/analytics/no-show-violations") {
+    return {
+      success: true,
+      data: [
+        {
+          ma_tai_khoan: 1,
+          mssv: "22520088",
+          ho_ten: "Trần Minh Quân",
+          lop_sinh_hoat: "HTTT2022",
+          so_lan_vi_pham: 3,
+          danh_sach_su_kien_no_show: [
+            { ma_su_kien: 101, ten_su_kien: "Hội thảo AI 2026", ngay_dien_ra: "2026-10-10" },
+            { ma_su_kien: 102, ten_su_kien: "Web Dev Workshop", ngay_dien_ra: "2026-10-24" },
+            { ma_su_kien: 103, ten_su_kien: "Talkshow Startup", ngay_dien_ra: "2026-11-02" },
+          ],
+        },
+        {
+          ma_tai_khoan: 502,
+          mssv: "22520145",
+          ho_ten: "Lê Hoàng Long",
+          lop_sinh_hoat: "KHMT2022",
+          so_lan_vi_pham: 2,
+          danh_sach_su_kien_no_show: [
+            { ma_su_kien: 104, ten_su_kien: "An toàn Thông tin 2026", ngay_dien_ra: "2026-10-15" },
+            { ma_su_kien: 105, ten_su_kien: "Techfest UIT", ngay_dien_ra: "2026-11-01" },
+          ],
+        },
+        {
+          ma_tai_khoan: 503,
+          mssv: "23520312",
+          ho_ten: "Phạm Thu Hương",
+          lop_sinh_hoat: "KTPM2023",
+          so_lan_vi_pham: 2,
+          danh_sach_su_kien_no_show: [
+            { ma_su_kien: 106, ten_su_kien: "Chinh phục Hackathon", ngay_dien_ra: "2026-10-18" },
+            { ma_su_kien: 107, ten_su_kien: "Lễ hội CLB", ngay_dien_ra: "2026-11-05" },
+          ],
+        },
+      ],
+      message: "Danh sách sinh viên vi phạm No-show toàn trường",
+    } as T
+  }
+
+  if (cleanPath === "/admin/analytics/macro") {
+    return {
+      success: true,
+      data: {
+        tu_ngay: "2026-09-01",
+        den_ngay: "2026-12-31",
+        tong_so_su_kien: 48,
+        tong_luot_sinh_vien_tham_gia: 3850,
+        ty_le_show_up_toan_truong_pct: 91.2,
+        ty_le_no_show_toan_truong_pct: 5.8,
+        toc_do_chay_ve_phut_tb: 132.5,
+        su_kien_theo_chuyen_de: [
+          { ten_chuyen_de: "Công nghệ thông tin & Trí tuệ Nhân tạo", so_su_kien: 16, tong_luot_tham_du: 1520 },
+          { ten_chuyen_de: "Kỹ năng mềm & Hội nhập", so_su_kien: 12, tong_luot_tham_du: 980 },
+          { ten_chuyen_de: "Học thuật & NCKH", so_su_kien: 10, tong_luot_tham_du: 720 },
+          { ten_chuyen_de: "Văn thể mỹ & Hoạt động Xã hội", so_su_kien: 6, tong_luot_tham_du: 410 },
+          { ten_chuyen_de: "Khởi nghiệp & Đổi mới sáng tạo", so_su_kien: 4, tong_luot_tham_du: 220 },
+        ],
+        su_kien_theo_cap_don_vi: [
+          { loai_don_vi: "CLB", so_su_kien: 20 },
+          { loai_don_vi: "Khoa", so_su_kien: 14 },
+          { loai_don_vi: "DoanHoi", so_su_kien: 9 },
+          { loai_don_vi: "PhongBan", so_su_kien: 5 },
+        ],
+        cong_suat_su_dung_phong: [
+          { ma_phong: 1, ten_phong: "Hội trường A - Tòa A (Cơ sở 1)", so_su_kien_to_chuc: 18, ty_le_lap_day_tb_pct: 94.5 },
+          { ma_phong: 2, ten_phong: "Hội trường E - Tòa E (Cơ sở 1)", so_su_kien_to_chuc: 14, ty_le_lap_day_tb_pct: 88.0 },
+          { ma_phong: 3, ten_phong: "Hội trường B1.14 - Tòa B (Cơ sở 2)", so_su_kien_to_chuc: 9, ty_le_lap_day_tb_pct: 78.4 },
+          { ma_phong: 4, ten_phong: "Phòng Hội thảo C301 (Cơ sở 1)", so_su_kien_to_chuc: 7, ty_le_lap_day_tb_pct: 82.1 },
+        ],
+        top_don_vi_hoat_dong_tich_cuc: [
+          { ma_don_vi_to_chuc: 2, ten_don_vi: "CLB WebDev UIT", so_su_kien: 9, diem_hai_long_tb: 4.88 },
+          { ma_don_vi_to_chuc: 1, ten_don_vi: "Khoa Kỹ thuật Phần mềm", so_su_kien: 8, diem_hai_long_tb: 4.82 },
+          { ma_don_vi_to_chuc: 3, ten_don_vi: "Ban quản lý Khoa HTTT", so_su_kien: 6, diem_hai_long_tb: 4.75 },
+          { ma_don_vi_to_chuc: 4, ten_don_vi: "Đoàn Thanh niên - Hội Sinh viên", so_su_kien: 5, diem_hai_long_tb: 4.69 },
+        ],
+      },
+      message: "Báo cáo chiến lược toàn trường (< 1.0s)",
+    } as T
+  }
+
   if (cleanPath.includes("/analytics")) {
     return {
       success: true,

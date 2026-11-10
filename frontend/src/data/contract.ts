@@ -224,13 +224,65 @@ export interface FeedbackPayload {
   joinAgain?: boolean
 }
 
-/** Thống kê vĩ mô cấp trường */
-export interface MacroAnalytics {
+/** Phân bổ sự kiện theo chuyên đề (UC-REP-02) */
+export interface MacroTopicBreakdown {
+  ten_chuyen_de: string
+  so_su_kien: number
+  tong_luot_tham_du: number
+}
+
+/** Phân bổ sự kiện theo cấp đơn vị (UC-REP-02) */
+export interface MacroUnitLevelBreakdown {
+  loai_don_vi: "CLB" | "DoanHoi" | "Khoa" | "PhongBan" | string
+  so_su_kien: number
+}
+
+/** Công suất sử dụng phòng hội trường (UC-REP-02) */
+export interface MacroRoomOccupancy {
+  ma_phong: number
+  ten_phong: string
+  so_su_kien_to_chuc: number
+  ty_le_lap_day_tb_pct: number
+}
+
+/** Đơn vị tổ chức tích cực nhất kèm điểm hài lòng (UC-REP-02) */
+export interface MacroTopUnit {
+  ma_don_vi_to_chuc: number
+  ten_don_vi: string
+  so_su_kien: number
+  diem_hai_long_tb: number | null
+}
+
+/** Báo cáo chiến lược vĩ mô toàn trường (UC-REP-02, OpenAPI AdminMacroDashboard) */
+export interface AdminMacroDashboard {
+  tu_ngay: string
+  den_ngay: string
   tong_so_su_kien: number
   tong_luot_sinh_vien_tham_gia: number
-  ty_le_checkin_tb: number
-  ty_le_no_show_tb: number
-  su_kien_theo_chuyen_de?: Record<string, number>
+  ty_le_show_up_toan_truong_pct: number
+  ty_le_no_show_toan_truong_pct: number
+  toc_do_chay_ve_phut_tb: number | null
+  su_kien_theo_chuyen_de: MacroTopicBreakdown[]
+  su_kien_theo_cap_don_vi: MacroUnitLevelBreakdown[]
+  cong_suat_su_dung_phong: MacroRoomOccupancy[]
+  top_don_vi_hoat_dong_tich_cuc: MacroTopUnit[]
+}
+
+/** Thống kê vĩ mô cấp trường (Tương thích ngược & mở rộng AdminMacroDashboard) */
+export interface MacroAnalytics {
+  tu_ngay?: string
+  den_ngay?: string
+  tong_so_su_kien: number
+  tong_luot_sinh_vien_tham_gia: number
+  ty_le_show_up_toan_truong_pct?: number
+  ty_le_no_show_toan_truong_pct?: number
+  ty_le_checkin_tb?: number
+  ty_le_no_show_tb?: number
+  toc_do_chay_ve_phut_tb?: number | null
+  su_kien_theo_chuyen_de?: MacroTopicBreakdown[] | Record<string, number>
+  su_kien_theo_cap_don_vi?: MacroUnitLevelBreakdown[]
+  cong_suat_su_dung_phong?: MacroRoomOccupancy[]
+  top_don_vi_hoat_dong_tich_cuc?: MacroTopUnit[]
 }
 
 /** Hồ sơ sinh viên vi phạm No-show */

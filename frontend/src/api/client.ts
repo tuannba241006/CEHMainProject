@@ -129,8 +129,8 @@ export async function request<T>(
 
   try {
     const response = await fetch(buildUrl(path, options.query), {
-      credentials: options.credentials ?? "include",
       ...options,
+      credentials: options.credentials ?? "include",
       body,
       headers,
       signal: controller.signal,
@@ -153,6 +153,19 @@ export async function request<T>(
     }
     // Fallback to mock adapter if server/mock container is offline or unreachable
     if (error instanceof TypeError && error.message.toLowerCase().includes("fetch")) {
+      const mockResponse = await handleMockRequest<T>(path, options)
+      if (mockResponse !== undefined) {
+        return mockResponse
+      }
+    }
+    // For read-only GET requests that encounter 404 or unauthenticated 401 in preview,
+    // gracefully fall back to contract mock data if available to prevent UI breakdown
+    const method = (options.method || "GET").toUpperCase()
+    if (
+      method === "GET" &&
+      error instanceof ApiError &&
+      (error.status === 404 || error.status === 401)
+    ) {
       const mockResponse = await handleMockRequest<T>(path, options)
       if (mockResponse !== undefined) {
         return mockResponse

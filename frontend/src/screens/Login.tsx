@@ -126,6 +126,30 @@ export default function Login({
     setError("")
   }
 
+  async function quickLogin(account: DemoAccount) {
+    setEmail(account.email)
+    setPassword(account.password)
+    setError("")
+    setLoading(true)
+    try {
+      const user = await loginApi(account.email, account.password)
+      const role: Role =
+        user.loai_tai_khoan === "Admin"
+          ? "admin"
+          : user.loai_tai_khoan === "SinhVien"
+            ? "student"
+            : user.don_vi?.loai_don_vi === "Khoa" &&
+                user.don_vi.ma_don_vi_cha == null
+              ? "faculty_manager"
+              : "organizer"
+      onLogin(role, user.email, user)
+    } catch (caught) {
+      setError(getApiErrorMessage(caught))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setLoading(true)
@@ -426,20 +450,26 @@ export default function Login({
               {portalAccounts(portal).map((account) => (
                 <button
                   key={account.email}
-                  onClick={() => fill(account)}
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3 text-left hover:border-indigo/30"
+                  type="button"
+                  onClick={() => void quickLogin(account)}
+                  className="w-full bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-left hover:border-indigo/40 hover:bg-indigo-50/20 transition-all cursor-pointer group"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-indigo-light text-indigo flex items-center justify-center text-xs font-bold">
-                    {account.initials}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-light text-indigo flex items-center justify-center text-xs font-bold shrink-0">
+                      {account.initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-navy">
+                        {account.label}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">
+                        {account.email} · {account.desc}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-navy">
-                      {account.label}
-                    </p>
-                    <p className="text-xs text-slate-400 truncate">
-                      {account.email} · {account.desc}
-                    </p>
-                  </div>
+                  <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg shrink-0 opacity-80 group-hover:opacity-100">
+                    Đăng nhập →
+                  </span>
                 </button>
               ))}
             </div>
