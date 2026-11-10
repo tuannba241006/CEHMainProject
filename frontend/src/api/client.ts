@@ -136,7 +136,9 @@ export async function request<T>(
       signal: controller.signal,
     })
     const payload = await parseBody(response)
-    if (response.status === 401) tokenStore.clear()
+    if (response.status === 401) {
+      tokenStore.clear()
+    }
 
     // Automatic 419 CSRF Token Mismatch Recovery (UC-AUTH-02)
     if (response.status === 419 && !isRetry) {
@@ -158,13 +160,13 @@ export async function request<T>(
         return mockResponse
       }
     }
-    // For read-only GET requests that encounter 404 or unauthenticated 401 in preview,
+    // For read-only GET requests that encounter 404 (endpoint not yet created in backend),
     // gracefully fall back to contract mock data if available to prevent UI breakdown
     const method = (options.method || "GET").toUpperCase()
     if (
       method === "GET" &&
       error instanceof ApiError &&
-      (error.status === 404 || error.status === 401)
+      error.status === 404
     ) {
       const mockResponse = await handleMockRequest<T>(path, options)
       if (mockResponse !== undefined) {

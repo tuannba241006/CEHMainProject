@@ -121,7 +121,7 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
           className="flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm shadow-xl hover:shadow-2xl transition-all cursor-pointer border border-slate-700"
         >
           <BarChart3 className="w-4 h-4 text-indigo-400" />
-          <span>Trợ lý Phân tích BI (Text-to-Insight)</span>
+          <span>Trợ lý Phân tích Dữ liệu</span>
           {showAiChat ? (
             <span className="text-xs bg-slate-800 px-1.5 py-0.5 rounded-full border border-slate-700">
               Đóng
@@ -132,7 +132,7 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
         </button>
       </div>
 
-      {/* UC-AI-02: Text-to-Insight Drawer / Modal */}
+      {/* Text-to-Insight Drawer / Modal */}
       {showAiChat && (
         <div className="fixed bottom-22 right-4 sm:right-6 z-50 w-[92vw] sm:w-[480px] max-h-[600px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
           {/* Header */}
@@ -143,10 +143,10 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
               </div>
               <div>
                 <h3 className="font-display font-bold text-sm">
-                  Trợ lý Phân tích BI Toàn trường
+                  Trợ lý Phân tích Dữ liệu
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  Truy vấn dữ liệu vĩ mô & Báo cáo quản trị
+                  Hỗ trợ truy vấn số liệu & Báo cáo quản trị
                 </p>
               </div>
             </div>

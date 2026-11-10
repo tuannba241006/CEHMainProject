@@ -4,6 +4,7 @@ import {
   type Notification,
 } from "../data/notifications"
 import { notificationsService } from "../api/services/notifications.service"
+import { useUser } from "./UserContext"
 
 export interface NotificationDataContextType {
   notifications: Notification[]
@@ -15,8 +16,10 @@ const NotificationDataContext = createContext<NotificationDataContextType | null
 
 export function NotificationDataProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS)
+  const { authenticated } = useUser()
 
   useEffect(() => {
+    if (!authenticated) return
     let cancelled = false
     notificationsService
       .list()
@@ -45,7 +48,7 @@ export function NotificationDataProvider({ children }: { children: ReactNode }) 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authenticated])
 
   function markNotificationRead(id: string | number) {
     const numId = Number(id)

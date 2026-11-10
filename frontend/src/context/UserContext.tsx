@@ -127,6 +127,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             loginAs(storedEmail, storedRole)
           } else {
             setRole(null)
+            setUser(DEFAULT_USER)
+            tokenStore.clear()
+            try {
+              sessionStorage.removeItem("ceh_demo_role")
+              sessionStorage.removeItem("ceh_demo_email")
+              sessionStorage.removeItem("ceh_user_data")
+            } catch {}
           }
         })
         .finally(() => {
@@ -154,6 +161,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       cancelled = true
     }
   }, [])
+
 
   function updateUser(
     patch: Partial<Pick<UserData, "name" | "phone" | "avatar">>,

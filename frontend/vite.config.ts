@@ -21,7 +21,7 @@ export default defineConfig({
         target:
           process.env.VITE_BACKEND_URL ||
           process.env.VITE_MOCK_URL ||
-          "http://localhost:4010",
+          "http://localhost:8000",
         changeOrigin: true,
         secure: false,
       },

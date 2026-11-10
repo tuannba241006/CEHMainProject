@@ -3,6 +3,7 @@ import { eventsService } from "../api/services/events.service"
 import { certificatesService } from "../api/services/certificates.service"
 import { getApiErrorMessage } from "../api/errors"
 import { ORGANIZATIONS } from "../data/mock"
+import { useUser } from "./UserContext"
 
 /**
  * Phân giải Khoa chủ quản từ Đơn vị tổ chức (kể cả CLB trực thuộc Khoa)
@@ -313,11 +314,13 @@ export interface ApprovalDataContextType {
 const ApprovalDataContext = createContext<ApprovalDataContextType | null>(null)
 
 export function ApprovalDataProvider({ children }: { children: ReactNode }) {
+  const { authenticated, role } = useUser()
   const [approvalCases, setApprovalCases] = useState<ApprovalCase[]>(SEED_APPROVALS)
   const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>(SEED_SURVEYS)
   const [certificates, setCertificates] = useState<Certificate[]>(SEED_CERTIFICATES)
 
   async function refreshReviewQueue() {
+    if (!authenticated || role === "student") return
     try {
       const res = await eventsService.reviewQueue()
       if (res.data && Array.isArray(res.data)) {
@@ -368,8 +371,10 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    void refreshReviewQueue()
-  }, [])
+    if (authenticated && role !== "student") {
+      void refreshReviewQueue()
+    }
+  }, [authenticated, role])
 
   function saveApprovalDraft(
     input: Partial<ApprovalCase> & Pick<ApprovalCase, "title">,

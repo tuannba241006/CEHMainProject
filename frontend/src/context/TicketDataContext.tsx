@@ -13,7 +13,7 @@ import {
   parseQrPayload,
 } from "../data/mock"
 import { type Ticket as ContractTicket, buildQrPayload } from "../data/contract"
-import type { UserData } from "./UserContext"
+import { useUser, type UserData } from "./UserContext"
 import { ticketsService } from "../api/services/tickets.service"
 import { bookingsService } from "../api/services/bookings.service"
 import { waitlistService } from "../api/services/waitlist.service"
@@ -263,6 +263,7 @@ const TicketDataContext = createContext<TicketDataContextType | null>(null)
 
 export function TicketDataProvider({ children }: { children: ReactNode }) {
   const { events, setEvents } = useEventData()
+  const { authenticated, role, user } = useUser()
   const [tickets, setTickets] = useState<Ticket[]>(TICKETS)
   const [ticketsLoading, setTicketsLoading] = useState(false)
   const [ticketsError, setTicketsError] = useState<string | null>(null)
@@ -272,13 +273,14 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
 
   const refreshTickets = useCallback(
     async (currentUser?: Partial<UserData> | null) => {
+      if (!authenticated || role !== "student") return
       setTicketsLoading(true)
       setTicketsError(null)
       try {
         const res = await ticketsService.mine()
         if (res.data && Array.isArray(res.data)) {
           const mapped = res.data.map((t) =>
-            mapContractTicketToUiTicket(t, currentUser),
+            mapContractTicketToUiTicket(t, currentUser || user),
           )
           setTickets(mapped)
         }
@@ -296,12 +298,14 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
         setTicketsLoading(false)
       }
     },
-    [],
+    [authenticated, role, user],
   )
 
   useEffect(() => {
-    void refreshTickets()
-  }, [])
+    if (authenticated && role === "student") {
+      void refreshTickets()
+    }
+  }, [authenticated, role, refreshTickets])
 
   function getUserActiveTicket(eventId: string, studentId: string) {
     return tickets.find(

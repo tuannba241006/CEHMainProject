@@ -49,6 +49,7 @@ import {
   BarChart3,
   ExternalLink,
   Star,
+  LogIn,
 } from "lucide-react"
 
 export type Section =
@@ -426,7 +427,7 @@ export default function AdminPortal({ section }: { section: Section }) {
     topics: ["Quản lý chuyên đề", "Danh mục chuyên đề dùng trong sự kiện."],
     reports: [
       "Báo cáo chiến lược toàn trường",
-      "Góc nhìn vĩ mô qua bảng tổng hợp thong_ke_su_kien_ngay & View v_event_analytics (< 1.0s) · UC-REP-02",
+      "Thống kê tổng quan chỉ số sự kiện, công suất hội trường và mức độ tham gia phong trào toàn trường.",
     ],
     "no-show": [
       "Quản lý No-show",
@@ -471,6 +472,14 @@ export default function AdminPortal({ section }: { section: Section }) {
           )}
           {section === "reports" && (
             <div className="flex flex-wrap items-center gap-2.5">
+              <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl text-xs text-slate-600 border border-slate-200/60">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="text-slate-500">Kỳ dữ liệu:</span>
+                <span className="font-semibold text-navy">
+                  {macroData?.tu_ngay ? `${macroData.tu_ngay} → ${macroData.den_ngay}` : "Học kỳ hiện tại"}
+                </span>
+              </div>
+
               <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
                 <span className="text-xs font-semibold text-slate-500">Kỳ:</span>
                 <select
@@ -491,7 +500,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                 onClick={() => fetchMacroReports(dateFilter)}
                 disabled={macroLoading}
                 className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
-                title="Làm mới dữ liệu từ thong_ke_su_kien_ngay"
+                title="Làm mới dữ liệu"
               >
                 <RefreshCw className={`w-4 h-4 ${macroLoading ? "animate-spin text-indigo" : ""}`} />
               </button>
@@ -537,29 +546,6 @@ export default function AdminPortal({ section }: { section: Section }) {
           />
         ) : section === "reports" ? (
           <div className="space-y-6">
-            {/* Notice Banner (UC-REP-02 & UC-SYS-01 Tác vụ 6) */}
-            <div className="p-4 bg-linear-to-r from-indigo-50/80 via-blue-50/50 to-indigo-50/80 border border-indigo-100/80 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-indigo-950">
-              <div className="flex items-start gap-2.5">
-                <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700 shrink-0 mt-0.5">
-                  <Sparkles className="w-4 h-4" />
-                </span>
-                <div>
-                  <div className="font-bold text-sm text-navy">
-                    Nghiệp vụ UC-REP-02: Báo cáo Chiến lược Toàn trường qua Bảng Tổng hợp Ngày
-                  </div>
-                  <p className="text-slate-600 mt-0.5 leading-relaxed">
-                    Dữ liệu được tác vụ cron tự động cập nhật hàng đêm (Job 6, <code className="font-mono bg-white/70 px-1 py-0.5 rounded text-indigo-800">thong_ke_su_kien_ngay</code>) kết hợp cùng View <code className="font-mono bg-white/70 px-1 py-0.5 rounded text-indigo-800">v_event_analytics</code> và <code className="font-mono bg-white/70 px-1 py-0.5 rounded text-indigo-800">v_feedback_an_danh</code>. Tốc độ phản hồi đạt chuẩn <b>&lt; 1.0 giây</b> không quét trực tiếp các bảng giao dịch.
-                  </p>
-                </div>
-              </div>
-              <div className="shrink-0 flex items-center gap-2 text-[11px] font-semibold text-indigo-700 bg-white/80 px-3 py-1.5 rounded-xl border border-indigo-100 shadow-2xs">
-                <Calendar className="w-3.5 h-3.5" />
-                <span>
-                  Kỳ dữ liệu: {macroData?.tu_ngay || "2026-09-01"} → {macroData?.den_ngay || "2026-12-31"}
-                </span>
-              </div>
-            </div>
-
             {/* Error alert banner if any */}
             {macroError && (
               <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-between text-xs text-rose-900 shadow-2xs">
@@ -570,22 +556,11 @@ export default function AdminPortal({ section }: { section: Section }) {
                 <div className="flex items-center gap-2">
                   {(macroError.includes("hết hạn") || macroError.includes("đăng nhập") || macroError.includes("401")) && (
                     <button
-                      onClick={async () => {
-                        try {
-                          setMacroLoading(true)
-                          await authService.login("admin@uit.edu.vn", "Admin@123")
-                          await fetchMacroReports(dateFilter)
-                        } catch (e) {
-                          console.error("Auto login error:", e)
-                          navigate("/login")
-                        } finally {
-                          setMacroLoading(false)
-                        }
-                      }}
+                      onClick={() => navigate("/login")}
                       className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5"
                     >
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>Kích hoạt phiên Admin (1-Click)</span>
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Đăng nhập lại</span>
                     </button>
                   )}
                   <button
@@ -667,8 +642,8 @@ export default function AdminPortal({ section }: { section: Section }) {
                     <div className="font-display font-bold text-2xl lg:text-3xl text-rose-600">
                       {macroData?.ty_le_no_show_toan_truong_pct ?? 0}%
                     </div>
-                    <p className="text-[10px] text-rose-500 mt-1 leading-tight" title="Chỉ tính sự kiện giới hạn slot theo đặc tả SRS">
-                      * Chỉ tính sự kiện có slot
+                    <p className="text-[10px] text-rose-500 mt-1 leading-tight" title="Chỉ tính trên các sự kiện có giới hạn số lượng chỗ ngồi">
+                      * Tính trên sự kiện có giới hạn chỗ
                     </p>
                   </div>
 
@@ -705,8 +680,8 @@ export default function AdminPortal({ section }: { section: Section }) {
                       4.82
                       <span className="text-xs font-normal text-slate-500 ml-1">/ 5.0</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1 leading-tight">
-                      View v_feedback_an_danh
+                    <p className="text-[11px] text-slate-500 mt-1 leading-tight">
+                      Khảo sát ý kiến sinh viên
                     </p>
                   </div>
                 </div>
@@ -791,15 +766,15 @@ export default function AdminPortal({ section }: { section: Section }) {
                           </p>
                         </div>
                       </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200 flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> Đệm 15p an toàn
+                      <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full">
+                        Theo ca tổ chức
                       </span>
                     </div>
 
                     <div className="mt-4 p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
+                      <Clock className="w-4 h-4 text-slate-400 shrink-0" />
                       <span>
-                        Hệ thống tự động thực thi <b>khoảng đệm an toàn 15 phút</b> giữa 2 sự kiện liên tiếp tại cùng hội trường để chuẩn bị kỹ thuật.
+                        Thời gian sử dụng đã bao gồm khoảng đệm chuẩn bị kỹ thuật giữa các ca sự kiện liên tiếp.
                       </span>
                     </div>
 
@@ -909,7 +884,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                             Bảng xếp hạng Đơn vị Tổ chức Tích cực
                           </h2>
                           <p className="text-xs text-slate-500">
-                            Xếp theo số lượng sự kiện & Điểm hài lòng trung bình (v_feedback_an_danh)
+                            Xếp theo số lượng sự kiện và điểm khảo sát sinh viên
                           </p>
                         </div>
                       </div>
@@ -966,14 +941,14 @@ export default function AdminPortal({ section }: { section: Section }) {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-900">
-                        Nghiệp vụ CTSV
+                        Quy chế sinh viên
                       </span>
                       <h3 className="font-display font-bold text-sm sm:text-base">
-                        Chế tài Xử lý Vi phạm No-show (UC-ADM-01.AC.1)
+                        Xử lý vi phạm vắng mặt không lý do (No-show)
                       </h3>
                     </div>
                     <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
-                      Quản trị viên P.CTSV xem xét danh sách sinh viên có cờ vi phạm No-show (bỏ vé ≥ 2 lần đối với sự kiện có slot) để thực hiện trừ Điểm rèn luyện hoặc tạm khóa quyền đăng ký sự kiện.
+                      Xem xét danh sách sinh viên bỏ chỗ không tham gia để áp dụng chế tài trừ Điểm rèn luyện hoặc tạm khóa quyền đăng ký theo quy định Công tác sinh viên.
                     </p>
                   </div>
                   <button
@@ -994,9 +969,9 @@ export default function AdminPortal({ section }: { section: Section }) {
                   <Sparkles className="w-4 h-4" />
                 </span>
                 <div>
-                  <span className="font-bold text-navy text-sm">Báo cáo Chiến lược Toàn trường (UC-REP-02):</span>{" "}
+                  <span className="font-bold text-navy text-sm">Báo cáo Chiến lược Toàn trường:</span>{" "}
                   <span className="text-slate-600 leading-relaxed">
-                    Theo dõi tỷ lệ No-show, tốc độ cháy vé, phân bổ chuyên đề và công suất sử dụng hội trường đạt chuẩn SRS v3.1.3 &amp; OpenAPI v3.2.3.
+                    Theo dõi tổng quan tỷ lệ tham gia, tốc độ đăng ký vé, phân bổ chuyên đề và công suất sử dụng hội trường toàn trường.
                   </span>
                 </div>
               </div>
