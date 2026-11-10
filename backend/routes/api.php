@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\EventReviewController;
 use App\Http\Controllers\Api\EventShareController;
 use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\KioskSessionController;
+use App\Http\Controllers\Api\MacroBiController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomScheduleController;
@@ -242,6 +243,8 @@ $drlAndAnalyticsRoutes = function () {
 
     Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
         Route::post('/events/{id}/drl/unlock', [DrlController::class, 'unlock'])->whereNumber('id')->name('events.drl.unlock');
+        Route::get('/admin/analytics/macro', [MacroBiController::class, 'macro'])->name('admin.analytics.macro');
+        Route::get('/admin/analytics/no-show-violations', [MacroBiController::class, 'noShowViolations'])->name('admin.analytics.no-show-violations');
     });
 };
 
