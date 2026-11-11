@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
 import {
@@ -6,7 +6,9 @@ import {
   CertificatePreview,
 } from "../management/AffairsOperations"
 import type { Certificate } from "../../context/AppContext"
+import type { Ticket as ContractTicket } from "../../data/contract"
 import { certificatesService } from "../../api/services/certificates.service"
+import { ticketsService } from "../../api/services/tickets.service"
 import {
   GraduationCap,
   Award,
@@ -31,6 +33,7 @@ export default function Achievements({ onBack, onVerify }: Props) {
   const { attendanceRecords, certificates } = useApp()
   const [preview, setPreview] = useState<Certificate | null>(null)
   const [remoteCertificates, setRemoteCertificates] = useState<Certificate[] | null>(null)
+  const [remoteTickets, setRemoteTickets] = useState<ContractTicket[] | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -38,9 +41,15 @@ export default function Achievements({ onBack, onVerify }: Props) {
     async function loadAchievements() {
       setLoading(true)
       try {
-        const certRes = await certificatesService.mine().catch(() => null)
-        if (certRes?.data && Array.isArray(certRes.data) && active) {
-          setRemoteCertificates(certRes.data as unknown as Certificate[])
+        const [certRes, tckRes] = await Promise.allSettled([
+          certificatesService.mine(),
+          ticketsService.mine(),
+        ])
+        if (certRes.status === "fulfilled" && certRes.value?.data && Array.isArray(certRes.value.data) && active) {
+          setRemoteCertificates(certRes.value.data as unknown as Certificate[])
+        }
+        if (tckRes.status === "fulfilled" && tckRes.value?.data && Array.isArray(tckRes.value.data) && active) {
+          setRemoteTickets(tckRes.value.data)
         }
       } catch {
         // keep local context fallback
@@ -54,9 +63,35 @@ export default function Achievements({ onBack, onVerify }: Props) {
     }
   }, [])
 
-  const myResults = attendanceRecords.filter(
-    (row) => row.studentId === user.studentId,
-  )
+  const mappedTicketsAsResults = useMemo(() => {
+    if (!remoteTickets || remoteTickets.length === 0) return []
+    return remoteTickets
+      .filter((t) => t.trang_thai === "DaCheckOut" || t.thoi_gian_check_in)
+      .map((t) => ({
+        id: `AT-TCK-${t.ma_dang_ky}`,
+        eventId: `EVT${t.ma_su_kien}`,
+        title: t.ten_su_kien,
+        studentId: user.studentId,
+        studentName: user.name,
+        checkin: t.thoi_gian_check_in ? new Date(t.thoi_gian_check_in).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "08:30",
+        checkout: t.thoi_gian_check_out ? new Date(t.thoi_gian_check_out).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "11:30",
+        validMinutes: 150,
+        participationRatio: t.ti_le_drl || 100,
+        proposedPoints: t.diem_drl_du_kien || 5,
+        officialPoints: t.ti_le_drl >= 80 ? t.diem_drl_du_kien : 0,
+        certificateEligible: t.ti_le_drl >= 80,
+        status: (t.ti_le_drl >= 80 ? "recognized" : "pending") as "recognized" | "pending",
+        approvedBy: "Phòng Công tác Sinh viên (P.CTSV)",
+        approvedAt: t.thoi_gian_check_out ? new Date(t.thoi_gian_check_out).toLocaleDateString("vi-VN") : "16/09/2026",
+        ruleVersion: "DK-2026.1",
+      }))
+  }, [remoteTickets, user.studentId, user.name])
+
+  const myResults =
+    mappedTicketsAsResults.length > 0
+      ? mappedTicketsAsResults
+      : attendanceRecords.filter((row) => row.studentId === user.studentId)
+
   const activeCertList = remoteCertificates || certificates
   const myCertificates = activeCertList.filter(
     (item) => item.studentId === user.studentId,
@@ -188,7 +223,7 @@ export default function Achievements({ onBack, onVerify }: Props) {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h3 className="font-semibold text-sm text-slate-900 leading-snug">
-                        Ngày hội nghề nghiệp AI & Kỹ thuật dữ liệu
+                        {(row as { title?: string }).title || "Ngày hội nghề nghiệp AI & Kỹ thuật dữ liệu"}
                       </h3>
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1.5">
                         <span className="flex items-center gap-1">

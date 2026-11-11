@@ -35,7 +35,7 @@ export function useCollection<T extends object>(
     setError(null)
     try {
       const res = await remote.list()
-      if (res && Array.isArray(res.data) && res.data.length > 0) {
+      if (res && Array.isArray(res.data)) {
         setItems(res.data as T[])
       }
     } catch (e) {

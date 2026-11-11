@@ -21,7 +21,7 @@ export type Campus = "CoSo1" | "CoSo2"
 export type DrlRule = "KhongCo" | "Dieu3" | "Dieu4"
 
 /** Phân loại đơn vị tổ chức */
-export type OrganizationType = "Khoa" | "PhongBan" | "CLB_Doi_Nhom"
+export type OrganizationType = "CLB" | "DoanHoi" | "Khoa" | "PhongBan"
 
 /** Trạng thái nút bấm điều hướng thời gian thực (UC-DISC-02) */
 export type SmartActionButtonStatus = "CHUA_DANG_NHAP" | "DANG_KY" | "DA_CO_VE" | "DANG_O_WAITLIST" | "CO_OFFER_WAITLIST" | "VAO_WAITLIST" | "HET_VE_DONG_WAITLIST_T2H" | "DONG_DANG_KY_T2H" | "VAO_DIEM_DANH" | "SU_KIEN_DANG_DIEN_RA_DONG_DK" | "LAM_FEEDBACK_NHAN_CERT" | "SU_KIEN_DA_KET_THUC" | "SU_KIEN_DA_HUY"
@@ -169,6 +169,7 @@ export interface RoomPublic {
   ma_phong: number
   ten_phong: string
   suc_chua: number
+  suc_chua_toi_da?: number
   co_so: Campus
   toa_nha: string
   vi_tri_tang: number
@@ -177,9 +178,16 @@ export interface RoomPublic {
     am_thanh: boolean
     wifi: boolean
   }
+  trang_thiet_bi?: {
+    may_chieu?: boolean
+    am_thanh?: boolean
+    wifi?: boolean
+    [key: string]: unknown
+  } | null
   trang_thai?: "KhaDung" | "BaoTri"
   bao_tri_tu_ngay?: string | null
   bao_tri_den_ngay?: string | null
+  ly_do_bao_tri?: string | null
   xac_nhan_bo_qua_canh_bao?: boolean
 }
 

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { EVENTS } from "../data/mock"
 import { Bot, BarChart3, X, Sparkles } from "lucide-react"
+import { reportsService } from "../api/services/reports.service"
 
 interface Props {
   role?: "admin" | "student_affairs"
@@ -31,85 +32,106 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
     setAiQuery("")
     setAiBusy(true)
 
-    setTimeout(() => {
-      let reply = ""
-      let table: Array<Record<string, unknown>> | undefined = undefined
-      const lower = q.toLowerCase()
+    reportsService
+      .textToInsight(q)
+      .then((res) => {
+        const data = res.data
+        if (data?.cau_tra_loi_tom_tat) {
+          setAiMessages((prev) => [
+            ...prev,
+            {
+              sender: "ai",
+              text: data.cau_tra_loi_tom_tat,
+              table:
+                data.bang_du_lieu && data.bang_du_lieu.length > 0
+                  ? data.bang_du_lieu
+                  : undefined,
+            },
+          ])
+          setAiBusy(false)
+          return
+        }
+        throw new Error("No summary returned")
+      })
+      .catch(() => {
+        let reply = ""
+        let table: Array<Record<string, unknown>> | undefined = undefined
+        const lower = q.toLowerCase()
 
-      if (lower.includes("tái phạm") || lower.includes("chế tài")) {
-        reply =
-          "Báo cáo sinh viên tái phạm No-show (≥ 2 lần vi phạm không check-in và không hủy vé trước T-4h): Phát hiện 3 trường hợp cần P.CTSV xem xét chế tài theo Điều 4 Quy chế ĐRL."
-        table = [
-          {
-            mssv: "22520112",
-            ho_ten: "Trần Văn ***",
-            so_lan: "2 lần",
-            khoa: "HTTT",
-            de_xuat: "Tạm khóa quyền đặt vé 30 ngày",
-          },
-          {
-            mssv: "22520543",
-            ho_ten: "Lê Thị ***",
-            so_lan: "3 lần",
-            khoa: "KHMT",
-            de_xuat: "Trừ 5 Điểm rèn luyện học kỳ",
-          },
-          {
-            mssv: "22520988",
-            ho_ten: "Nguyễn Hoàng ***",
-            so_lan: "2 lần",
-            khoa: "KTPM",
-            de_xuat: "Cảnh cáo in-app & Email nhắc nhở",
-          },
-        ]
-      } else if (lower.includes("no-show") || lower.includes("vi phạm")) {
-        reply =
-          "Phân tích 30 ngày qua cho P.CTSV: Toàn trường ghi nhận 7 trường hợp vi phạm No-show. Tỷ lệ No-show chung toàn trường chỉ ở mức 2.1% (thấp hơn ngưỡng báo động 5.0%)."
-        table = [
-          {
-            don_vi: "Khoa Hệ thống Thông tin",
-            vi_pham: "3 ca (42.8%)",
-            bien_phap: "Đã gửi cảnh báo P.CTSV",
-          },
-          {
-            don_vi: "Khoa Khoa học Máy tính",
-            vi_pham: "2 ca (28.6%)",
-            bien_phap: "Đang chờ đối soát",
-          },
-          {
-            don_vi: "Khoa Kỹ thuật Phần mềm",
-            vi_pham: "2 ca (28.6%)",
-            bien_phap: "Nhắc nhở qua email trường",
-          },
-        ]
-      } else if (
-        lower.includes("chuyên đề") ||
-        lower.includes("topic") ||
-        lower.includes("xu hướng")
-      ) {
-        reply =
-          "Xu hướng chuyên đề học kỳ này: Chuyên đề 'Trí tuệ Nhân tạo & Khoa học Dữ liệu' dẫn đầu mức độ quan tâm với 64% tổng lượt đăng ký, tiếp theo là 'Kỹ năng Lãnh đạo & Khởi nghiệp' (22%) và 'Lễ hội Âm nhạc & Văn hóa' (14%)."
-      } else if (
-        lower.includes("phòng") ||
-        lower.includes("hội trường") ||
-        lower.includes("lấp đầy")
-      ) {
-        reply =
-          "Hiệu suất hội trường: Hội trường A (Cơ sở 1) có tỷ lệ lấp đầy cao nhất đạt 92.5%, Hội trường E đạt 84.0%, Hội trường B đạt 78.5%. Toàn bộ các sự kiện đều tuân thủ khoảng đệm an toàn 15 phút giữa các ca."
-      } else if (
-        lower.includes("drl") ||
-        lower.includes("rèn luyện") ||
-        lower.includes("điểm")
-      ) {
-        reply =
-          "Tổng hợp Điểm rèn luyện: 94.2% sinh viên tham dự đạt chuẩn thời lượng tối thiểu Δt ≥ 70% và hoàn thành khảo sát 48h để nhận trọn vẹn điểm ĐRL theo Điều 3 & Điều 4."
-      } else {
-        reply = `Hệ thống ghi nhận ${EVENTS.length} sự kiện đang vận hành trong tháng. Tỷ lệ check-in thành công qua Kiosk Dynamic TOTP 30s đạt 97.8%. Đơn vị chủ trì tích cực nhất là Khoa Hệ thống Thông tin.`
-      }
+        if (lower.includes("tái phạm") || lower.includes("chế tài")) {
+          reply =
+            "Báo cáo sinh viên tái phạm No-show (≥ 2 lần vi phạm không check-in và không hủy vé trước T-4h): Phát hiện 3 trường hợp cần P.CTSV xem xét chế tài theo Điều 4 Quy chế ĐRL."
+          table = [
+            {
+              mssv: "22520112",
+              ho_ten: "Trần Văn ***",
+              so_lan: "2 lần",
+              khoa: "HTTT",
+              de_xuat: "Tạm khóa quyền đặt vé 30 ngày",
+            },
+            {
+              mssv: "22520543",
+              ho_ten: "Lê Thị ***",
+              so_lan: "3 lần",
+              khoa: "KHMT",
+              de_xuat: "Trừ 5 Điểm rèn luyện học kỳ",
+            },
+            {
+              mssv: "22520988",
+              ho_ten: "Nguyễn Hoàng ***",
+              so_lan: "2 lần",
+              khoa: "KTPM",
+              de_xuat: "Cảnh cáo in-app & Email nhắc nhở",
+            },
+          ]
+        } else if (lower.includes("no-show") || lower.includes("vi phạm")) {
+          reply =
+            "Phân tích 30 ngày qua cho P.CTSV: Toàn trường ghi nhận 7 trường hợp vi phạm No-show. Tỷ lệ No-show chung toàn trường chỉ ở mức 2.1% (thấp hơn ngưỡng báo động 5.0%)."
+          table = [
+            {
+              don_vi: "Khoa Hệ thống Thông tin",
+              vi_pham: "3 ca (42.8%)",
+              bien_phap: "Đã gửi cảnh báo P.CTSV",
+            },
+            {
+              don_vi: "Khoa Khoa học Máy tính",
+              vi_pham: "2 ca (28.6%)",
+              bien_phap: "Đang chờ đối soát",
+            },
+            {
+              don_vi: "Khoa Kỹ thuật Phần mềm",
+              vi_pham: "2 ca (28.6%)",
+              bien_phap: "Nhắc nhở qua email trường",
+            },
+          ]
+        } else if (
+          lower.includes("chuyên đề") ||
+          lower.includes("topic") ||
+          lower.includes("xu hướng")
+        ) {
+          reply =
+            "Xu hướng chuyên đề học kỳ này: Chuyên đề 'Trí tuệ Nhân tạo & Khoa học Dữ liệu' dẫn đầu mức độ quan tâm với 64% tổng lượt đăng ký, tiếp theo là 'Kỹ năng Lãnh đạo & Khởi nghiệp' (22%) và 'Lễ hội Âm nhạc & Văn hóa' (14%)."
+        } else if (
+          lower.includes("phòng") ||
+          lower.includes("hội trường") ||
+          lower.includes("lấp đầy")
+        ) {
+          reply =
+            "Hiệu suất hội trường: Hội trường A (Cơ sở 1) có tỷ lệ lấp đầy cao nhất đạt 92.5%, Hội trường E đạt 84.0%, Hội trường B đạt 78.5%. Toàn bộ các sự kiện đều tuân thủ khoảng đệm an toàn 15 phút giữa các ca."
+        } else if (
+          lower.includes("drl") ||
+          lower.includes("rèn luyện") ||
+          lower.includes("điểm")
+        ) {
+          reply =
+            "Tổng hợp Điểm rèn luyện: 94.2% sinh viên tham dự đạt chuẩn thời lượng tối thiểu Δt ≥ 70% và hoàn thành khảo sát 48h để nhận trọn vẹn điểm ĐRL theo Điều 3 & Điều 4."
+        } else {
+          reply = `Hệ thống ghi nhận ${EVENTS.length} sự kiện đang vận hành trong tháng. Tỷ lệ check-in thành công qua Kiosk Dynamic TOTP 30s đạt 97.8%. Đơn vị chủ trì tích cực nhất là Khoa Hệ thống Thông tin.`
+        }
 
-      setAiMessages((prev) => [...prev, { sender: "ai", text: reply, table }])
-      setAiBusy(false)
-    }, 600)
+        setAiMessages((prev) => [...prev, { sender: "ai", text: reply, table }])
+        setAiBusy(false)
+      })
   }
 
   return (

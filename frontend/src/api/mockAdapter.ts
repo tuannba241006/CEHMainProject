@@ -84,7 +84,7 @@ export async function handleMockRequest<T>(
         ? {
             ma_don_vi: 1,
             ten_don_vi: "CLB WebDev",
-            loai_don_vi: "CLB_Doi_Nhom",
+            loai_don_vi: "CLB",
           }
         : null,
     }
@@ -282,7 +282,7 @@ export async function handleMockRequest<T>(
         don_vi_dong_to_chuc: {
           ma_don_vi: 1,
           ten_don_vi: "CLB WebDev UIT",
-          loai_don_vi: "CLB_Doi_Nhom",
+          loai_don_vi: "CLB",
         },
         trang_thai_xac_nhan: "CHO_XAC_NHAN",
         thoi_gian_tao: "2026-11-01T08:00:00+07:00",
@@ -686,6 +686,33 @@ export async function handleMockRequest<T>(
   }
 
   if (cleanPath === "/rooms") {
+    if (method === "POST") {
+      const body = (options.body ? JSON.parse(options.body as string) : {}) as Partial<RoomPublic>
+      const newRoom: RoomPublic = {
+        ma_phong: Date.now(),
+        ten_phong: body.ten_phong || "Phòng mới",
+        suc_chua: Number(body.suc_chua_toi_da ?? body.suc_chua ?? 100),
+        suc_chua_toi_da: Number(body.suc_chua_toi_da ?? body.suc_chua ?? 100),
+        co_so: body.co_so || "CoSo1",
+        toa_nha: body.toa_nha || "Tòa A",
+        vi_tri_tang: body.vi_tri_tang || 1,
+        thiet_bi: {
+          may_chieu: Boolean(body.trang_thiet_bi?.may_chieu ?? body.thiet_bi?.may_chieu ?? true),
+          am_thanh: Boolean(body.trang_thiet_bi?.am_thanh ?? body.thiet_bi?.am_thanh ?? true),
+          wifi: Boolean(body.trang_thiet_bi?.wifi ?? body.thiet_bi?.wifi ?? true),
+        },
+        trang_thai: body.trang_thai || "KhaDung",
+        bao_tri_tu_ngay: body.bao_tri_tu_ngay || null,
+        bao_tri_den_ngay: body.bao_tri_den_ngay || null,
+        ly_do_bao_tri: body.ly_do_bao_tri || null,
+      }
+      mockRooms.push(newRoom)
+      return {
+        success: true,
+        data: newRoom,
+        message: "Tạo phòng hội trường thành công",
+      } as T
+    }
     return {
       success: true,
       data: mockRooms,
@@ -724,7 +751,7 @@ export async function handleMockRequest<T>(
       const newOrg = {
         ma_don_vi: Math.max(0, ...mockOrgs.map((o) => o.ma_don_vi)) + 1,
         ten_don_vi: payload.ten_don_vi || "Đơn vị mới",
-        loai_don_vi: payload.loai_don_vi || "CLB_Doi_Nhom",
+        loai_don_vi: payload.loai_don_vi || "CLB",
         ma_don_vi_cha: payload.ma_don_vi_cha ?? null,
         hoat_dong: true,
         thoi_gian_tao: new Date().toISOString(),
@@ -915,6 +942,57 @@ export async function handleMockRequest<T>(
         ],
       },
       message: "Báo cáo chiến lược toàn trường (< 1.0s)",
+    } as T
+  }
+
+  if (cleanPath === "/ai/admin/text-to-insight") {
+    const body = options.body ? JSON.parse(options.body as string) : {}
+    const q = String(body.cau_hoi_tu_nhien || body.prompt || "").toLowerCase()
+    let summary = "Hệ thống ghi nhận 48 sự kiện đang vận hành trong học kỳ với tỷ lệ show-up trung bình đạt 91.2%."
+    let strategy = [
+      "Tối ưu hóa các khung giờ cao điểm tại Hội trường A và Hội trường E.",
+      "Tiếp tục duy trì quy chế điểm danh Kiosk Dynamic TOTP 30s.",
+    ]
+    let table: Array<Record<string, unknown>> = []
+    let chart: "BarChart" | "LineChart" | "PieChart" | "Table" = "BarChart"
+
+    if (q.includes("tái phạm") || q.includes("chế tài")) {
+      summary =
+        "Báo cáo sinh viên tái phạm No-show (≥ 2 lần vi phạm không check-in và không hủy vé trước T-4h): Phát hiện 3 trường hợp cần P.CTSV xem xét chế tài theo Điều 4 Quy chế ĐRL."
+      strategy = [
+        "Khóa quyền đăng ký vé trong vòng 30 ngày đối với sinh viên vi phạm lần 2.",
+        "Trừ 5 điểm rèn luyện đối với sinh viên vi phạm lần 3 theo Điều 4.",
+      ]
+      table = [
+        { mssv: "22520112", ho_ten: "Trần Văn ***", so_lan: "2 lần", khoa: "HTTT", de_xuat: "Tạm khóa quyền đặt vé 30 ngày" },
+        { mssv: "22520543", ho_ten: "Lê Thị ***", so_lan: "3 lần", khoa: "KHMT", de_xuat: "Trừ 5 Điểm rèn luyện học kỳ" },
+        { mssv: "22520988", ho_ten: "Nguyễn Hoàng ***", so_lan: "2 lần", khoa: "KTPM", de_xuat: "Cảnh cáo in-app & Email nhắc nhở" },
+      ]
+      chart = "Table"
+    } else if (q.includes("no-show") || q.includes("vi phạm")) {
+      summary =
+        "Phân tích 30 ngày qua cho P.CTSV: Toàn trường ghi nhận 7 trường hợp vi phạm No-show. Tỷ lệ No-show chung toàn trường chỉ ở mức 2.1% (thấp hơn ngưỡng báo động 5.0%)."
+      strategy = [
+        "Tăng cường gửi thông báo in-app trước T-24h và T-4h.",
+        "Tạo điều kiện cho hàng đợi Waitlist được đẩy vé tự động.",
+      ]
+      table = [
+        { don_vi: "Khoa Hệ thống Thông tin", vi_pham: "3 ca (42.8%)", bien_phap: "Đã gửi cảnh báo P.CTSV" },
+        { don_vi: "Khoa Khoa học Máy tính", vi_pham: "2 ca (28.6%)", bien_phap: "Đang chờ đối soát" },
+        { don_vi: "Khoa Kỹ thuật Phần mềm", vi_pham: "2 ca (28.6%)", bien_phap: "Nhắc nhở qua email trường" },
+      ]
+      chart = "PieChart"
+    }
+
+    return {
+      success: true,
+      message: "Phân tích dữ liệu vĩ mô thành công",
+      data: {
+        cau_tra_loi_tom_tat: summary,
+        nhan_dinh_chien_luoc: strategy,
+        bang_du_lieu: table,
+        bieu_do_goi_y: chart,
+      },
     } as T
   }
 

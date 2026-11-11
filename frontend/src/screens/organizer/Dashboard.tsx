@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   BarChart,
   Bar,
@@ -19,6 +19,7 @@ import {
   CHART_PIE_DATA,
   CHART_LINE_DATA,
 } from "../../data/mock"
+import type { OrganizerDashboard } from "../../data/contract"
 import { OrgLayout } from "./OrgLayout"
 import { useApp, computeEventStatus } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
@@ -65,12 +66,83 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
   const { events, tickets } = useApp()
   const { showToast } = useToast()
   const currentEventId = events[0]?.ma_su_kien || 101
+  const [organizerAnalytics, setOrganizerAnalytics] = useState<OrganizerDashboard | null>(null)
   const [sentimentMetrics, setSentimentMetrics] = useState({
     total: 142,
     positive: 78,
     neutral: 15,
     negative: 7,
   })
+
+  useEffect(() => {
+    let active = true
+    reportsService
+      .organizer(currentEventId)
+      .then((res) => {
+        if (active && res.data) {
+          setOrganizerAnalytics(res.data)
+        }
+      })
+      .catch(() => {
+        // keep fallback
+      })
+    return () => {
+      active = false
+    }
+  }, [currentEventId])
+
+  const dynamicBarData = useMemo(() => {
+    if (events.length > 0) {
+      return events.slice(0, 5).map((evt, idx) => {
+        const isCurrent = evt.ma_su_kien === currentEventId || idx === 0
+        const reg =
+          isCurrent && organizerAnalytics?.tong_ve_dang_ky
+            ? organizerAnalytics.tong_ve_dang_ky
+            : evt.registered
+        const chk =
+          isCurrent && organizerAnalytics?.so_luong_check_in
+            ? organizerAnalytics.so_luong_check_in
+            : Math.round(reg * 0.82)
+        return {
+          event: evt.title.length > 18 ? evt.title.slice(0, 15) + "..." : evt.title,
+          registered: reg,
+          checkin: chk,
+        }
+      })
+    }
+    return CHART_BAR_DATA
+  }, [organizerAnalytics, events, currentEventId])
+
+  const dynamicPieData = useMemo(() => {
+    const facultyCounts: Record<string, number> = {}
+    tickets.forEach((t) => {
+      const f = t.faculty || "Khoa HTTT"
+      facultyCounts[f] = (facultyCounts[f] || 0) + 1
+    })
+    const entries = Object.entries(facultyCounts)
+    if (entries.length > 0) {
+      const total = entries.reduce((s, [, c]) => s + c, 0)
+      return entries.slice(0, 5).map(([name, count]) => ({
+        name,
+        value: Math.round((count / total) * 100),
+      }))
+    }
+    return CHART_PIE_DATA
+  }, [tickets])
+
+  const dynamicLineData = useMemo(() => {
+    const monthly: Record<string, number> = {}
+    tickets.forEach((t) => {
+      if (t.registeredAt) {
+        const m = "T" + (new Date(t.registeredAt).getMonth() + 1)
+        monthly[m] = (monthly[m] || 0) + 1
+      }
+    })
+    if (Object.keys(monthly).length >= 3) {
+      return Object.entries(monthly).map(([month, count]) => ({ month, count }))
+    }
+    return CHART_LINE_DATA
+  }, [tickets])
 
   const range =
     preset === "custom" && customFrom && customTo
@@ -286,7 +358,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             </p>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart
-                data={CHART_BAR_DATA}
+                data={dynamicBarData}
                 barCategoryGap="35%"
                 margin={{ top: 0, right: 8, left: -16, bottom: 0 }}
               >
@@ -354,7 +426,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             <ResponsiveContainer width="100%" height={150}>
               <PieChart>
                 <Pie
-                  data={CHART_PIE_DATA}
+                  data={dynamicPieData}
                   cx="50%"
                   cy="50%"
                   innerRadius={42}
@@ -362,8 +434,8 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                   paddingAngle={3}
                   dataKey="value"
                 >
-                  {CHART_PIE_DATA.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i]} />
+                  {dynamicPieData.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -377,12 +449,12 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-1.5 mt-1">
-              {CHART_PIE_DATA.map((d, i) => (
+              {dynamicPieData.map((d, i) => (
                 <div key={d.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div
                       className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: PIE_COLORS[i] }}
+                      style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
                     />
                     <span
                       className="text-xs truncate"
@@ -419,7 +491,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
           </p>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart
-              data={CHART_LINE_DATA}
+              data={dynamicLineData}
               margin={{ top: 0, right: 8, left: -16, bottom: 0 }}
             >
               <CartesianGrid

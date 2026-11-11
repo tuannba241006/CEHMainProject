@@ -98,13 +98,13 @@ export const ORGANIZATIONS: OrganizationSummary[] = [
   {
     ma_don_vi: 4,
     ten_don_vi: "CLB WebDev UIT",
-    loai_don_vi: "CLB_Doi_Nhom",
+    loai_don_vi: "CLB",
     ma_don_vi_cha: 1,
   },
   {
     ma_don_vi: 5,
     ten_don_vi: "Đoàn Thanh niên - Hội Sinh viên",
-    loai_don_vi: "PhongBan",
+    loai_don_vi: "DoanHoi",
     ma_don_vi_cha: null,
   },
 ]

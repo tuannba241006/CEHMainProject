@@ -208,12 +208,23 @@ export default function RoomManagement({
           ...base,
           ten_phong: String(v.ten_phong),
           suc_chua: Number(v.suc_chua),
+          suc_chua_toi_da: Number(v.suc_chua),
           co_so: v.co_so as RoomPublic["co_so"],
           toa_nha: String(v.toa_nha),
           vi_tri_tang: Number(v.vi_tri_tang),
           trang_thai: trangThai,
           bao_tri_tu_ngay: tuNgay,
           bao_tri_den_ngay: denNgay,
+          ly_do_bao_tri:
+            trangThai === "BaoTri"
+              ? String(v.ly_do_bao_tri || "Bảo trì định kỳ trang thiết bị hội trường")
+              : null,
+          trang_thiet_bi: {
+            may_chieu: Boolean(v.may_chieu ?? true),
+            am_thanh: Boolean(v.am_thanh ?? true),
+            wifi: Boolean(v.wifi ?? true),
+          },
+          xac_nhan_bo_qua_canh_bao: Boolean(v.xac_nhan_bo_qua_canh_bao ?? false),
         },
         dialog === "new",
       )

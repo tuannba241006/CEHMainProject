@@ -292,7 +292,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
           don_vi_host: {
             ma_don_vi: 0,
             ten_don_vi: event.ten_don_vi_host ?? "",
-            loai_don_vi: "CLB_Doi_Nhom",
+            loai_don_vi: "CLB",
           },
           ma_don_vi_to_chuc: 0,
           coHosts: event.danh_sach_ten_dong_to_chuc ?? [],

@@ -278,9 +278,11 @@ export default function AdminPortal({ section }: { section: Section }) {
             const loai_don_vi: OrganizationSummary["loai_don_vi"] =
               rawType === "Khoa"
                 ? "Khoa"
-                : rawType === "PhongBan" || rawType === "DoanHoi"
+                : rawType === "PhongBan"
                   ? "PhongBan"
-                  : "CLB_Doi_Nhom"
+                  : rawType === "DoanHoi"
+                    ? "DoanHoi"
+                    : "CLB"
             return {
               ma_don_vi: Number(r.ma_don_vi ?? r.ma_don_vi_to_chuc),
               ten_don_vi: String(r.ten_don_vi || ""),
@@ -1538,7 +1540,8 @@ export default function AdminPortal({ section }: { section: Section }) {
               options: [
                 { value: "Khoa", label: "Khoa" },
                 { value: "PhongBan", label: "Phòng ban" },
-                { value: "CLB_Doi_Nhom", label: "CLB / Đội / Nhóm" },
+                { value: "DoanHoi", label: "Đoàn / Hội" },
+                { value: "CLB", label: "CLB / Đội / Nhóm" },
               ],
             },
             {
@@ -1557,7 +1560,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                   loai_don_vi: dialog.item.loai_don_vi,
                   ma_don_vi_cha: dialog.item.ma_don_vi_cha ?? "",
                 }
-              : { loai_don_vi: "CLB_Doi_Nhom", ma_don_vi_cha: "" }
+              : { loai_don_vi: "CLB", ma_don_vi_cha: "" }
           }
           onClose={() => setDialog(null)}
           onSubmit={async (v) => {

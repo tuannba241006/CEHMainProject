@@ -444,9 +444,16 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
       case "request_revision":
         nextStatus = "faculty_revision"
         break
-      case "reject":
-        nextStatus = "faculty_rejected"
+      case "reject": {
+        const targetCaseForStatus = approvalCases.find((c) => c.id === caseId)
+        const isAffairsRejection =
+          targetCaseForStatus?.status === "affairs_pending" ||
+          targetCaseForStatus?.status === "affairs_revision" ||
+          role === "admin" ||
+          (role as string) === "Admin"
+        nextStatus = isAffairsRejection ? "affairs_rejected" : "faculty_rejected"
         break
+      }
       case "resubmit":
         nextStatus = "faculty_pending"
         break
@@ -485,7 +492,14 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
       else if (action === "faculty_approve_by_admin") mappedHanhDong = "APPROVE_FACULTY_BY_ADMIN"
       else if (action === "affairs_approve") mappedHanhDong = "APPROVE_ADMIN"
       else if (action === "request_revision") mappedHanhDong = "REQUEST_EDIT"
-      else if (action === "reject") mappedHanhDong = "REJECT_FACULTY"
+      else if (action === "reject") {
+        const isAffairsRejection =
+          targetCase.status === "affairs_pending" ||
+          targetCase.status === "affairs_revision" ||
+          role === "admin" ||
+          (role as string) === "Admin"
+        mappedHanhDong = isAffairsRejection ? "REJECT_ADMIN" : "REJECT_FACULTY"
+      }
 
       if (action === "withdraw") {
         eventsService.withdraw(eventNum, reason || "Rút đề xuất sự kiện").catch(() => {})
