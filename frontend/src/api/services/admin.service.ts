@@ -33,7 +33,7 @@ export const adminService = {
   updateUserStatus: (id: number, payload: { hoat_dong: boolean; ly_do?: string }) =>
     api.put<ApiEnvelope<User>>(`/admin/users/${id}/status`, payload),
   topics: (query?: Record<string, string | number>) =>
-    api.get<ApiEnvelope<Topic[]>>("/admin/topics", { query }),
+    api.get<ApiEnvelope<Topic[]>>("/topics", { query }),
   createTopic: (payload: { ten_chuyen_de: string; mo_ta?: string | null }) =>
     api.post<ApiEnvelope<Topic>>("/admin/topics", payload),
   updateTopic: (id: number, payload: { ten_chuyen_de?: string; mo_ta?: string | null }) =>

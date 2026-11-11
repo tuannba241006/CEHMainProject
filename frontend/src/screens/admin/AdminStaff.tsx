@@ -147,6 +147,10 @@ export default function AdminStaff() {
       return
     }
     const targetEvt = events.find((e) => e.id === formEventId || e.ma_su_kien === formEventId)
+    const mssvMatch = formEmail.match(/\d{8}/) || [formEmail.split("@")[0].trim()]
+    const mssv = mssvMatch ? mssvMatch[0] : formEmail.trim()
+    attendanceService.assignStaff(formEventId, [mssv]).catch(() => {})
+
     const newStaff: StaffAccount = {
       id: `st-${Date.now()}`,
       name: formName.trim(),

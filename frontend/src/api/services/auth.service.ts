@@ -57,8 +57,10 @@ export interface ResetPasswordPayload {
 
 export const authService = {
   csrfCookie: () => api.get<void>("/sanctum/csrf-cookie"),
-  register: (payload: RegisterPayload) =>
-    api.post<ApiEnvelope<{ email: string }>>("/auth/register", payload),
+  register: async (payload: RegisterPayload) => {
+    await ensureCsrfToken(true)
+    return api.post<ApiEnvelope<{ email: string }>>("/auth/register", payload)
+  },
   resendRegistrationOtp: (email: string) =>
     api.post<ApiEnvelope<null>>("/auth/resend-registration-otp", { email }),
   verifyRegistrationOtp: (email: string, otp: string) =>
@@ -68,7 +70,7 @@ export const authService = {
       ma_otp: otp,
     }),
   async login(ten_dang_nhap: string, mat_khau: string) {
-    await ensureCsrfToken()
+    await ensureCsrfToken(true)
     const res = await api.post<ApiEnvelope<User> & { token?: string }>(
       "/auth/login",
       { ten_dang_nhap, mat_khau },

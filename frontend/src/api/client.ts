@@ -33,15 +33,25 @@ let csrfPromise: Promise<void> | null = null
 
 export function getXsrfToken(): string | null {
   if (typeof document === "undefined") return null
-  const xsrfCookie = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("XSRF-TOKEN="))
-    ?.split("=")[1]
-  return xsrfCookie ? decodeURIComponent(xsrfCookie) : null
+  const cookies = document.cookie.split(";")
+  for (const cookie of cookies) {
+    const trimmed = cookie.trim()
+    if (trimmed.startsWith("XSRF-TOKEN=")) {
+      const val = trimmed.slice("XSRF-TOKEN=".length)
+      return val ? decodeURIComponent(val) : null
+    }
+  }
+  return null
 }
 
 export async function ensureCsrfToken(force = false): Promise<void> {
-  if (!force && getXsrfToken()) {
+  // If we already have the XSRF token or if an authenticated session exists, do not overwrite session
+  const hasAuth =
+    typeof window !== "undefined" &&
+    (Boolean(sessionStorage.getItem("ceh_demo_role")) ||
+      Boolean(sessionStorage.getItem("ceh_demo_email")))
+
+  if (!force && (getXsrfToken() || hasAuth)) {
     return
   }
   if (csrfPromise) {
@@ -142,8 +152,14 @@ export async function request<T>(
 
     // Automatic 419 CSRF Token Mismatch Recovery (UC-AUTH-02)
     if (response.status === 419 && !isRetry) {
-      await ensureCsrfToken(true)
-      return request<T>(path, options, true)
+      const hasAuth =
+        typeof window !== "undefined" &&
+        (Boolean(sessionStorage.getItem("ceh_demo_role")) ||
+          Boolean(sessionStorage.getItem("ceh_demo_email")))
+      if (!hasAuth) {
+        await ensureCsrfToken(true)
+        return request<T>(path, options, true)
+      }
     }
 
     if (!response.ok)
