@@ -158,6 +158,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    function handleSessionExpired(event: Event) {
+      const customEvt = event as CustomEvent<{ path?: string }>
+      const path = customEvt.detail?.path || ""
+      // Only proceed with session termination if the canonical /auth/me check failed
+      if (!path.includes("/auth/me")) {
+        return
+      }
+      setRole(null)
+      setUser(DEFAULT_USER)
+      tokenStore.clear()
+      try {
+        sessionStorage.removeItem("ceh_demo_role")
+        sessionStorage.removeItem("ceh_demo_email")
+        sessionStorage.removeItem("ceh_user_data")
+      } catch {}
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("ceh:session_expired", handleSessionExpired)
+      return () => {
+        window.removeEventListener("ceh:session_expired", handleSessionExpired)
+      }
+    }
+  }, [])
+
 
   function updateUser(
     patch: Partial<Pick<UserData, "name" | "phone" | "avatar">>,
@@ -479,7 +505,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         role,
-        authenticated: role !== null,
+        authenticated: !loading && role !== null,
         loading,
         updateUser,
         loginAs,

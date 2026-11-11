@@ -1,0 +1,1 @@
+import{v as e}from"./index-CHVKG1os.js";const s={list:o=>e.get("/rooms",{query:o}),create:o=>e.post("/rooms",o),detail:o=>e.get(`/rooms/${o}`),update:(o,t)=>e.put(`/rooms/${o}`,t),remove:o=>e.delete(`/rooms/${o}`),schedule:(o,t)=>e.get(`/rooms/${o}/schedule`,{query:t}),availability:(o,t)=>e.get(`/rooms/${o}/availability`,{query:t})};export{s as r};

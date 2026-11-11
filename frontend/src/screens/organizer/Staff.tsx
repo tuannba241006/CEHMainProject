@@ -6,7 +6,7 @@ import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
 import { attendanceService } from "../../api/services/attendance.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import type { EventCard } from "../../data/contract"
 import { Camera, AlertTriangle, UserCheck, Users } from "lucide-react"
 
@@ -49,6 +49,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
         }
       })
       .catch((err) => {
+        if (isAuthError(err)) return
         if (!cancelled) setError(getApiErrorMessage(err))
       })
       .finally(() => {

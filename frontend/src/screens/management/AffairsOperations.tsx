@@ -9,7 +9,7 @@ import { ManagementLayout } from "./ManagementLayout"
 import { drlService } from "../../api/services/drl.service"
 import { certificatesService } from "../../api/services/certificates.service"
 import { feedbackService } from "../../api/services/feedback.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import type { DrlRecord } from "../../data/contract"
 import { Lock, Unlock, Download, AlertTriangle, CheckCircle2, ShieldAlert, Award, FileSpreadsheet, X, Gift } from "lucide-react"
 
@@ -88,6 +88,9 @@ function Results() {
       })
       .catch((err) => {
         console.warn("DRL records API note:", err)
+        if (isAuthError(err)) {
+          return
+        }
         if (!cancelled && (!attendanceRecords || attendanceRecords.length === 0)) {
           setError(getApiErrorMessage(err))
         }

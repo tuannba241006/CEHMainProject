@@ -1,1 +1,0 @@
-import{s as e}from"./index-DeKb0LC2.js";const r={list:o=>e.get("/rooms",{query:o}),create:o=>e.post("/rooms",o),detail:o=>e.get(`/rooms/${o}`),update:(o,s)=>e.put(`/rooms/${o}`,s),remove:o=>e.delete(`/rooms/${o}`),schedule:(o,s)=>e.get(`/rooms/${o}/schedule`,{query:s}),availability:(o,s)=>e.get(`/rooms/${o}/availability`,{query:s})};export{r};

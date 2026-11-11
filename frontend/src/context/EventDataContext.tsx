@@ -7,7 +7,7 @@ import {
 } from "../data/mock"
 import type { OrganizationSummary, EventCard, EventPublicDetail } from "../data/contract"
 import { eventsService } from "../api/services/events.service"
-import { getApiErrorMessage } from "../api/errors"
+import { getApiErrorMessage, isAuthError } from "../api/errors"
 
 export type EventStatus = "open" | "nearly_full" | "full" | "draft" | "closed" | "ended"
 
@@ -272,7 +272,7 @@ export function EventDataProvider({ children }: { children: ReactNode }) {
         setEvents(res.data.map(mapContractEventToLiveEvent))
       }
     } catch (err) {
-      setError(getApiErrorMessage(err))
+      if (!isAuthError(err)) setError(getApiErrorMessage(err))
     } finally {
       setLoading(false)
     }

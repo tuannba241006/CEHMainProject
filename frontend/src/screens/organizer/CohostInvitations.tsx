@@ -3,7 +3,7 @@ import { OrgLayout } from "./OrgLayout"
 import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
 import { eventsService } from "../../api/services/events.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import { AlertTriangle, Mail, Check, X, Calendar, MapPin } from "lucide-react"
 
 interface Props {
@@ -142,6 +142,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
         }
       })
       .catch((err) => {
+        if (isAuthError(err)) return
         if (!cancelled) setError(getApiErrorMessage(err))
       })
       .finally(() => {

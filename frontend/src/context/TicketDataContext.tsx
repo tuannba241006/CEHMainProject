@@ -22,7 +22,7 @@ import {
   type ManualOverrideData,
   type ManualOverridePayload,
 } from "../api/services/attendance.service"
-import { getApiErrorMessage } from "../api/errors"
+import { getApiErrorMessage, isAuthError } from "../api/errors"
 import { useEventData, type LiveEvent } from "./EventDataContext"
 
 export type ManualOverrideInput = Omit<ManualOverridePayload, "ma_dang_ky"> & {
@@ -293,6 +293,9 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
           // Fallback for waitlist
         }
       } catch (err) {
+        if (isAuthError(err)) {
+          return
+        }
         setTicketsError(getApiErrorMessage(err))
       } finally {
         setTicketsLoading(false)
@@ -300,6 +303,10 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     },
     [authenticated, role, user],
   )
+
+  useEffect(() => {
+    setTicketsError(null)
+  }, [authenticated, role])
 
   useEffect(() => {
     if (authenticated && role === "student") {

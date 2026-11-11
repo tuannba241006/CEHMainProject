@@ -12,7 +12,7 @@ import { adminService } from "../../api/services/admin.service"
 import { feedbackService } from "../../api/services/feedback.service"
 import { useCollection } from "../../hooks/useCollection"
 import { useToast } from "../../components/Toast"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import { reportsService } from "../../api/services/reports.service"
 import { authService } from "../../api/services/auth.service"
 import { certificatesService } from "../../api/services/certificates.service"
@@ -218,7 +218,9 @@ export default function AdminPortal({ section }: { section: Section }) {
       }
     } catch (err) {
       console.warn("Backend macro API returned error or unauthenticated:", err)
-      setMacroError(getApiErrorMessage(err))
+      if (!isAuthError(err)) {
+        setMacroError(getApiErrorMessage(err))
+      }
     } finally {
       setMacroLoading(false)
     }

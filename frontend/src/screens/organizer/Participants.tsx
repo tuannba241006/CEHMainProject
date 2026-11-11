@@ -10,7 +10,7 @@ import {
   type ManualOverrideResult,
 } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import { drlService } from "../../api/services/drl.service"
 import { eventsService } from "../../api/services/events.service"
 import {
@@ -228,6 +228,7 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     eventsService
       .getEvents()
       .catch((err) => {
+        if (isAuthError(err)) return
         if (!cancelled) setError(getApiErrorMessage(err))
       })
       .finally(() => {

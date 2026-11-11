@@ -10,7 +10,7 @@ import { ManagementLayout } from "./ManagementLayout"
 import { useUser } from "../../context/UserContext"
 import { formatCalendarDate, inDateRange } from "../../utils/date"
 import { eventsService } from "../../api/services/events.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import { ROOMS } from "../../data/mock"
 import { AlertTriangle, Zap, RotateCcw, RefreshCw, Building2, Check } from "lucide-react"
 
@@ -74,6 +74,9 @@ export default function ApprovalWorkspace({
       })
       .catch((err) => {
         console.warn("Review queue API note:", err)
+        if (isAuthError(err)) {
+          return
+        }
         if (!cancelled && (!approvalCases || approvalCases.length === 0)) {
           setError(getApiErrorMessage(err))
         }

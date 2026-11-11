@@ -1,5 +1,5 @@
 import { apiConfig, tokenStore, isApiMode } from "./config"
-import { ApiError, type ApiErrorPayload } from "./errors"
+import { ApiError, isApiError, type ApiErrorPayload } from "./errors"
 import { handleMockRequest } from "./mockAdapter"
 
 type QueryValue = string | number | boolean | null | undefined
@@ -129,6 +129,8 @@ export async function request<T>(
     headers.set("X-XSRF-TOKEN", xsrfToken)
   }
 
+  const method = (options.method || "GET").toUpperCase()
+
   let body: BodyInit | undefined
   if (options.body instanceof FormData) {
     body = options.body
@@ -146,16 +148,45 @@ export async function request<T>(
       signal: controller.signal,
     })
     const payload = await parseBody(response)
+
+    // For authenticated GET requests, retry once after a short delay (200ms) to accommodate
+    // transient session cookie propagation in local dev / single-threaded environments
+    const hasAuth =
+      typeof window !== "undefined" &&
+      (Boolean(sessionStorage.getItem("ceh_demo_role")) ||
+        Boolean(sessionStorage.getItem("ceh_demo_email")))
+
+    if (response.status === 401 && !isRetry && method === "GET" && hasAuth) {
+      await new Promise((r) => setTimeout(r, 200))
+      return request<T>(path, options, true)
+    }
+
     if (response.status === 401) {
       tokenStore.clear()
+      const normalizedPath = path.startsWith("/") ? path : `/${path}`
+      const isIdentityEndpoint =
+        normalizedPath === "/auth/me" ||
+        normalizedPath === "/api/auth/me" ||
+        normalizedPath === "/v1/auth/me"
+
+      // Only dispatch session expiration if the primary user identity endpoint (/auth/me) fails
+      // Secondary data endpoints (waitlist, tickets, reviews) must NOT wipe the active session
+      if (isIdentityEndpoint && hasAuth && typeof window !== "undefined") {
+        try {
+          sessionStorage.removeItem("ceh_demo_role")
+          sessionStorage.removeItem("ceh_demo_email")
+          sessionStorage.removeItem("ceh_user_data")
+        } catch {}
+        window.dispatchEvent(
+          new CustomEvent("ceh:session_expired", {
+            detail: { path: normalizedPath },
+          }),
+        )
+      }
     }
 
     // Automatic 419 CSRF Token Mismatch Recovery (UC-AUTH-02)
     if (response.status === 419 && !isRetry) {
-      const hasAuth =
-        typeof window !== "undefined" &&
-        (Boolean(sessionStorage.getItem("ceh_demo_role")) ||
-          Boolean(sessionStorage.getItem("ceh_demo_email")))
       if (!hasAuth) {
         await ensureCsrfToken(true)
         return request<T>(path, options, true)
@@ -178,10 +209,9 @@ export async function request<T>(
     }
     // For read-only GET requests that encounter 404 (endpoint not yet created in backend),
     // gracefully fall back to contract mock data if available to prevent UI breakdown
-    const method = (options.method || "GET").toUpperCase()
     if (
       method === "GET" &&
-      error instanceof ApiError &&
+      isApiError(error) &&
       error.status === 404
     ) {
       const mockResponse = await handleMockRequest<T>(path, options)

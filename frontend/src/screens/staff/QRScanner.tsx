@@ -4,7 +4,7 @@ import type { IScannerControls } from "@zxing/browser"
 import { useApp, type CheckInResult } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
 import { attendanceService } from "../../api/services/attendance.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import { Camera, Calendar, Ticket } from "lucide-react"
 
 interface Props {
@@ -115,7 +115,7 @@ export default function QRScanner({
         setEventLoadError("")
       })
       .catch((error: unknown) => {
-        if (active) setEventLoadError(getApiErrorMessage(error))
+        if (active && !isAuthError(error)) setEventLoadError(getApiErrorMessage(error))
       })
     return () => {
       active = false

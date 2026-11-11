@@ -333,12 +333,20 @@ export default function MyTickets({
       {ticketsError && (
         <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between text-xs">
           <span className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" /> {ticketsError}</span>
-          <button
-            onClick={() => refreshTickets && refreshTickets(user)}
-            className="underline font-semibold cursor-pointer"
-          >
-            Thử lại
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onNavigate("/login")}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium cursor-pointer transition-colors"
+            >
+              Đăng nhập lại
+            </button>
+            <button
+              onClick={() => refreshTickets && refreshTickets(user)}
+              className="underline font-semibold cursor-pointer text-amber-900"
+            >
+              Thử lại
+            </button>
+          </div>
         </div>
       )}
 

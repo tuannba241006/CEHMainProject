@@ -3,7 +3,7 @@ import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
 import { attendanceService } from "../../api/services/attendance.service"
 import { ticketsService } from "../../api/services/tickets.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import type { Ticket } from "../../data/contract"
 import { kioskQrPattern, useKioskCamera } from "../../hooks/useKioskCamera"
 import { MapPin, LogIn, LogOut, AlertTriangle, Check } from "lucide-react"
@@ -77,7 +77,7 @@ export default function CheckInScanner({ onNavigate }: Props) {
         if (active) setWallet(data)
       })
       .catch((error: unknown) => {
-        if (active) setWalletError(getApiErrorMessage(error))
+        if (active && !isAuthError(error)) setWalletError(getApiErrorMessage(error))
       })
       .finally(() => {
         if (active) setWalletLoading(false)
