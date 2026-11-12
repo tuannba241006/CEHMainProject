@@ -83,6 +83,9 @@ class MacroBiService
             })
             ->select([
                 'student.ma_tai_khoan',
+                'student.email',
+                'student.lop_sinh_hoat',
+                'student.hoat_dong',
                 'student.mssv',
                 'student.ho_ten',
                 'student.ma_khoa',
@@ -90,15 +93,19 @@ class MacroBiService
                 'faculty.ten_don_vi as ten_khoa_chuan',
             ])
             ->selectRaw('COUNT(registration.ma_dang_ky) AS so_lan_vi_pham')
+            ->selectRaw('MAX(event.thoi_gian_bat_dau) AS thoi_gian_vi_pham_gan_nhat')
             ->groupBy(
                 'student.ma_tai_khoan',
+                'student.email',
+                'student.lop_sinh_hoat',
+                'student.hoat_dong',
                 'student.mssv',
                 'student.ho_ten',
                 'student.ma_khoa',
                 'student.khoa',
                 'faculty.ten_don_vi'
             )
-            ->havingRaw('COUNT(registration.ma_dang_ky) >= ?', [(int) ($filters['so_lan_toi_thieu'] ?? 3)])
+            ->havingRaw('COUNT(registration.ma_dang_ky) >= ?', [(int) ($filters['so_lan_toi_thieu'] ?? 1)])
             ->orderByDesc('so_lan_vi_pham')
             ->orderBy('student.mssv');
 
@@ -111,6 +118,12 @@ class MacroBiService
 
         $items = collect($page->items())->map(function (object $record): object {
             $record->khoa = $record->ten_khoa_chuan ?: ($record->ten_khoa ?: 'Chưa xác định');
+            $record->su_kien_vi_pham_gan_nhat = DB::table('dang_ky as registration')
+                ->join('su_kien as event', 'event.ma_su_kien', '=', 'registration.ma_su_kien')
+                ->where('registration.ma_tai_khoan', $record->ma_tai_khoan)
+                ->where('registration.vi_pham_no_show', 1)
+                ->where('event.thoi_gian_bat_dau', $record->thoi_gian_vi_pham_gan_nhat)
+                ->value('event.ten_su_kien');
 
             return $record;
         })->all();

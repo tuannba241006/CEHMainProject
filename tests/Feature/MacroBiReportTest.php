@@ -111,14 +111,12 @@ class MacroBiReportTest extends TestCase
             ->assertJsonPath('data.su_kien_theo_chuyen_de.0.tong_luot_tham_du', 5);
     }
 
-    public function test_no_show_list_uses_minimum_threshold_three_and_returns_exact_count_without_pii(): void
+    public function test_no_show_list_defaults_to_one_and_returns_openapi_student_fields(): void
     {
         $faculty = DonViToChuc::query()->where('loai_don_vi', 'Khoa')->firstOrFail();
         $qualifyingStudent = $this->createStudent($faculty, '23520031', 'Lê Minh Đạt');
-        $belowThresholdStudent = $this->createStudent($faculty, '23520032', 'Phạm Gia Hân');
-
         $this->createNoShowViolations($qualifyingStudent, 3);
-        $this->createNoShowViolations($belowThresholdStudent, 2);
+        $this->createNoShowViolations($this->createStudent($faculty, '23520032', 'Phạm Gia Hân'), 2);
 
         $response = $this->actingAs($this->admin)
             ->getJson('/api/v1/admin/analytics/no-show-violations');
@@ -128,14 +126,22 @@ class MacroBiReportTest extends TestCase
             ->assertJsonPath('data.0.mssv', '23520031')
             ->assertJsonPath('data.0.ho_ten', 'Lê Minh Đạt')
             ->assertJsonPath('data.0.so_lan_vi_pham', 3)
-            ->assertJsonMissingPath('data.1')
-            ->assertJsonMissingPath('data.0.email')
-            ->assertJsonMissingPath('data.0.so_dien_thoai')
+            ->assertJsonPath('data.0.email', $qualifyingStudent->email)
+            ->assertJsonPath('data.0.ma_tai_khoan', $qualifyingStudent->ma_tai_khoan)
+            ->assertJsonPath('data.0.hoat_dong', true)
             ->assertJsonStructure(['success', 'data', 'meta', 'message']);
-        $this->assertSame(
-            ['mssv', 'ho_ten', 'khoa', 'so_lan_vi_pham'],
-            array_keys($response->json('data.0'))
-        );
+        $this->assertCount(2, $response->json('data'));
+    }
+
+    public function test_macro_export_returns_xlsx_and_pdf_files(): void
+    {
+        foreach ([['xlsx', 'PK'], ['pdf', '%PDF-']] as [$format, $signature]) {
+            $response = $this->actingAs($this->admin)
+                ->get('/api/v1/admin/analytics/macro/export?dinh_dang='.$format);
+
+            $response->assertOk();
+            $this->assertStringStartsWith($signature, $response->getContent());
+        }
     }
 
     public function test_no_show_list_can_filter_by_faculty(): void
