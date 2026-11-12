@@ -1,0 +1,37 @@
+{
+  "id": "ceh-local-env-id",
+  "name": "Local Laravel Dev (Port 8000)",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/v1",
+      "enabled": true
+    },
+    {
+      "key": "eventId",
+      "value": "1",
+      "enabled": true
+    },
+    {
+      "key": "ticketId",
+      "value": "1",
+      "enabled": true
+    },
+    {
+      "key": "waitlistId",
+      "value": "1",
+      "enabled": true
+    },
+    {
+      "key": "roomId",
+      "value": "1",
+      "enabled": true
+    },
+    {
+      "key": "hash",
+      "value": "CEH-CERT-SAMPLE-HASH-2026",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
