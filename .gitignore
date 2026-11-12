@@ -7,3 +7,4 @@ docs/PHASE_0_SIGNOFF.md
 __pycache__/
 *.bak
 *.tsbuildinfo
+/backup_ceh_*.sql

@@ -33,7 +33,33 @@
             },
             "description": "Khởi tạo cookie XSRF-TOKEN cho SPA React trước khi thực hiện các tác vụ Auth"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "02. Register Student Account",
@@ -72,7 +98,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "03. Verify Registration OTP",
@@ -111,7 +163,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "04. Resend Registration OTP",
@@ -150,7 +228,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "05. Login",
@@ -189,7 +293,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "06. Get Current User Profile (Me)",
@@ -214,7 +344,33 @@
             },
             "description": "Lấy thông tin người dùng đang đăng nhập trong phiên"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "07. Update Profile",
@@ -253,7 +409,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "08. Change Password",
@@ -292,7 +474,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "09. Forgot Password",
@@ -331,7 +539,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "10. Reset Password",
@@ -370,7 +604,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "11. Logout",
@@ -395,7 +655,33 @@
             },
             "description": "Đăng xuất và hủy phiên làm việc hiện tại"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -425,7 +711,33 @@
             },
             "description": "Khám phá danh sách sự kiện công khai có phân trang, bộ lọc chuyên đề, ngày giờ"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "02. Public Event Detail",
@@ -450,7 +762,33 @@
             },
             "description": "Xem chi tiết sự kiện công khai theo ID"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "03. Create Draft Event",
@@ -488,7 +826,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "04. Update Event",
@@ -527,7 +891,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "05. Submit Event for Approval",
@@ -553,7 +943,33 @@
             },
             "description": "Nộp sự kiện lên quy trình phê duyệt đa cấp"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "06. Review Event (Faculty / Admin)",
@@ -593,7 +1009,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "07. Co-Host Respond Invitation",
@@ -633,7 +1075,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "08. Emergency Cancel Event",
@@ -673,7 +1141,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "09. Organizer Events List",
@@ -698,7 +1192,33 @@
             },
             "description": "Danh sách sự kiện do đơn vị hiện tại tổ chức hoặc đồng tổ chức"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "10. Approval Queue List",
@@ -723,7 +1243,33 @@
             },
             "description": "Danh sách hàng đợi chờ phê duyệt dành cho Cán bộ Quản lý"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "11. Check Room Availability",
@@ -749,7 +1295,33 @@
             },
             "description": "Kiểm tra xung đột phòng ốc kèm khoảng đệm 15 phút"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "12. Room Schedule Timeline",
@@ -775,7 +1347,33 @@
             },
             "description": "Lịch sử dụng phòng hội trường trong khoảng thời gian"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -807,7 +1405,33 @@
             },
             "description": "Kiểm tra trước khi đặt vé: trùng lịch sự kiện khác, đã đăng ký chưa, còn vé không"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "02. Book Event Ticket",
@@ -833,7 +1457,33 @@
             },
             "description": "Đặt vé tham gia sự kiện có xử lý chống race condition (Pessimistic Locking)"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "03. Join Waitlist",
@@ -859,7 +1509,33 @@
             },
             "description": "Ghi danh vào hàng đợi chờ vé khi sự kiện đã hết chỗ"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "04. My Tickets List",
@@ -884,7 +1560,33 @@
             },
             "description": "Danh sách ví vé của sinh viên theo tab: Sắp diễn ra, Lịch sử, Vi phạm"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "05. Ticket Detail & Dynamic QR",
@@ -909,7 +1611,33 @@
             },
             "description": "Xem chi tiết vé cá nhân kèm mã QR ký HMAC-SHA256"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "06. Cancel Ticket",
@@ -949,7 +1677,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "07. My Waitlist Entries",
@@ -974,7 +1728,33 @@
             },
             "description": "Danh sách các lượt chờ vé hiện tại của người dùng"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "08. Claim Waitlist Offered Slot",
@@ -1000,7 +1780,33 @@
             },
             "description": "Xác nhận nhận vé khi được nhượng quyền (Claim Window 2h)"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "09. Decline Waitlist Offered Slot",
@@ -1026,7 +1832,33 @@
             },
             "description": "Từ chối suất vé chờ để nhường cho người tiếp theo trong hàng đợi"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1073,7 +1905,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "02. Stream Kiosk Dynamic TOTP",
@@ -1098,7 +1956,33 @@
             },
             "description": "Nhận luồng Server-Sent Events (SSE) cập nhật mã TOTP xoay vòng mỗi 30 giây"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "03. Open Check-in Gate",
@@ -1125,7 +2009,33 @@
             },
             "description": "Mở cổng nhận điểm danh vào (Check-in Gate)"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "04. Open Check-out Gate",
@@ -1152,7 +2062,33 @@
             },
             "description": "Mở cổng nhận điểm danh ra (Check-out Gate)"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "05. Close Gates",
@@ -1179,7 +2115,33 @@
             },
             "description": "Đóng toàn bộ cổng điểm danh sự kiện"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "06. Staff Scan Ticket (NFC / QR)",
@@ -1218,7 +2180,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "07. Student Self Check-in",
@@ -1257,7 +2245,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "08. Student Self Check-out",
@@ -1296,7 +2310,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "09. Event Participants Attendance List",
@@ -1322,7 +2362,33 @@
             },
             "description": "Danh sách người tham dự kèm trạng thái Điểm danh, Nghi vấn gian lận, ĐRL"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "10. Manual Override Attendance",
@@ -1361,7 +2427,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1393,7 +2485,33 @@
             },
             "description": "Báo cáo vĩ mô toàn trường về tỷ lệ tham gia, no-show, chuyên đề"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "02. Export Macro Report",
@@ -1420,7 +2538,33 @@
             },
             "description": "Xuất file báo cáo thống kê Excel/PDF"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "03. No-Show Violations Management",
@@ -1446,7 +2590,33 @@
             },
             "description": "Danh sách sinh viên vi phạm vắng mặt không báo trước (No-show)"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "04. Organizer Event Analytics",
@@ -1473,7 +2643,33 @@
             },
             "description": "Báo cáo thống kê hiệu quả của 1 sự kiện cụ thể"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "05. Submit Event Feedback",
@@ -1513,7 +2709,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "06. Issue e-Certificate",
@@ -1539,7 +2761,33 @@
             },
             "description": "Cấp giấy chứng nhận điện tử ký số SHA-256"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "07. Verify Certificate Public",
@@ -1565,7 +2813,33 @@
             },
             "description": "Tra cứu & xác thực tính toàn vẹn của giấy chứng nhận công khai"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "08. Lock Event DRL Points",
@@ -1592,7 +2866,33 @@
             },
             "description": "Khóa chốt danh sách sinh viên được cộng Điểm rèn luyện gửi CTSV"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "09. Export DRL List",
@@ -1619,7 +2919,33 @@
             },
             "description": "Xuất danh sách sinh viên đạt chuẩn ĐRL theo mẫu CTSV"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "10. AI Generate Event Content",
@@ -1659,7 +2985,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "11. AI Summarize Feedback",
@@ -1686,7 +3038,33 @@
             },
             "description": "AI tóm tắt hàng trăm nhận xét khảo sát của sinh viên thành các ý chính"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "12. AI Admin Text-to-Insight",
@@ -1726,7 +3104,33 @@
               }
             }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP status is successful or expected client response\", function () {",
+                  "    pm.expect(pm.response.code).to.be.within(200, 499);",
+                  "});",
+                  "pm.test(\"API response is JSON envelope or a file download\", function () {",
+                  "    const type = pm.response.headers.get(\"Content-Type\") || \"\";",
+                  "    if (type.includes(\"application/json\")) {",
+                  "        const body = pm.response.json();",
+                  "        pm.expect(body).to.have.property(\"success\");",
+                  "        pm.expect(body.success).to.be.a(\"boolean\");",
+                  "        pm.expect(body).to.have.property(\"message\");",
+                  "        if (body.success) pm.expect(body).to.have.property(\"data\");",
+                  "        else pm.expect(body).to.have.property(\"error\");",
+                  "    } else {",
+                  "        pm.expect(type).to.match(/application\\/(pdf|vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet)/);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

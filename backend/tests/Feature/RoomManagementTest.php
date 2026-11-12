@@ -180,6 +180,34 @@ class RoomManagementTest extends TestCase
         $this->assertEquals('KhaDung', $response->json('data.trang_thai'));
     }
 
+    public function test_admin_can_filter_rooms_and_open_room_detail(): void
+    {
+        $matchingRoom = $this->createRoomHelper([
+            'ten_phong' => 'PKG14 CoSo2 Filter '.uniqid(),
+            'co_so' => Campus::CoSo2->value,
+            'suc_chua_toi_da' => 240,
+        ]);
+        $this->createRoomHelper([
+            'ten_phong' => 'PKG14 CoSo1 Filter '.uniqid(),
+            'co_so' => Campus::CoSo1->value,
+            'suc_chua_toi_da' => 240,
+        ]);
+
+        $response = $this->actingAs($this->adminUser)
+            ->getJson('/api/rooms?co_so=CoSo2&suc_chua_min=200');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.ma_phong', $matchingRoom->ma_phong);
+
+        $this->actingAs($this->adminUser)
+            ->getJson("/api/rooms/{$matchingRoom->ma_phong}")
+            ->assertOk()
+            ->assertJsonPath('data.ma_phong', $matchingRoom->ma_phong)
+            ->assertJsonPath('data.ten_phong', $matchingRoom->ten_phong);
+    }
+
     /**
      * 2. test_create_room_fails_when_capacity_less_than_10
      * suc_chua_toi_da = 9 -> 422, error = VALIDATION_FAILED.

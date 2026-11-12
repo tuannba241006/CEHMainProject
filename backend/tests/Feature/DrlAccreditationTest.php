@@ -796,6 +796,22 @@ class DrlAccreditationTest extends TestCase
             ->assertJsonPath('data.ty_le_lap_day_pct', null);
     }
 
+    public function test_analytics_reports_exact_registration_and_attendance_counts(): void
+    {
+        $event = $this->createEvent('COMPLETED', 50);
+        $this->createEligibleTicket($event, $this->studentA, 1.0);
+        $this->createEligibleTicket($event, $this->studentB, 0.5);
+
+        $response = $this->actingAs($this->hostOrganizer)
+            ->getJson("/api/v1/organizer/events/{$event->ma_su_kien}/analytics");
+
+        $response->assertOk()
+            ->assertJsonPath('data.tong_ve_dang_ky', 2)
+            ->assertJsonPath('data.so_luong_check_in', 2)
+            ->assertJsonPath('data.so_luong_check_out', 2)
+            ->assertJsonPath('data.so_luong_no_show', 0);
+    }
+
     /**
      * @test
      * Target: Cross-package Invariant (PKG-09 & PKG-11)
