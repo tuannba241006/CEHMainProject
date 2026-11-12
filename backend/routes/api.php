@@ -244,6 +244,7 @@ $drlAndAnalyticsRoutes = function () {
     Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
         Route::post('/events/{id}/drl/unlock', [DrlController::class, 'unlock'])->whereNumber('id')->name('events.drl.unlock');
         Route::get('/admin/analytics/macro', [MacroBiController::class, 'macro'])->name('admin.analytics.macro');
+        Route::get('/admin/analytics/macro/export', [MacroBiController::class, 'exportMacro'])->name('admin.analytics.macro.export');
         Route::get('/admin/analytics/no-show-violations', [MacroBiController::class, 'noShowViolations'])->name('admin.analytics.no-show-violations');
     });
 };

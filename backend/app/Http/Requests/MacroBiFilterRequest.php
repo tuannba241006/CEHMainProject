@@ -16,7 +16,7 @@ class MacroBiFilterRequest extends FormRequest
     {
         if ($this->is('api/v1/admin/analytics/no-show-violations') || $this->is('api/admin/analytics/no-show-violations')) {
             $this->merge([
-                'so_lan_toi_thieu' => $this->input('so_lan_toi_thieu', 3),
+                'so_lan_toi_thieu' => $this->input('so_lan_toi_thieu', 1),
                 'page' => $this->input('page', 1),
                 'limit' => $this->input('limit', 20),
             ]);
