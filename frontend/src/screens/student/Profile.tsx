@@ -41,7 +41,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
       await authService.changePassword({
         mat_khau_hien_tai: currentPassword,
         mat_khau_moi: newPassword,
-        xac_nhan_mat_khau: confirmPassword,
+        xac_nhan_mat_khau_moi: confirmPassword,
       })
       showToast(
         "Đã đổi mật khẩu thành công. Các phiên làm việc khác đã được thu hồi bảo mật.",

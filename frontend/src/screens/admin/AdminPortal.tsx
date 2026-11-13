@@ -26,6 +26,7 @@ import AdminParticipants from "./AdminParticipants"
 import AdminStaff from "./AdminStaff"
 import AdminCohostInvitations from "./AdminCohostInvitations"
 import { attendanceService } from "../../api/services/attendance.service"
+import { triggerFileDownload } from "../../api/client"
 import {
   FileSpreadsheet,
   Monitor,
@@ -517,8 +518,17 @@ export default function AdminPortal({ section }: { section: Section }) {
                     "info",
                   )
                   try {
-                    await reportsService.exportMacro({ hoc_ky: dateFilter })
-                    showToast("Đã xuất file báo cáo vĩ mô (.xlsx) thành công.", "success")
+                    const data = await reportsService.exportMacro({
+                      hoc_ky: dateFilter,
+                    })
+                    triggerFileDownload(
+                      data,
+                      `Bao_Cao_Vi_Mo_${dateFilter || "Toan_Truong"}.xlsx`,
+                    )
+                    showToast(
+                      "Đã xuất file báo cáo vĩ mô (.xlsx) thành công.",
+                      "success",
+                    )
                   } catch (err) {
                     showToast(getApiErrorMessage(err), "error")
                   }
@@ -1341,17 +1351,45 @@ export default function AdminPortal({ section }: { section: Section }) {
                 xem xét trừ ĐRL hoặc hạn chế đặt vé theo quy chế CTSV.</span>
               </div>
               <button
-                onClick={() => {
+                onClick={async () => {
                   showToast(
-                    "Đang xuất danh sách sinh viên tái phạm No-show ra Excel...",
+                    "Đang xuất danh sách sinh viên tái phạm No-show...",
                     "info",
                   )
+                  try {
+                    let rowsToExport = noShowList
+                    try {
+                      const res = await reportsService.noShow()
+                      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+                        rowsToExport = res.data as any
+                      }
+                    } catch {
+                      // Fallback to current table rows
+                    }
+                    const csvHeader = "\uFEFFMSSV,Họ và tên,Lớp,Khoa,Số lần No-show,Lịch sử sự kiện bỏ vé,Biện pháp xử lý\n"
+                    const csvRows = rowsToExport
+                      .map(
+                        (r: any) =>
+                          `"${r.mssv || ""}","${r.name || r.ho_ten || ""}","${r.lop || r.lop_sinh_hoat || ""}","${r.khoa || ""}","${r.count || r.so_lan_no_show || 0}","${(r.events || "").replace(/"/g, '""')}","${r.action || (r.count >= 2 ? "Khóa đặt vé" : "Cảnh cáo")}"`,
+                      )
+                      .join("\n")
+                    triggerFileDownload(
+                      csvHeader + csvRows,
+                      `Danh_Sach_No_Show_${new Date().toISOString().slice(0, 10)}.csv`,
+                      "text/csv;charset=utf-8;",
+                    )
+                    showToast(
+                      "Đã xuất danh sách No-show thành công.",
+                      "success",
+                    )
+                  } catch (err) {
+                    showToast(getApiErrorMessage(err), "error")
+                  }
                 }}
-                onClickCapture={() => void reportsService.noShow().catch(() => null)}
                 className="px-3.5 py-2 rounded-xl bg-indigo text-white text-xs font-semibold whitespace-nowrap cursor-pointer hover:bg-indigo-700 flex items-center gap-1.5"
               >
                 <Download className="w-4 h-4" />
-                <span>Xuất file No-show (.xlsx)</span>
+                <span>Xuất file No-show (.xlsx/.csv)</span>
               </button>
             </div>
             <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">

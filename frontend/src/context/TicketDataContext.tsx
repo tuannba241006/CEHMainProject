@@ -340,23 +340,29 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "Bạn đã đăng ký sự kiện này rồi." }
     }
     const uuid = crypto.randomUUID()
+    let bookingResult
     try {
-      await bookingsService.book(event.ma_su_kien, uuid)
-    } catch {
-      // Fallback
+      bookingResult = await bookingsService.book(event.ma_su_kien, uuid)
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err) }
     }
 
+    const serverTicket = (bookingResult as any)?.data as
+      | { ma_dang_ky?: number; ma_ve_uuid?: string }
+      | undefined
+    const assignedId = serverTicket?.ma_dang_ky || Date.now()
+    const finalUuid = serverTicket?.ma_ve_uuid || uuid
     const baseTicket = TICKETS[0] || ({} as Ticket)
     const qr = buildQrPayload(
-      uuid,
+      finalUuid,
       user.ma_tai_khoan || 1,
       event.ma_su_kien,
     )
     const newTicket: Ticket = {
       ...baseTicket,
-      id: `TKT-${Date.now()}`,
-      ma_dang_ky: Date.now(),
-      ma_ve_uuid: uuid,
+      id: `TKT-${assignedId}`,
+      ma_dang_ky: assignedId,
+      ma_ve_uuid: finalUuid,
       ma_su_kien: event.ma_su_kien,
       ten_su_kien: event.ten_su_kien,
       eventId: event.id,
@@ -394,8 +400,8 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     const numericId = targetTicket?.ma_dang_ky || Number(ticketId.replace(/\D/g, "")) || 1
     try {
       await ticketsService.cancel(numericId, reason, crypto.randomUUID())
-    } catch {
-      // Fallback
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err) }
     }
     setTickets((prev) =>
       prev.map((t) => (t.id === ticketId ? { ...t, status: "cancelled", trang_thai: "DaHuy" } : t)),
@@ -407,8 +413,8 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     const uuid = crypto.randomUUID()
     try {
       await waitlistService.join(event.ma_su_kien, uuid)
-    } catch {
-      // Fallback
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err) }
     }
     const entry: WaitlistEntry = {
       id: Date.now(),

@@ -293,7 +293,9 @@ export interface ApprovalDataContextType {
       | "reject"
       | "resubmit"
       | "withdraw"
-      | "reopen",
+      | "reopen"
+      | "emergency_cancel"
+      | "emergency_room",
     reason?: string,
   ) => { success: boolean; error?: string }
   submitSurvey: (
@@ -429,7 +431,9 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
       | "reject"
       | "resubmit"
       | "withdraw"
-      | "reopen",
+      | "reopen"
+      | "emergency_cancel"
+      | "emergency_room",
     reason?: string,
   ): { success: boolean; error?: string } {
     let nextStatus: ApprovalStatus = "draft"
@@ -438,6 +442,10 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
       case "faculty_approve_by_admin":
         nextStatus = "affairs_pending"
         break
+      case "emergency_cancel":
+        nextStatus = "affairs_rejected"
+        break
+      case "emergency_room":
       case "affairs_approve":
         nextStatus = "approved"
         break

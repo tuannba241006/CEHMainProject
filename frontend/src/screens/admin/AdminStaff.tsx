@@ -8,6 +8,7 @@ import { Camera, UserPlus, Search, Building2, Lock, Unlock } from "lucide-react"
 
 export interface StaffAccount {
   id: string
+  userId?: number
   name: string
   email: string
   eventId: string | number
@@ -21,6 +22,7 @@ export interface StaffAccount {
 const INITIAL_STAFF: StaffAccount[] = [
   {
     id: "st-01",
+    userId: 1,
     name: "Trần Minh Phúc",
     email: "22521999@gm.uit.edu.vn",
     eventId: 101,
@@ -32,6 +34,7 @@ const INITIAL_STAFF: StaffAccount[] = [
   },
   {
     id: "st-02",
+    userId: 2,
     name: "Lê Quỳnh Như",
     email: "nhu.le@campus.edu.vn",
     eventId: 102,
@@ -43,6 +46,7 @@ const INITIAL_STAFF: StaffAccount[] = [
   },
   {
     id: "st-03",
+    userId: 3,
     name: "Hoàng Đức Anh",
     email: "anh.hoang@campus.edu.vn",
     eventId: 104,
@@ -54,6 +58,7 @@ const INITIAL_STAFF: StaffAccount[] = [
   },
   {
     id: "st-04",
+    userId: 4,
     name: "Nguyễn Bảo Khánh",
     email: "khanh.nb@campus.edu.vn",
     eventId: 103,
@@ -130,9 +135,14 @@ export default function AdminStaff() {
     )
     if (newStatus === "locked") {
       try {
-        await attendanceService.revokeStaff(st.eventId, st.email)
-      } catch {
-        // Silent catch for demo
+        const numericUserId =
+          (st.userId ?? Number(st.id.replace(/\D/g, ""))) || 1
+        await attendanceService.revokeStaff(st.eventId, numericUserId)
+      } catch (err) {
+        showToast(
+          "Không thể thu hồi quyền điểm danh: " + getApiErrorMessage(err),
+          "error",
+        )
       }
       showToast(`Đã khóa quyền điểm danh của nhân viên ${st.name}.`, "info")
     } else {

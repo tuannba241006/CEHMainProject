@@ -216,12 +216,14 @@ export interface RoomAvailabilityCheck {
   } | null
 }
 
-/** Payload bài đánh giá sự kiện */
+/** Payload bài đánh giá sự kiện (UC-FEED-01) */
 export interface FeedbackPayload {
-  ma_su_kien?: number
   diem_noi_dung?: number
   diem_dien_gia?: number
   diem_to_chuc?: number
+  y_kien_dong_gop?: string
+  // Compatibility fields
+  ma_su_kien?: number
   gop_y?: string
   content?: number
   organization?: number

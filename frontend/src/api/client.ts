@@ -74,19 +74,22 @@ export async function ensureCsrfToken(force = false): Promise<void> {
 async function parseBody(response: Response) {
   if (response.status === 204) return undefined
   const contentType = response.headers.get("content-type") || ""
+  if (
+    contentType.includes("application/pdf") ||
+    contentType.includes("spreadsheet") ||
+    contentType.includes("vnd.openxmlformats") ||
+    contentType.includes("vnd.ms-excel") ||
+    contentType.includes("text/csv") ||
+    contentType.includes("application/octet-stream")
+  ) {
+    return await response.blob()
+  }
   if (contentType.includes("application/json")) {
     try {
       return await response.json()
     } catch {
       // Fallback to text parsing below if body had leading whitespace or formatting issues
     }
-  }
-  if (
-    contentType.includes("application/pdf") ||
-    contentType.includes("spreadsheet") ||
-    contentType.includes("application/octet-stream")
-  ) {
-    return response.blob()
   }
   const text = await response.text()
   try {
@@ -115,7 +118,12 @@ export async function request<T>(
     options.timeoutMs ?? apiConfig.timeoutMs,
   )
   const headers = new Headers(options.headers)
-  headers.set("Accept", "application/json")
+  if (!headers.has("Accept")) {
+    headers.set(
+      "Accept",
+      "application/json, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/csv, */*",
+    )
+  }
 
   const token = tokenStore.get()
   if (token) headers.set("Authorization", `Bearer ${token}`)
@@ -223,6 +231,32 @@ export async function request<T>(
   } finally {
     window.clearTimeout(timeout)
   }
+}
+
+export function triggerFileDownload(
+  data: unknown,
+  filename: string,
+  defaultMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+) {
+  if (typeof window === "undefined") return
+  let blob: Blob
+  if (data instanceof Blob) {
+    blob = data
+  } else if (typeof data === "string") {
+    blob = new Blob([data], { type: defaultMime })
+  } else {
+    blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    })
+  }
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export const api = {

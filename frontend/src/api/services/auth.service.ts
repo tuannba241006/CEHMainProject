@@ -43,16 +43,23 @@ export interface RegisterPayload {
 }
 
 export interface ChangePasswordPayload {
-  mat_khau_hien_tai?: string
+  mat_khau_hien_tai: string
   mat_khau_moi: string
-  xac_nhan_mat_khau: string
+  xac_nhan_mat_khau_moi: string
+  // Compatibility aliases
+  mat_khau_cu?: string
+  xac_nhan_mat_khau?: string
 }
 
 export interface ResetPasswordPayload {
   email: string
-  otp: string
-  mat_khau: string
-  xac_nhan_mat_khau: string
+  reset_token: string
+  mat_khau_moi: string
+  xac_nhan_mat_khau_moi: string
+  // Compatibility aliases
+  otp?: string
+  mat_khau?: string
+  xac_nhan_mat_khau?: string
 }
 
 export const authService = {
@@ -92,10 +99,38 @@ export const authService = {
   me: () => api.get<ApiEnvelope<User>>("/auth/me"),
   updateProfile: (payload: Pick<User, "so_dien_thoai" | "avatar_url">) =>
     api.put<ApiEnvelope<User>>("/auth/profile", payload),
-  changePassword: (payload: ChangePasswordPayload) =>
-    api.post<ApiEnvelope<null>>("/auth/change-password", payload),
+  changePassword: (payload: ChangePasswordPayload) => {
+    const currentPass = payload.mat_khau_hien_tai ?? payload.mat_khau_cu ?? ""
+    const confirmPass =
+      payload.xac_nhan_mat_khau_moi ?? payload.xac_nhan_mat_khau ?? ""
+    return api.post<ApiEnvelope<null>>("/auth/change-password", {
+      mat_khau_hien_tai: currentPass,
+      mat_khau_cu: currentPass,
+      mat_khau_moi: payload.mat_khau_moi,
+      xac_nhan_mat_khau_moi: confirmPass,
+    })
+  },
   forgotPassword: (email: string) =>
     api.post<ApiEnvelope<null>>("/auth/forgot-password", { email }),
-  resetPassword: (payload: ResetPasswordPayload) =>
-    api.post<ApiEnvelope<null>>("/auth/reset-password", payload),
+  verifyForgotPasswordOtp: (email: string, otp: string) =>
+    api.post<ApiEnvelope<{ reset_token: string }>>(
+      "/auth/verify-forgot-password-otp",
+      {
+        email,
+        ma_otp: otp,
+        otp,
+      },
+    ),
+  resetPassword: (payload: ResetPasswordPayload) => {
+    const token = payload.reset_token || payload.otp || ""
+    const newPass = payload.mat_khau_moi ?? payload.mat_khau ?? ""
+    const confirmPass =
+      payload.xac_nhan_mat_khau_moi ?? payload.xac_nhan_mat_khau ?? ""
+    return api.post<ApiEnvelope<null>>("/auth/reset-password", {
+      email: payload.email,
+      reset_token: token,
+      mat_khau_moi: newPass,
+      xac_nhan_mat_khau_moi: confirmPass,
+    })
+  },
 }

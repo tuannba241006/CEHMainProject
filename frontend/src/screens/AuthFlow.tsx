@@ -11,12 +11,22 @@ export default function AuthFlow({
   const navigate = useNavigate()
   const [email, setEmail] = useState("")
   const [otp, setOtp] = useState("")
+  const [currentPassword, setCurrentPassword] = useState("")
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
+  const [resetToken, setResetToken] = useState("")
   const [seconds, setSeconds] = useState(600)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const t = urlParams.get("token") || urlParams.get("reset_token")
+    if (t) setResetToken(t)
+    const em = urlParams.get("email")
+    if (em) setEmail(em)
+  }, [])
 
   useEffect(() => {
     if (mode !== "otp") return
@@ -38,18 +48,33 @@ export default function AuthFlow({
 
       if (mode === "otp") await authService.verifyRegistrationOtp(email, otp)
       if (mode === "forgot") await authService.forgotPassword(email)
-      if (mode === "reset")
+      if (mode === "reset") {
+        let token = resetToken
+        if (!token) {
+          if (!/^\d{6}$/.test(otp)) {
+            throw new Error("Mã OTP phải gồm đúng 6 chữ số.")
+          }
+          const verifyRes = await authService.verifyForgotPasswordOtp(email, otp)
+          token = verifyRes.data?.reset_token || ""
+          setResetToken(token)
+        }
         await authService.resetPassword({
           email,
-          otp,
-          mat_khau: password,
-          xac_nhan_mat_khau: confirm,
-        })
-      if (mode === "change")
-        await authService.changePassword({
+          reset_token: token,
           mat_khau_moi: password,
-          xac_nhan_mat_khau: confirm,
+          xac_nhan_mat_khau_moi: confirm,
         })
+      }
+      if (mode === "change") {
+        if (!currentPassword) {
+          throw new Error("Vui lòng nhập mật khẩu hiện tại.")
+        }
+        await authService.changePassword({
+          mat_khau_hien_tai: currentPassword,
+          mat_khau_moi: password,
+          xac_nhan_mat_khau_moi: confirm,
+        })
+      }
       setMessage("Thao tác thành công.")
     } catch (caught) {
       setError(getApiErrorMessage(caught))
@@ -98,6 +123,15 @@ export default function AuthFlow({
               value={otp}
               onChange={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))}
               placeholder="000000"
+            />
+          )}
+          {mode === "change" && (
+            <Field
+              label="Mật khẩu hiện tại"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              placeholder="Nhập mật khẩu đang dùng"
+              type="password"
             />
           )}
           {(mode === "reset" || mode === "change") && (

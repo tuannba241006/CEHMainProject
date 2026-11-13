@@ -52,12 +52,18 @@ export const eventsService = {
       payload,
     ),
   withdraw: (id: number | string, ly_do: string) =>
-    api.post<ApiEnvelope<EventCard>>(`/events/${id}/withdraw`, { ly_do }),
+    api.post<ApiEnvelope<EventCard>>(`/events/${id}/withdraw`, {
+      ly_do_rut: ly_do,
+      ly_do,
+    }),
   review: (id: number | string, payload: EventReviewPayload) =>
     api.post<ApiEnvelope<EventCard>>(`/events/${id}/review`, payload),
   changeRoom: (id: number | string, payload: EventChangeRoomPayload) =>
     api.post<ApiEnvelope<EventCard>>(`/events/${id}/change-room`, payload),
   emergencyCancel: (id: number | string, ly_do: string) =>
-    api.post<ApiEnvelope<EventCard>>(`/events/${id}/emergency-cancel`, { ly_do }),
+    api.post<ApiEnvelope<EventCard>>(`/events/${id}/emergency-cancel`, {
+      ly_do_huy: ly_do,
+      ly_do,
+    }),
   share: (id: number | string) => api.get<string>(`/events/${id}/share`),
 }

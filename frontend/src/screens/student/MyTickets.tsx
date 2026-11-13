@@ -10,6 +10,7 @@ import {
 } from "../management/AffairsOperations"
 import type { Certificate } from "../../context/AppContext"
 import { feedbackService } from "../../api/services/feedback.service"
+import { getApiErrorMessage } from "../../api/errors"
 import {
   QrCode,
   Calendar,
@@ -728,22 +729,34 @@ function AfterEvent({
       item.eventId === ticket.eventId && item.studentId === user.studentId,
   )
 
-  function sendSurvey() {
-    void feedbackService.submit(ticket.eventId, {
-      ...form,
-      ma_su_kien: Number(ticket.eventId) || 1,
-    }).catch(() => null)
-    const result = submitSurvey({
-      eventId: ticket.eventId,
-      studentId: user.studentId,
-      ...form,
-    })
-    showToast(
-      result.success
-        ? "Đã gửi đánh giá ẩn danh."
-        : result.error || "Không thể gửi đánh giá.",
-      result.success ? "success" : "error",
-    )
+  async function sendSurvey() {
+    try {
+      const comment = [form.useful, form.improvement]
+        .filter(Boolean)
+        .join(". ")
+        .trim()
+      await feedbackService.submit(ticket.eventId, {
+        diem_noi_dung: form.content || 5,
+        diem_dien_gia: form.overall || 5,
+        diem_to_chuc: form.organization || 5,
+        y_kien_dong_gop: comment || "Đánh giá chất lượng sự kiện",
+        ...form,
+        ma_su_kien: Number(ticket.eventId) || 1,
+      })
+      const result = submitSurvey({
+        eventId: ticket.eventId,
+        studentId: user.studentId,
+        ...form,
+      })
+      showToast(
+        result.success
+          ? "Đã gửi đánh giá thành công! Bạn đã đủ điều kiện nhận ĐRL và tải Giấy chứng nhận."
+          : result.error || "Không thể gửi đánh giá.",
+        result.success ? "success" : "error",
+      )
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
   function sendReview() {

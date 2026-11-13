@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useParams } from "react-router"
 import { OrgLayout } from "./OrgLayout"
 import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export default function EventForm({ onNavigate, onLogout }: Props) {
+  const { id } = useParams<{ id?: string }>()
+  const isEditMode = Boolean(id)
   const { saveApprovalDraft } = useApp()
   const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
@@ -86,6 +89,64 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    eventsService
+      .organizerDetail(id)
+      .then((res) => {
+        if (cancelled || !res.data) return
+        const ev: any = res.data
+        const start = ev.thoi_gian_bat_dau
+          ? new Date(ev.thoi_gian_bat_dau)
+          : null
+        const end = ev.thoi_gian_ket_thuc
+          ? new Date(ev.thoi_gian_ket_thuc)
+          : null
+        const dateStr = start ? start.toISOString().slice(0, 10) : ""
+        const startTimeStr = start ? start.toTimeString().slice(0, 5) : ""
+        const endTimeStr = end ? end.toTimeString().slice(0, 5) : ""
+
+        setForm((prev) => ({
+          ...prev,
+          title: ev.ten_su_kien || ev.title || prev.title,
+          topic: ev.ma_chuyen_de ? String(ev.ma_chuyen_de) : prev.topic,
+          description: ev.mo_ta || prev.description,
+          regStart: ev.ngay_cong_bo
+            ? String(ev.ngay_cong_bo).slice(0, 16)
+            : prev.regStart,
+          regEnd: ev.thoi_gian_dong_dang_ky
+            ? String(ev.thoi_gian_dong_dang_ky).slice(0, 16)
+            : prev.regEnd,
+          eventDate: dateStr || prev.eventDate,
+          startTime: startTimeStr || prev.startTime,
+          endTime: endTimeStr || prev.endTime,
+          room: ev.ma_phong ? String(ev.ma_phong) : prev.room,
+          location: ev.dia_diem || ev.ten_phong || prev.location,
+          capacity: ev.so_luong_toi_da
+            ? String(ev.so_luong_toi_da)
+            : prev.capacity,
+          unlimited: ev.khong_gioi_han_slot ? "true" : "false",
+          drlRule: ev.dieu_khoan_drl || prev.drlRule,
+          proposedPoints: ev.diem_drl_du_kien
+            ? String(ev.diem_drl_du_kien)
+            : prev.proposedPoints,
+          volunteerHours: ev.gio_tinh_nguyen
+            ? String(ev.gio_tinh_nguyen)
+            : prev.volunteerHours,
+        }))
+      })
+      .catch((err) => {
+        showToast(
+          "Không thể tải thông tin sự kiện: " + getApiErrorMessage(err),
+          "error",
+        )
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [id])
 
   const [form, setForm] = useState({
     title: "",
@@ -218,18 +279,24 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
               }
             : {}),
         }
-        const created = await eventsService.createDraft(payload)
-        if (!created.success)
-          throw new Error(created.message || "Không thể tạo bản nháp")
-        if (submitForApproval) {
+        let eventTargetId = id ? Number(id) : undefined
+        if (id) {
+          const updated = await eventsService.updateDraft(id, payload)
+          if (!updated.success)
+            throw new Error(updated.message || "Không thể cập nhật bản nháp")
+        } else {
+          const created = await eventsService.createDraft(payload)
+          if (!created.success)
+            throw new Error(created.message || "Không thể tạo bản nháp")
           const event = (created.data ?? {}) as {
             ma_su_kien?: number
             id?: number
           }
-          const id = event.ma_su_kien ?? event.id
-          if (id) {
-            await eventsService.submitApproval(id)
-          }
+          eventTargetId = event.ma_su_kien ?? event.id
+        }
+
+        if (submitForApproval && eventTargetId) {
+          await eventsService.submitApproval(eventTargetId)
         }
       }
       saveApprovalDraft(
@@ -280,14 +347,16 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
             Quản lý sự kiện
           </button>
           <span>/</span>
-          <span style={{ color: "#1a1a2e" }}>Tạo sự kiện mới</span>
+          <span style={{ color: "#1a1a2e" }}>
+            {isEditMode ? "Chỉnh sửa sự kiện nháp" : "Tạo sự kiện mới"}
+          </span>
         </div>
 
         <h1
           className="font-display font-bold text-2xl mb-6"
           style={{ color: "#1a1a2e" }}
         >
-          Tạo sự kiện mới
+          {isEditMode ? "Chỉnh sửa sự kiện nháp" : "Tạo sự kiện mới"}
         </h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

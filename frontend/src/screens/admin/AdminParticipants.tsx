@@ -4,6 +4,7 @@ import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { drlService } from "../../api/services/drl.service"
 import { feedbackService } from "../../api/services/feedback.service"
+import { triggerFileDownload } from "../../api/client"
 import { getApiErrorMessage } from "../../api/errors"
 import type { Ticket } from "../../data/mock"
 import {
@@ -401,9 +402,24 @@ export default function AdminParticipants() {
 
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => {
-                  showToast("Đang kết xuất danh sách sinh viên chuẩn CTSV (12 cột)...", "info")
-                  void drlService.export(selectedEventId).catch(() => null)
+                onClick={async () => {
+                  showToast(
+                    "Đang kết xuất danh sách sinh viên chuẩn CTSV (12 cột)...",
+                    "info",
+                  )
+                  try {
+                    const data = await drlService.export(selectedEventId)
+                    triggerFileDownload(
+                      data,
+                      `Danh_Sach_DRL_Su_Kien_${selectedEventId}.xlsx`,
+                    )
+                    showToast(
+                      "Đã tải xuống danh sách điểm rèn luyện (12 cột) thành công.",
+                      "success",
+                    )
+                  } catch (err) {
+                    showToast(getApiErrorMessage(err), "error")
+                  }
                 }}
                 className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
               >

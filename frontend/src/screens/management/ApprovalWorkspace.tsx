@@ -511,12 +511,24 @@ function ApprovalDetail({
       | "request_revision"
       | "reject"
       | "withdraw"
-      | "reopen",
+      | "reopen"
+      | "emergency_cancel"
+      | "emergency_room",
   ) {
     if (busy) return
     setBusy(true)
     try {
-      if (action === "withdraw") {
+      if (action === "emergency_cancel") {
+        await eventsService.emergencyCancel(item.eventId, reason.trim())
+      } else if (action === "emergency_room") {
+        const roomId =
+          Number(newRoomId) ||
+          (newRoomId === "Hội trường A" ? 1 : newRoomId === "Hội trường B" ? 2 : 3)
+        await eventsService.changeRoom(item.eventId, {
+          ma_phong_moi: roomId,
+          ly_do: reason.trim(),
+        })
+      } else if (action === "withdraw") {
         await eventsService.withdraw(item.eventId, reason.trim())
       } else if (action === "reopen") {
         await eventsService.reopen(item.eventId, reason.trim())
@@ -544,12 +556,16 @@ function ApprovalDetail({
       showToast(
         action.includes("approve")
           ? "Đã duyệt hồ sơ thành công."
-          : action === "withdraw"
-            ? "Đã rút đề xuất cưỡng chế về DRAFT (giải phóng phòng)."
-            : action === "reopen"
-              ? "Đã tái mở bản nháp để chỉnh sửa."
-              : "Đã cập nhật trạng thái hồ sơ.",
-        "success",
+          : action === "emergency_cancel"
+            ? "Đã hủy sự kiện khẩn cấp và gửi thông báo thu hồi vé."
+            : action === "emergency_room"
+              ? "Đã điều chuyển phòng khẩn cấp và thông báo cho sinh viên."
+              : action === "withdraw"
+                ? "Đã rút đề xuất cưỡng chế về DRAFT (giải phóng phòng)."
+                : action === "reopen"
+                  ? "Đã tái mở bản nháp để chỉnh sửa."
+                  : "Đã cập nhật trạng thái hồ sơ.",
+        action === "emergency_cancel" ? "warning" : "success",
       )
       setDialog(null)
       setReason("")
@@ -927,19 +943,9 @@ function ApprovalDetail({
               <button
                 onClick={() => {
                   if (dialog === "emergency_room") {
-                    showToast(
-                      "Đã điều chuyển phòng khẩn cấp thành công. Toàn bộ sinh viên đã nhận được thông báo in-app.",
-                      "success",
-                    )
-                    setDialog(null)
-                    setReason("")
+                    act("emergency_room")
                   } else if (dialog === "emergency_cancel") {
-                    showToast(
-                      "Đã hủy sự kiện khẩn cấp. Đã phát lệnh thu hồi vé.",
-                      "warning",
-                    )
-                    setDialog(null)
-                    setReason("")
+                    act("emergency_cancel")
                   } else if (dialog === "withdraw") {
                     act("withdraw")
                   } else if (dialog === "reopen") {

@@ -12,6 +12,7 @@ import {
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import { drlService } from "../../api/services/drl.service"
+import { triggerFileDownload } from "../../api/client"
 import { eventsService } from "../../api/services/events.service"
 import {
   attendanceService,
@@ -770,14 +771,15 @@ function ReconciliationView({
             onClick={async () => {
               try {
                 if (eventId) {
-                  const blob = (await drlService.export(eventId)) as unknown as Blob
-                  const url = URL.createObjectURL(blob)
-                  const link = document.createElement("a")
-                  link.href = url
-                  link.download = `Danh_Sach_DRL_Su_Kien_${eventId}.xlsx`
-                  link.click()
-                  URL.revokeObjectURL(url)
-                  showToast("Đã xuất danh sách ĐRL chuẩn 12 cột thành công.", "success")
+                  const data = await drlService.export(eventId)
+                  triggerFileDownload(
+                    data,
+                    `Danh_Sach_DRL_Su_Kien_${eventId}.xlsx`,
+                  )
+                  showToast(
+                    "Đã xuất danh sách ĐRL chuẩn 12 cột thành công.",
+                    "success",
+                  )
                   return
                 }
               } catch (err) {
