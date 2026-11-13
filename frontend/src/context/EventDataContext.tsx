@@ -5,7 +5,7 @@ import {
   type AgendaItem,
   type EventStatus as ContractEventStatus,
 } from "../data/mock"
-import type { OrganizationSummary, EventCard, EventPublicDetail } from "../data/contract"
+import type { OrganizationSummary, EventCard, EventPublicDetail, SmartActionButton } from "../data/contract"
 import { eventsService } from "../api/services/events.service"
 import { getApiErrorMessage, isAuthError } from "../api/errors"
 
@@ -34,6 +34,7 @@ export interface LiveEvent {
   lo_trinh: AgendaItem[]
   doi_tuong_tham_gia?: string | null
   da_chot_drl?: boolean
+  nut_bam_dieu_huong?: SmartActionButton
 
   id: string
   title: string
@@ -242,6 +243,7 @@ export function mapContractEventToLiveEvent(
     status: legacyStatus,
     so_luong_da_dang_ky: registered,
     ly_do_tu_choi: null,
+    nut_bam_dieu_huong: detail.nut_bam_dieu_huong,
   }
 }
 

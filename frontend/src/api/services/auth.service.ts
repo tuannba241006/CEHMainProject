@@ -129,6 +129,7 @@ export const authService = {
     return api.post<ApiEnvelope<null>>("/auth/reset-password", {
       email: payload.email,
       reset_token: token,
+      otp: token,
       mat_khau_moi: newPass,
       xac_nhan_mat_khau_moi: confirmPass,
     })

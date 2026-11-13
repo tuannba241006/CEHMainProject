@@ -142,6 +142,7 @@ export interface CohostInvitationStatus {
 /** Payload tạo bản nháp sự kiện */
 export interface EventCreateDraftPayload {
   ten_su_kien: string
+  ma_don_vi_to_chuc?: number | null
   ma_chuyen_de?: number
   mo_ta?: string
   thoi_gian_bat_dau: string

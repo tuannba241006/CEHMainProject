@@ -88,6 +88,7 @@ export default function AdminStaff() {
 
   const [staffList, setStaffList] = useState<StaffAccount[]>(INITIAL_STAFF)
   const [selectedUnit, setSelectedUnit] = useState<string>("all")
+  const [selectedEventId, setSelectedEventId] = useState<string | number>("all")
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
 
@@ -99,34 +100,58 @@ export default function AdminStaff() {
   const [formRole, setFormRole] = useState("Điểm danh (Check-in / Check-out)")
   const [submittingStaff, setSubmittingStaff] = useState(false)
 
-  // UC-OPS-05: Tự động đồng bộ danh sách nhân viên từ Backend API khi có sự kiện
+  // UC-OPS-05: Tự động đồng bộ danh sách nhân viên từ Backend API theo sự kiện
   useEffect(() => {
     let active = true
-    const targetEventId = events[0]?.id || events[0]?.ma_su_kien || 101
-    attendanceService
-      .staff(targetEventId)
-      .then((res) => {
-        if (active && res.data && Array.isArray(res.data) && res.data.length > 0) {
-          const mapped: StaffAccount[] = res.data.map((item, idx) => ({
-            id: `st-api-${item.id || idx + 1}`,
-            userId: item.ma_tai_khoan,
-            name: item.ho_ten || `Cộng tác viên ${item.ma_tai_khoan}`,
-            email: item.mssv
-              ? `${item.mssv}@gm.uit.edu.vn`
-              : `staff${item.ma_tai_khoan}@gm.uit.edu.vn`,
-            eventId: item.ma_su_kien,
-            eventTitle:
-              events.find(
-                (e) =>
-                  Number(e.id) === item.ma_su_kien ||
-                  e.ma_su_kien === item.ma_su_kien,
-              )?.title || "Sự kiện trường",
-            organizer: "Phòng Công tác Sinh viên (CTSV)",
-            permissions: ["Điểm danh (Check-in / Check-out)"],
-            status: "active",
-            lastActive: "Vừa kích hoạt",
-          }))
-          setStaffList(mapped)
+    const targetEvents =
+      selectedEventId === "all"
+        ? events.slice(0, 10)
+        : events.filter(
+            (e) => String(e.id || e.ma_su_kien) === String(selectedEventId),
+          )
+    if (targetEvents.length === 0) return
+
+    Promise.allSettled(
+      targetEvents.map((evt) =>
+        attendanceService.staff(evt.ma_su_kien || evt.id).then((res) => ({
+          evt,
+          staff: res.data || [],
+        })),
+      ),
+    )
+      .then((results) => {
+        if (!active) return
+        const allFetched: StaffAccount[] = []
+        for (const r of results) {
+          if (
+            r.status === "fulfilled" &&
+            Array.isArray(r.value.staff) &&
+            r.value.staff.length > 0
+          ) {
+            const { evt, staff } = r.value
+            staff.forEach((item, idx) => {
+              allFetched.push({
+                id: `st-api-${item.id || item.ma_tai_khoan || idx + 1}-${evt.ma_su_kien || evt.id}`,
+                userId: item.ma_tai_khoan,
+                name: item.ho_ten || `Cộng tác viên ${item.ma_tai_khoan}`,
+                email: item.mssv
+                  ? `${item.mssv}@gm.uit.edu.vn`
+                  : `staff${item.ma_tai_khoan}@gm.uit.edu.vn`,
+                eventId: evt.ma_su_kien || evt.id,
+                eventTitle: evt.title || evt.ten_su_kien || "Sự kiện trường",
+                organizer:
+                  evt.ten_don_vi_host ||
+                  evt.organizer ||
+                  "Phòng Công tác Sinh viên (CTSV)",
+                permissions: ["Điểm danh (Check-in / Check-out)"],
+                status: "active",
+                lastActive: "Vừa kích hoạt",
+              })
+            })
+          }
+        }
+        if (allFetched.length > 0) {
+          setStaffList(allFetched)
         }
       })
       .catch(() => {
@@ -135,11 +160,16 @@ export default function AdminStaff() {
     return () => {
       active = false
     }
-  }, [events])
+  }, [events, selectedEventId])
 
-  // Filter staff by selected unit
+  // Filter staff by selected unit, event, search and status
   const filteredStaff = useMemo(() => {
     return staffList.filter((st) => {
+      // Event filter
+      const matchEvent =
+        selectedEventId === "all" ||
+        String(st.eventId) === String(selectedEventId)
+
       // Unit filter
       let matchUnit = true
       if (selectedUnit !== "all") {
@@ -162,9 +192,9 @@ export default function AdminStaff() {
       // Status filter
       const matchStatus = statusFilter === "all" || st.status === statusFilter
 
-      return matchUnit && matchSearch && matchStatus
+      return matchEvent && matchUnit && matchSearch && matchStatus
     })
-  }, [staffList, selectedUnit, search, statusFilter])
+  }, [staffList, selectedEventId, selectedUnit, search, statusFilter])
 
   // Handle toggle lock/active
   async function handleToggleStatus(st: StaffAccount) {
@@ -265,6 +295,24 @@ export default function AdminStaff() {
               <option value="Khoa Công nghệ Thông tin">Khoa Công nghệ Thông tin</option>
               <option value="CLB WebDev UIT">CLB WebDev UIT</option>
               <option value="CLB Trí tuệ Nhân tạo">CLB Trí tuệ Nhân tạo (AI Club)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-2 rounded-2xl border border-slate-200 shadow-2xs">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+              <span>Sự kiện:</span>
+            </span>
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="text-xs font-bold text-navy bg-transparent border-0 focus:outline-none cursor-pointer max-w-[180px] truncate"
+            >
+              <option value="all">Tất cả sự kiện</option>
+              {events.map((e) => (
+                <option key={e.id || e.ma_su_kien} value={e.id || e.ma_su_kien}>
+                  {e.title || e.ten_su_kien}
+                </option>
+              ))}
             </select>
           </div>
 

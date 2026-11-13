@@ -10,6 +10,7 @@ import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
 import { organizationsService } from "../../api/services/organizations.service"
 import { roomsService } from "../../api/services/rooms.service"
+import { reportsService } from "../../api/services/reports.service"
 import { api } from "../../api/client"
 import { Sparkles, Calendar, MapPin, Users, X } from "lucide-react"
 
@@ -181,17 +182,48 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
     agenda: string
   } | null>(null)
 
-  function handleGenerateAi() {
+  async function handleGenerateAi() {
     if (!aiPrompt.trim()) return
     setAiGenerating(true)
-    setTimeout(() => {
+    try {
+      const res = await reportsService.generateEventContent({
+        chu_de: aiPrompt.trim(),
+        doi_tuong_muc_tieu: "Sinh viên Đại học Công nghệ Thông tin (UIT)",
+        thoi_luong_phut: 120,
+        muc_tieu: `Trang bị kiến thức và kỹ năng thực tế về ${aiPrompt.trim()} cho sinh viên`,
+        phong_cach: "HaoHuc",
+      })
+
+      if (res && res.data) {
+        const title =
+          res.data.tieu_de_goi_y?.[0] ||
+          `Hội thảo Chuyên đề: ${aiPrompt.trim()} — Ứng dụng & Xu hướng 2026`
+        const description = res.data.mo_ta_de_xuat || ""
+        const agenda = Array.isArray(res.data.lo_trinh_de_xuat)
+          ? res.data.lo_trinh_de_xuat
+              .map(
+                (item, idx) =>
+                  `${idx + 1}. ${item.thoi_gian_bat_dau} - ${item.thoi_gian_ket_thuc}: ${item.tieu_de}${item.dien_gia ? ` (Diễn giả: ${item.dien_gia})` : ""}`,
+              )
+              .join("\n")
+          : ""
+
+        setAiResult({
+          title,
+          description,
+          agenda,
+        })
+      }
+    } catch {
+      // Graceful fallback when backend AI service is offline
       setAiResult({
         title: `Hội thảo Chuyên đề: ${aiPrompt.trim()} — Ứng dụng & Xu hướng 2026`,
         description: `Chương trình hội thảo chuyên sâu về ${aiPrompt.trim()} nhằm trang bị cho sinh viên UIT các kiến thức thực chiến, phương pháp tiếp cận mới nhất cùng sự tham gia của các chuyên gia đầu ngành. Sinh viên tham dự đầy đủ sẽ được cấp Giấy chứng nhận điện tử và cộng Điểm rèn luyện.`,
         agenda: `1. 08:00 - 08:30: Đón tiếp đại biểu & Check-in qua mã Dynamic Kiosk\n2. 08:30 - 10:00: Diễn giả trình bày chuyên đề ${aiPrompt.trim()}\n3. 10:00 - 11:00: Thảo luận, Q&A và kết nối doanh nghiệp\n4. 11:00 - 11:30: Check-out và hướng dẫn làm bài khảo sát nhận chứng nhận.`,
       })
+    } finally {
       setAiGenerating(false)
-    }, 800)
+    }
   }
 
   function applyAiResult() {

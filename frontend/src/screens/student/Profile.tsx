@@ -53,7 +53,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
   }, [])
 
   const stats = useMemo(() => {
-    if (remoteTickets && remoteTickets.length > 0) {
+    if (remoteTickets !== null) {
       const bookedCount = remoteTickets.filter(
         (t) => t.trang_thai !== "DaHuy",
       ).length
@@ -69,7 +69,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
       return {
         booked: bookedCount,
         attended: attendedCount,
-        points: totalPoints || 25,
+        points: totalPoints,
       }
     }
 
@@ -84,12 +84,14 @@ export default function Profile({ onNavigate, onLogout }: Props) {
           t.trang_thai === "DaCheckOut"),
     )
     const points =
-      (remoteCertCount ? remoteCertCount * 10 : 0) ||
-      myAttended.length * 5 ||
-      25
+      (remoteCertCount ? remoteCertCount * 10 : 0) +
+      myAttended.reduce(
+        (sum, t) => sum + (Number((t as unknown as { diem_drl_du_kien?: number }).diem_drl_du_kien) || 5),
+        0,
+      )
     return {
-      booked: myTickets.length || 3,
-      attended: myAttended.length || 1,
+      booked: myTickets.length,
+      attended: myAttended.length,
       points,
     }
   }, [remoteTickets, remoteCertCount, contextTickets, user.studentId])

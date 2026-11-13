@@ -148,71 +148,127 @@ export default function EventDetail({
     )
     : undefined
 
-  // UC-DISC-02 & UC-BOOK-01: Smart Action Button state machine (13 states)
+  // UC-DISC-02 & UC-BOOK-01: Smart Action Button state machine (13 states from Backend with local fallback)
+  const backendBtn = event.nut_bam_dieu_huong
   let ctaLabel = isGuest
     ? "Đăng nhập để đăng ký giữ chỗ"
     : "Đăng ký giữ chỗ ngay"
   let ctaEnabled = true
   let ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
 
-  if (event.trang_thai === "CANCELLED") {
-    ctaLabel = "Sự kiện đã bị hủy"
-    ctaEnabled = false
-    ctaClass =
-      "bg-rose-100 text-rose-700 cursor-not-allowed border border-rose-200"
-  } else if (!isGuest && activeTicket) {
-    if (activeTicket.status === "DaCheckOut") {
-      ctaLabel = "Làm khảo sát & Nhận chứng nhận"
-      ctaClass = "bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm"
-    } else if (activeTicket.status === "DaCheckIn") {
-      ctaLabel = "Đã Check-in · Xem vé / Điểm danh ra"
-      ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-    } else {
-      ctaLabel = "Bạn đã có vé · Xem vé & Điểm danh"
-      ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+  if (backendBtn) {
+    ctaLabel = backendBtn.thong_diep_nut
+    ctaEnabled = backendBtn.cho_phep_bam
+    switch (backendBtn.trang_thai_nut) {
+      case "CHUA_DANG_NHAP":
+        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+        break
+      case "DANG_KY":
+        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+        break
+      case "DA_CO_VE":
+        ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+        break
+      case "DANG_O_WAITLIST":
+        ctaClass = "bg-amber-100 text-amber-800 cursor-default"
+        break
+      case "CO_OFFER_WAITLIST":
+        ctaClass = "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
+        break
+      case "VAO_WAITLIST":
+        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+        break
+      case "HET_VE_DONG_WAITLIST_T2H":
+      case "DONG_DANG_KY_T2H":
+      case "SU_KIEN_DANG_DIEN_RA_DONG_DK":
+      case "SU_KIEN_DA_KET_THUC":
+        ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
+        break
+      case "VAO_DIEM_DANH":
+        ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+        break
+      case "LAM_FEEDBACK_NHAN_CERT":
+        ctaClass = "bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm"
+        break
+      case "SU_KIEN_DA_HUY":
+        ctaClass = "bg-rose-100 text-rose-700 cursor-not-allowed border border-rose-200"
+        break
+      default:
+        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
     }
-  } else if (status === "full") {
-    if (waitlistEntry) {
-      ctaLabel =
-        waitlistEntry.trang_thai === "OFFERED"
-          ? "Bạn có suất nhận vé (Sàn 15p) — Mở Ví vé"
-          : `Đang trong hàng chờ FIFO #${waitlistEntry.so_thu_tu}`
-      ctaEnabled = waitlistEntry.trang_thai === "OFFERED"
+  } else {
+    // Local fallback computation when offline or mock mode
+    if (event.trang_thai === "CANCELLED") {
+      ctaLabel = "Sự kiện đã bị hủy"
+      ctaEnabled = false
       ctaClass =
-        waitlistEntry.trang_thai === "OFFERED"
-          ? "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
-          : "bg-amber-100 text-amber-800 cursor-default"
-    } else {
-      ctaLabel = isGuest
-        ? "Đăng nhập để tham gia hàng đợi chờ"
-        : "Tham gia danh sách chờ FIFO"
-      ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+        "bg-rose-100 text-rose-700 cursor-not-allowed border border-rose-200"
+    } else if (!isGuest && activeTicket) {
+      if (activeTicket.status === "DaCheckOut") {
+        ctaLabel = "Làm khảo sát & Nhận chứng nhận"
+        ctaClass = "bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm"
+      } else if (activeTicket.status === "DaCheckIn") {
+        ctaLabel = "Đã Check-in · Xem vé / Điểm danh ra"
+        ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+      } else {
+        ctaLabel = "Bạn đã có vé · Xem vé & Điểm danh"
+        ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+      }
+    } else if (status === "full") {
+      if (waitlistEntry) {
+        ctaLabel =
+          waitlistEntry.trang_thai === "OFFERED"
+            ? "Bạn có suất nhận vé (Sàn 15p) — Mở Ví vé"
+            : `Đang trong hàng chờ FIFO #${waitlistEntry.so_thu_tu}`
+        ctaEnabled = waitlistEntry.trang_thai === "OFFERED"
+        ctaClass =
+          waitlistEntry.trang_thai === "OFFERED"
+            ? "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
+            : "bg-amber-100 text-amber-800 cursor-default"
+      } else {
+        ctaLabel = isGuest
+          ? "Đăng nhập để tham gia hàng đợi chờ"
+          : "Tham gia danh sách chờ FIFO"
+        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+      }
+    } else if (status === "closed") {
+      ctaLabel = "Hết hạn đăng ký (Trước giờ G 2 tiếng)"
+      ctaEnabled = false
+      ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
+    } else if (status === "ended") {
+      ctaLabel = "Sự kiện đã kết thúc"
+      ctaEnabled = false
+      ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
     }
-  } else if (status === "closed") {
-    ctaLabel = "Hết hạn đăng ký (Trước giờ G 2 tiếng)"
-    ctaEnabled = false
-    ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
-  } else if (status === "ended") {
-    ctaLabel = "Sự kiện đã kết thúc"
-    ctaEnabled = false
-    ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
   }
 
   async function handleCTA() {
-    if (isGuest) {
+    if (isGuest || (backendBtn && backendBtn.trang_thai_nut === "CHUA_DANG_NHAP")) {
       if (onRequireLogin) onRequireLogin()
       return
     }
-    if (activeTicket) {
+    if (
+      activeTicket ||
+      (backendBtn &&
+        ["DA_CO_VE", "VAO_DIEM_DANH", "LAM_FEEDBACK_NHAN_CERT"].includes(
+          backendBtn.trang_thai_nut,
+        ))
+    ) {
       onViewTicket()
       return
     }
-    if (status === "full") {
-      if (waitlistEntry?.trang_thai === "OFFERED") {
-        onViewTicket()
-      } else if (!waitlistEntry) {
-        setShowWaitlistRules(true)
-      }
+    if (
+      (backendBtn && backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST") ||
+      waitlistEntry?.trang_thai === "OFFERED"
+    ) {
+      onViewTicket()
+      return
+    }
+    if (
+      (backendBtn && backendBtn.trang_thai_nut === "VAO_WAITLIST") ||
+      (!backendBtn && status === "full" && !waitlistEntry)
+    ) {
+      setShowWaitlistRules(true)
       return
     }
     if (!ctaEnabled || registering) return

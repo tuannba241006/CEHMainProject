@@ -298,7 +298,7 @@ export interface ApprovalDataContextType {
       | "emergency_room",
     reason?: string,
     skipRemote?: boolean,
-  ) => { success: boolean; error?: string }
+  ) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string }
   submitSurvey: (
     input: Omit<SurveyResponse, "id" | "submittedAt">,
   ) => { success: boolean; error?: string }
@@ -422,7 +422,7 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
     return created
   }
 
-  function updateApproval(
+  async function updateApproval(
     caseId: string,
     action:
       | "faculty_approve"
@@ -437,7 +437,7 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
       | "emergency_room",
     reason?: string,
     skipRemote = false,
-  ): { success: boolean; error?: string } {
+  ): Promise<{ success: boolean; error?: string }> {
     let nextStatus: ApprovalStatus = "draft"
     switch (action) {
       case "faculty_approve":
@@ -511,28 +511,22 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
         mappedHanhDong = isAffairsRejection ? "REJECT_ADMIN" : "REJECT_FACULTY"
       }
 
-      if (action === "withdraw") {
-        eventsService.withdraw(eventNum, reason || "Rút đề xuất sự kiện").catch((err) => {
-          console.warn("Lỗi khi rút đề xuất sự kiện:", err)
-        })
-      } else if (action === "reopen") {
-        eventsService.reopen(eventNum, reason || "Tái mở sửa lại").catch((err) => {
-          console.warn("Lỗi khi tái mở sự kiện:", err)
-        })
-      } else if (action === "resubmit") {
-        eventsService.submitApproval(eventNum).catch((err) => {
-          console.warn("Lỗi khi gửi lại duyệt sự kiện:", err)
-        })
-      } else {
-        eventsService
-          .review(eventNum, {
+      try {
+        if (action === "withdraw") {
+          await eventsService.withdraw(eventNum, reason || "Rút đề xuất sự kiện")
+        } else if (action === "reopen") {
+          await eventsService.reopen(eventNum, reason || "Tái mở sửa lại")
+        } else if (action === "resubmit") {
+          await eventsService.submitApproval(eventNum)
+        } else {
+          await eventsService.review(eventNum, {
             hanh_dong: mappedHanhDong,
             ly_do: reason,
             ghi_chu: reason,
           })
-          .catch((err) => {
-            console.warn("Lỗi khi gửi thẩm định sự kiện:", err)
-          })
+        }
+      } catch (err) {
+        return { success: false, error: getApiErrorMessage(err) }
       }
     }
 

@@ -408,22 +408,18 @@ export default function AdminEventsManagement({
       const payload = {
         ten_su_kien: formTitle.trim(),
         ma_don_vi_to_chuc: formUnitId,
-        ten_don_vi_host: targetUnit?.ten_don_vi || "Phòng Công tác Sinh viên (P.CTSV)",
         ma_chuyen_de: targetTopic?.ma_chuyen_de ?? 1,
-        ten_chuyen_de: formTopic,
         ma_phong: targetRoom?.ma_phong ?? 1,
-        ten_phong: formRoom,
-        ngay_cong_bo: formDate,
+        ngay_cong_bo: `${formDate}T00:00:00+07:00`,
         thoi_gian_bat_dau: `${formDate}T${formStartTime}:00+07:00`,
         thoi_gian_ket_thuc: `${formDate}T${formEndTime}:00+07:00`,
         khong_gioi_han_slot: false,
         so_luong_toi_da: Number(formCapacity),
         dieu_khoan_drl: formDrlRule,
         diem_drl_du_kien: Number(formDrlPoints),
-        dien_gia: formSpeaker.trim(),
-        mo_ta: formDescription.trim(),
+        dien_gia: formSpeaker.trim() || null,
+        mo_ta: formDescription.trim() || "Mô tả chi tiết nội dung sự kiện cấp trường.",
         danh_sach_co_host_ids: coHostIds,
-        danh_sach_ten_dong_to_chuc: formCoHosts,
       }
 
       if (isEdit && editingEvent) {
