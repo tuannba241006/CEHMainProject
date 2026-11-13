@@ -119,10 +119,7 @@ export async function request<T>(
   )
   const headers = new Headers(options.headers)
   if (!headers.has("Accept")) {
-    headers.set(
-      "Accept",
-      "application/json, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, text/csv, */*",
-    )
+    headers.set("Accept", "application/json")
   }
 
   const token = tokenStore.get()

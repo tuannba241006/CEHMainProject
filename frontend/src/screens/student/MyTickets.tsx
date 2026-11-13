@@ -740,8 +740,6 @@ function AfterEvent({
         diem_dien_gia: form.overall || 5,
         diem_to_chuc: form.organization || 5,
         y_kien_dong_gop: comment || "Đánh giá chất lượng sự kiện",
-        ...form,
-        ma_su_kien: Number(ticket.eventId) || 1,
       })
       const result = submitSurvey({
         eventId: ticket.eventId,

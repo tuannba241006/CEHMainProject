@@ -445,8 +445,8 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
         const mapped = mapContractTicketToUiTicket(res.data as unknown as ContractTicket)
         setTickets((prev) => [mapped, ...prev])
       }
-    } catch {
-      // Fallback
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err) }
     }
     setWaitlistEntries((prev) => prev.filter((w) => w.id !== id))
     return { success: true }
@@ -456,8 +456,8 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     const uuid = crypto.randomUUID()
     try {
       await waitlistService.decline(id, uuid)
-    } catch {
-      // Fallback
+    } catch (err: unknown) {
+      return { success: false, error: getApiErrorMessage(err) }
     }
     setWaitlistEntries((prev) => prev.filter((w) => w.id !== id))
     return { success: true }

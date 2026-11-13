@@ -297,6 +297,7 @@ export interface ApprovalDataContextType {
       | "emergency_cancel"
       | "emergency_room",
     reason?: string,
+    skipRemote?: boolean,
   ) => { success: boolean; error?: string }
   submitSurvey: (
     input: Omit<SurveyResponse, "id" | "submittedAt">,
@@ -435,6 +436,7 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
       | "emergency_cancel"
       | "emergency_room",
     reason?: string,
+    skipRemote = false,
   ): { success: boolean; error?: string } {
     let nextStatus: ApprovalStatus = "draft"
     switch (action) {
@@ -493,7 +495,7 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
     )
 
     const targetCase = approvalCases.find((c) => c.id === caseId)
-    if (targetCase) {
+    if (!skipRemote && targetCase) {
       const eventNum = Number(targetCase.eventId.replace(/\D/g, "")) || 101
       let mappedHanhDong: "APPROVE_FACULTY" | "APPROVE_ADMIN" | "APPROVE_FACULTY_BY_ADMIN" | "REJECT_FACULTY" | "REJECT_ADMIN" | "REQUEST_EDIT" = "REQUEST_EDIT"
       if (action === "faculty_approve") mappedHanhDong = "APPROVE_FACULTY"
@@ -510,11 +512,17 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
       }
 
       if (action === "withdraw") {
-        eventsService.withdraw(eventNum, reason || "Rút đề xuất sự kiện").catch(() => {})
+        eventsService.withdraw(eventNum, reason || "Rút đề xuất sự kiện").catch((err) => {
+          console.warn("Lỗi khi rút đề xuất sự kiện:", err)
+        })
       } else if (action === "reopen") {
-        eventsService.reopen(eventNum, reason || "Tái mở sửa lại").catch(() => {})
+        eventsService.reopen(eventNum, reason || "Tái mở sửa lại").catch((err) => {
+          console.warn("Lỗi khi tái mở sự kiện:", err)
+        })
       } else if (action === "resubmit") {
-        eventsService.submitApproval(eventNum).catch(() => {})
+        eventsService.submitApproval(eventNum).catch((err) => {
+          console.warn("Lỗi khi gửi lại duyệt sự kiện:", err)
+        })
       } else {
         eventsService
           .review(eventNum, {
@@ -522,7 +530,9 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
             ly_do: reason,
             ghi_chu: reason,
           })
-          .catch(() => {})
+          .catch((err) => {
+            console.warn("Lỗi khi gửi thẩm định sự kiện:", err)
+          })
       }
     }
 

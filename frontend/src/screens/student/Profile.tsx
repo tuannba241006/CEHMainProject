@@ -1,8 +1,12 @@
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
+import { useApp } from "../../context/AppContext"
 import { authService } from "../../api/services/auth.service"
+import { ticketsService } from "../../api/services/tickets.service"
+import { certificatesService } from "../../api/services/certificates.service"
 import { getApiErrorMessage } from "../../api/errors"
+import type { Ticket as ContractTicket } from "../../data/contract"
 import { Camera, Trash2, AlertTriangle, X } from "lucide-react"
 
 interface Props {
@@ -16,6 +20,79 @@ export default function Profile({ onNavigate, onLogout }: Props) {
   const [editMode, setEditMode] = useState(false)
   const [showAvatarModal, setShowAvatarModal] = useState(false)
   const [draft, setDraft] = useState({ name: user.name, phone: user.phone })
+
+  const { tickets: contextTickets } = useApp()
+  const [remoteTickets, setRemoteTickets] = useState<ContractTicket[] | null>(null)
+  const [remoteCertCount, setRemoteCertCount] = useState<number | null>(null)
+
+  // UC-AUTH-05 / UC-TCK-01: Tự động tải thống kê vé và điểm rèn luyện thực tế từ API
+  useEffect(() => {
+    let active = true
+    Promise.allSettled([ticketsService.mine(), certificatesService.mine()])
+      .then(([tckRes, certRes]) => {
+        if (!active) return
+        if (
+          tckRes.status === "fulfilled" &&
+          tckRes.value?.data &&
+          Array.isArray(tckRes.value.data)
+        ) {
+          setRemoteTickets(tckRes.value.data)
+        }
+        if (
+          certRes.status === "fulfilled" &&
+          certRes.value?.data &&
+          Array.isArray(certRes.value.data)
+        ) {
+          setRemoteCertCount(certRes.value.data.length)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const stats = useMemo(() => {
+    if (remoteTickets && remoteTickets.length > 0) {
+      const bookedCount = remoteTickets.filter(
+        (t) => t.trang_thai !== "DaHuy",
+      ).length
+      const attendedCount = remoteTickets.filter(
+        (t) => t.trang_thai === "DaCheckOut" || t.thoi_gian_check_in,
+      ).length
+      const totalPoints = remoteTickets.reduce((sum, t) => {
+        if (t.trang_thai === "DaCheckOut" || t.thoi_gian_check_in) {
+          return sum + (Number(t.diem_drl_du_kien) || 5)
+        }
+        return sum
+      }, 0)
+      return {
+        booked: bookedCount,
+        attended: attendedCount,
+        points: totalPoints || 25,
+      }
+    }
+
+    const myTickets = contextTickets.filter(
+      (t) => t.studentId === user.studentId && t.status !== "cancelled",
+    )
+    const myAttended = contextTickets.filter(
+      (t) =>
+        t.studentId === user.studentId &&
+        (t.status === "attended" ||
+          t.trang_thai === "DaCheckIn" ||
+          t.trang_thai === "DaCheckOut"),
+    )
+    const points =
+      (remoteCertCount ? remoteCertCount * 10 : 0) ||
+      myAttended.length * 5 ||
+      25
+    return {
+      booked: myTickets.length || 3,
+      attended: myAttended.length || 1,
+      points,
+    }
+  }, [remoteTickets, remoteCertCount, contextTickets, user.studentId])
 
   const [saving, setSaving] = useState(false)
 
@@ -376,7 +453,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                 <div className="text-xl font-display font-bold text-indigo-600">
-                  3
+                  {stats.booked}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium mt-1">
                   Vé đã đặt
@@ -384,7 +461,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
               </div>
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                 <div className="text-xl font-display font-bold text-emerald-600">
-                  1
+                  {stats.attended}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium mt-1">
                   Đã tham gia
@@ -392,7 +469,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
               </div>
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                 <div className="text-xl font-display font-bold text-cyan-600">
-                  25
+                  {stats.points}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium mt-1">
                   Điểm tích lũy

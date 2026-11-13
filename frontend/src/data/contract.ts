@@ -23,8 +23,24 @@ export type DrlRule = "KhongCo" | "Dieu3" | "Dieu4"
 /** Phân loại đơn vị tổ chức */
 export type OrganizationType = "CLB" | "DoanHoi" | "Khoa" | "PhongBan"
 
-/** Trạng thái nút bấm điều hướng thời gian thực (UC-DISC-02) */
-export type SmartActionButtonStatus = "CHUA_DANG_NHAP" | "DANG_KY" | "DA_CO_VE" | "DANG_O_WAITLIST" | "CO_OFFER_WAITLIST" | "VAO_WAITLIST" | "HET_VE_DONG_WAITLIST_T2H" | "DONG_DANG_KY_T2H" | "VAO_DIEM_DANH" | "SU_KIEN_DANG_DIEN_RA_DONG_DK" | "LAM_FEEDBACK_NHAN_CERT" | "SU_KIEN_DA_KET_THUC" | "SU_KIEN_DA_HUY"
+/** 
+ * Trạng thái nút bấm điều hướng thời gian thực (UC-DISC-02)
+ * Khớp chuẩn 100% với docs/openapi_v3.2.3.yml #/components/schemas/SmartActionButton/properties/trang_thai_nut
+ */
+export type SmartActionButtonStatus =
+  | "CHUA_DANG_NHAP"
+  | "DANG_KY"
+  | "DA_CO_VE"
+  | "DANG_O_WAITLIST"
+  | "CO_OFFER_WAITLIST"
+  | "VAO_WAITLIST"
+  | "HET_VE_DONG_WAITLIST_T2H"
+  | "DONG_DANG_KY_T2H"
+  | "VAO_DIEM_DANH"
+  | "SU_KIEN_DANG_DIEN_RA_DONG_DK"
+  | "LAM_FEEDBACK_NHAN_CERT"
+  | "SU_KIEN_DA_KET_THUC"
+  | "SU_KIEN_DA_HUY"
 
 /** Trạng thái chứng nhận công khai */
 export type CertificatePublicStatus = "HOP_LE" | "DA_THU_HOI"
@@ -216,13 +232,13 @@ export interface RoomAvailabilityCheck {
   } | null
 }
 
-/** Payload bài đánh giá sự kiện (UC-FEED-01) */
+/** Payload bài đánh giá sự kiện (UC-FEED-01) — Khớp docs/openapi_v3.2.3.yml SubmitFeedbackRequest */
 export interface FeedbackPayload {
   diem_noi_dung?: number
   diem_dien_gia?: number
   diem_to_chuc?: number
-  y_kien_dong_gop?: string
-  // Compatibility fields
+  y_kien_dong_gop?: string | null
+  // Compatibility fields (fallback/legacy UI support)
   ma_su_kien?: number
   gop_y?: string
   content?: number

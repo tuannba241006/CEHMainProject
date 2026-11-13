@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router"
 import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
@@ -97,6 +97,45 @@ export default function AdminStaff() {
   const [formEmail, setFormEmail] = useState("")
   const [formEventId, setFormEventId] = useState<string | number>(events[0]?.id || 101)
   const [formRole, setFormRole] = useState("Điểm danh (Check-in / Check-out)")
+  const [submittingStaff, setSubmittingStaff] = useState(false)
+
+  // UC-OPS-05: Tự động đồng bộ danh sách nhân viên từ Backend API khi có sự kiện
+  useEffect(() => {
+    let active = true
+    const targetEventId = events[0]?.id || events[0]?.ma_su_kien || 101
+    attendanceService
+      .staff(targetEventId)
+      .then((res) => {
+        if (active && res.data && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped: StaffAccount[] = res.data.map((item, idx) => ({
+            id: `st-api-${item.id || idx + 1}`,
+            userId: item.ma_tai_khoan,
+            name: item.ho_ten || `Cộng tác viên ${item.ma_tai_khoan}`,
+            email: item.mssv
+              ? `${item.mssv}@gm.uit.edu.vn`
+              : `staff${item.ma_tai_khoan}@gm.uit.edu.vn`,
+            eventId: item.ma_su_kien,
+            eventTitle:
+              events.find(
+                (e) =>
+                  Number(e.id) === item.ma_su_kien ||
+                  e.ma_su_kien === item.ma_su_kien,
+              )?.title || "Sự kiện trường",
+            organizer: "Phòng Công tác Sinh viên (CTSV)",
+            permissions: ["Điểm danh (Check-in / Check-out)"],
+            status: "active",
+            lastActive: "Vừa kích hoạt",
+          }))
+          setStaffList(mapped)
+        }
+      })
+      .catch(() => {
+        // Giữ fallback local INITIAL_STAFF khi mock/server offline
+      })
+    return () => {
+      active = false
+    }
+  }, [events])
 
   // Filter staff by selected unit
   const filteredStaff = useMemo(() => {
@@ -150,34 +189,42 @@ export default function AdminStaff() {
     }
   }
 
-  // Handle add staff
-  function handleAddStaff() {
+  // Handle add staff (UC-OPS-05: Đồng bộ REST API POST /events/{id}/staff)
+  async function handleAddStaff() {
     if (!formName.trim() || !formEmail.trim()) {
       showToast("Vui lòng điền đầy đủ họ tên và email sinh viên/nhân viên.", "error")
       return
     }
-    const targetEvt = events.find((e) => e.id === formEventId || e.ma_su_kien === formEventId)
-    const mssvMatch = formEmail.match(/\d{8}/) || [formEmail.split("@")[0].trim()]
-    const mssv = mssvMatch ? mssvMatch[0] : formEmail.trim()
-    attendanceService.assignStaff(formEventId, [mssv]).catch(() => {})
+    setSubmittingStaff(true)
+    try {
+      const targetEvt = events.find((e) => e.id === formEventId || e.ma_su_kien === formEventId)
+      const mssvMatch = formEmail.match(/\d{8}/) || [formEmail.split("@")[0].trim()]
+      const mssv = mssvMatch ? mssvMatch[0] : formEmail.trim()
+      
+      await attendanceService.assignStaff(formEventId, [mssv])
 
-    const newStaff: StaffAccount = {
-      id: `st-${Date.now()}`,
-      name: formName.trim(),
-      email: formEmail.trim(),
-      eventId: formEventId,
-      eventTitle: targetEvt?.title || targetEvt?.ten_su_kien || "Sự kiện được chọn",
-      organizer: targetEvt?.ten_don_vi_host || targetEvt?.organizer || "Phòng Công tác Sinh viên (CTSV)",
-      permissions: [formRole],
-      status: "active",
-      lastActive: "Vừa kích hoạt",
+      const newStaff: StaffAccount = {
+        id: `st-${Date.now()}`,
+        name: formName.trim(),
+        email: formEmail.trim(),
+        eventId: formEventId,
+        eventTitle: targetEvt?.title || targetEvt?.ten_su_kien || "Sự kiện được chọn",
+        organizer: targetEvt?.ten_don_vi_host || targetEvt?.organizer || "Phòng Công tác Sinh viên (CTSV)",
+        permissions: [formRole],
+        status: "active",
+        lastActive: "Vừa kích hoạt",
+      }
+
+      setStaffList((prev) => [newStaff, ...prev])
+      showToast(`Đã cấp quyền điểm danh cho nhân sự "${formName}".`, "success")
+      setShowAddModal(false)
+      setFormName("")
+      setFormEmail("")
+    } catch (err) {
+      showToast("Không thể phân công nhân viên: " + getApiErrorMessage(err), "error")
+    } finally {
+      setSubmittingStaff(false)
     }
-
-    setStaffList((prev) => [newStaff, ...prev])
-    showToast(`Đã cấp quyền điểm danh cho nhân sự "${formName}".`, "success")
-    setShowAddModal(false)
-    setFormName("")
-    setFormEmail("")
   }
 
   return (
@@ -447,9 +494,10 @@ export default function AdminStaff() {
               </button>
               <button
                 onClick={handleAddStaff}
-                className="flex-1 py-2.5 rounded-xl bg-indigo hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                disabled={submittingStaff}
+                className="flex-1 py-2.5 rounded-xl bg-indigo hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
               >
-                Cấp quyền nhân sự
+                {submittingStaff ? "Đang xử lý..." : "Cấp quyền nhân sự"}
               </button>
             </div>
           </div>

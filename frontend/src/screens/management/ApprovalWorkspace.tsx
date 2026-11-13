@@ -550,7 +550,7 @@ function ApprovalDetail({
           ...(reason.trim() ? { ly_do: reason.trim() } : {}),
         })
       }
-      const result = updateApproval(item.id, action, reason)
+      const result = updateApproval(item.id, action, reason, true)
       if (!result.success)
         throw new Error(result.error || "Không thể xử lý hồ sơ.")
       showToast(
