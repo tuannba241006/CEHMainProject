@@ -71,7 +71,7 @@ $authRoutes = function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('/me', [AuthController::class, 'me'])->name('auth.me');
         Route::put('/profile', [AuthController::class, 'updateProfile'])->name('auth.profile');
-        Route::put('/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
+        Route::match(['put', 'post'], '/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
     });
 };
 
