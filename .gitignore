@@ -7,3 +7,6 @@ docs/PHASE_0_SIGNOFF.md
 __pycache__/
 *.bak
 *.tsbuildinfo
+coverage/
+frontend/coverage/
+.playwright-mcp/

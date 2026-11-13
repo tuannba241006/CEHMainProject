@@ -2,6 +2,27 @@ import { useState, useRef, useEffect } from "react"
 import { useUser } from "../context/UserContext"
 import { useApp } from "../context/AppContext"
 import { getNotifIcon, type Notification } from "../data/notifications"
+import {
+  Camera,
+  Building2,
+  Calendar,
+  CalendarDays,
+  Users,
+  Sliders,
+  ClipboardList,
+  Shield,
+  Search,
+  Bell,
+  Ticket,
+  Award,
+  User as UserIcon,
+  LogOut,
+  Menu,
+  X,
+  CheckCircle2,
+  QrCode,
+  Compass,
+} from "lucide-react"
 
 interface Props {
   current: string
@@ -74,7 +95,7 @@ export default function WebNavbar({
   }, [])
 
   function handleNotifClick(notif: Notification) {
-    markNotificationRead(notif.id)
+    markNotificationRead(String(notif.id))
     setNotifOpen(false)
     if (notif.action === "tickets" || notif.action === "ticket-confirm") {
       onNavigate("tickets")
@@ -114,19 +135,29 @@ export default function WebNavbar({
                     Campus Event Hub
                   </span>
                   <span
+                    onClick={(e) => {
+                      if (!isGuest && role !== "student") {
+                        e.stopPropagation()
+                        if (role === "faculty_manager") onNavigate("/faculty/approvals")
+                        else if (role === "organizer") onNavigate("/organizer/events")
+                        else if (role === "admin" || role === "student_affairs") onNavigate("/admin/dashboard")
+                      }
+                    }}
                     className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
                       isGuest
                         ? "bg-slate-100 text-slate-600 border-slate-200"
-                        : "bg-indigo-50 text-indigo-700 border-indigo-100"
+                        : "bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 cursor-pointer"
                     }`}
                   >
                     {isGuest
                       ? "Cổng công khai"
                       : role === "admin" || role === "student_affairs"
-                        ? "Quản trị viên"
-                        : role === "organizer" || role === "faculty_manager"
-                          ? "Ban tổ chức"
-                          : "Sinh viên"}
+                        ? "Quản trị viên ↗"
+                        : role === "faculty_manager"
+                          ? "Ban QL Khoa ↗"
+                          : role === "organizer"
+                            ? "Ban tổ chức ↗"
+                            : "Sinh viên"}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 font-normal">
@@ -148,7 +179,7 @@ export default function WebNavbar({
                 Khám phá sự kiện
               </button>
 
-              {!isGuest && (
+              {!isGuest && role === "student" && (
                 <>
                   <button
                     onClick={() => onNavigate("tickets")}
@@ -194,13 +225,84 @@ export default function WebNavbar({
                   {hasCheckinPermission && (
                     <button
                       onClick={() => onNavigate("staff-scanner")}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-xs transition-all cursor-pointer"
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-all cursor-pointer"
                       title="Chức năng dành cho CTV: Hướng camera quét mã QR trên vé của sinh viên"
                     >
-                      <span>📷</span>
+                      <Camera className="w-4 h-4 shrink-0" />
                       <span>Soát vé CTV (Quét vé SV)</span>
                     </button>
                   )}
+                </>
+              )}
+
+              {!isGuest && role === "faculty_manager" && (
+                <>
+                  <button
+                    onClick={() => onNavigate("/faculty/approvals")}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
+                  >
+                    <Building2 className="w-4 h-4 shrink-0 text-indigo-600" />
+                    <span>Bàn làm việc Khoa</span>
+                  </button>
+                  <button
+                    onClick={() => onNavigate("/organizer/events")}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
+                  >
+                    <Calendar className="w-4 h-4 shrink-0 text-slate-500" />
+                    <span>Sự kiện Khoa</span>
+                  </button>
+                  <button
+                    onClick={() => onNavigate("staff-scanner")}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer border border-amber-200"
+                  >
+                    <Camera className="w-4 h-4 shrink-0 text-amber-600" />
+                    <span>Soát vé Camera</span>
+                  </button>
+                </>
+              )}
+
+              {!isGuest && role === "organizer" && (
+                <>
+                  <button
+                    onClick={() => onNavigate("/organizer/events")}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
+                  >
+                    <CalendarDays className="w-4 h-4 shrink-0 text-indigo-600" />
+                    <span>Quản lý sự kiện</span>
+                  </button>
+                  <button
+                    onClick={() => onNavigate("/organizer/participants")}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
+                  >
+                    <Users className="w-4 h-4 shrink-0 text-slate-500" />
+                    <span>Người tham gia</span>
+                  </button>
+                  <button
+                    onClick={() => onNavigate("staff-scanner")}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer border border-amber-200"
+                  >
+                    <Camera className="w-4 h-4 shrink-0 text-amber-600" />
+                    <span>Soát vé Camera</span>
+                  </button>
+                </>
+              )}
+
+              {!isGuest && (role === "admin" || role === "student_affairs") && (
+                <>
+                  <button
+                    onClick={() => onNavigate("/admin/dashboard")}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
+                  >
+                    <Sliders className="w-4 h-4 shrink-0 text-indigo-600" />
+                    <span>Cổng Quản trị viên</span>
+                  </button>
+                  <button
+                    onClick={() => onNavigate(role === "student_affairs" ? "/affairs/approvals" : "/admin/reports")}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
+                  >
+                    <ClipboardList className="w-4 h-4 shrink-0 text-slate-500" />
+                    <span>Duyệt hồ sơ sự kiện</span>
+                  </button>
                 </>
               )}
             </nav>
@@ -439,7 +541,7 @@ export default function WebNavbar({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
                           >
-                            <span>📊</span>
+                            <Sliders className="w-4 h-4 shrink-0 text-indigo-600" />
                             <span>Bảng điều khiển Ban tổ chức →</span>
                           </button>
                         )}
@@ -451,21 +553,43 @@ export default function WebNavbar({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
                           >
-                            <span>🛡️</span>
+                            <Shield className="w-4 h-4 shrink-0 text-indigo-600" />
                             <span>Bảng điều khiển Quản trị viên →</span>
                           </button>
                         )}
                         {role === "faculty_manager" && (
-                          <button
-                            onClick={() => {
-                              setUserMenuOpen(false)
-                              onNavigate("/faculty/approvals")
-                            }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
-                          >
-                            <span>📋</span>
-                            <span>Bảng thẩm định cấp Khoa →</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => {
+                                setUserMenuOpen(false)
+                                onNavigate("/faculty/approvals")
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 text-left transition-colors cursor-pointer border border-indigo-200"
+                            >
+                              <ClipboardList className="w-4 h-4 shrink-0 text-indigo-600" />
+                              <span>Hồ sơ Thẩm định cấp Khoa →</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setUserMenuOpen(false)
+                                onNavigate("/organizer/events")
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 text-left transition-colors cursor-pointer"
+                            >
+                              <CalendarDays className="w-4 h-4 shrink-0 text-slate-500" />
+                              <span>Không gian Quản lý sự kiện →</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setUserMenuOpen(false)
+                                onNavigate("staff-scanner")
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 text-left transition-colors cursor-pointer border border-amber-200"
+                            >
+                              <Camera className="w-4 h-4 shrink-0 text-amber-600" />
+                              <span>Máy quét soát vé Camera →</span>
+                            </button>
+                          </>
                         )}
 
                         <button
@@ -572,7 +696,7 @@ export default function WebNavbar({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 text-left transition-colors cursor-pointer border border-amber-200"
                           >
-                            <span>📷</span>
+                            <Camera className="w-4 h-4 shrink-0 text-amber-600" />
                             <span>Bàn soát vé CTV (Quét mã vé SV)</span>
                           </button>
                         )}
@@ -654,72 +778,193 @@ export default function WebNavbar({
 
           {!isGuest ? (
             <>
-              <button
-                onClick={() => {
-                  onNavigate("tickets")
-                  setMobileMenuOpen(false)
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left cursor-pointer ${
-                  isTickets ? "bg-indigo-50 text-indigo-700" : "text-slate-700"
-                }`}
-              >
-                <span>Vé của tôi</span>
-                {upcomingTicketsCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-600 text-white">
-                    {upcomingTicketsCount}
-                  </span>
-                )}
-              </button>
+              {role === "student" && (
+                <>
+                  <button
+                    onClick={() => {
+                      onNavigate("tickets")
+                      setMobileMenuOpen(false)
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left cursor-pointer ${
+                      isTickets ? "bg-indigo-50 text-indigo-700" : "text-slate-700"
+                    }`}
+                  >
+                    <span>Vé của tôi</span>
+                    {upcomingTicketsCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-600 text-white">
+                        {upcomingTicketsCount}
+                      </span>
+                    )}
+                  </button>
 
-              <button
-                onClick={() => {
-                  onNavigate("achievements")
-                  setMobileMenuOpen(false)
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left cursor-pointer ${
-                  isAchievements
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-700"
-                }`}
-              >
-                <span>Điểm & Chứng nhận</span>
-                <span>→</span>
-              </button>
+                  <button
+                    onClick={() => {
+                      onNavigate("achievements")
+                      setMobileMenuOpen(false)
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left cursor-pointer ${
+                      isAchievements
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-700"
+                    }`}
+                  >
+                    <span>Điểm & Chứng nhận</span>
+                    <span>→</span>
+                  </button>
 
-              {/* Sinh viên thường tự quét Kiosk */}
-              <button
-                onClick={() => {
-                  onNavigate("checkin")
-                  setMobileMenuOpen(false)
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left cursor-pointer ${
-                  isCheckin ? "bg-cyan-50 text-cyan-800" : "text-slate-700"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                  <span>Tự quét mã Kiosk Hội trường</span>
-                </div>
-                <span className="text-xs text-slate-400">Sinh viên</span>
-              </button>
+                  <button
+                    onClick={() => {
+                      onNavigate("checkin")
+                      setMobileMenuOpen(false)
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left cursor-pointer ${
+                      isCheckin ? "bg-cyan-50 text-cyan-800" : "text-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
+                      <span>Tự quét mã Kiosk Hội trường</span>
+                    </div>
+                    <span className="text-xs text-slate-400">Sinh viên</span>
+                  </button>
 
-              {/* Dành riêng cho Cộng tác viên điểm danh: Quét vé sinh viên */}
-              {hasCheckinPermission && (
-                <button
-                  onClick={() => {
-                    onNavigate("staff-scanner")
-                    setMobileMenuOpen(false)
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-left bg-amber-50 text-amber-900 border border-amber-200 cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>📷</span>
-                    <span>Bàn Soát Vé CTV (Quét vé SV)</span>
-                  </div>
-                  <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">
-                    CTV
-                  </span>
-                </button>
+                  {hasCheckinPermission && (
+                    <button
+                      onClick={() => {
+                        onNavigate("staff-scanner")
+                        setMobileMenuOpen(false)
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold text-left bg-amber-50 text-amber-900 border border-amber-200 cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Camera className="w-4 h-4 text-amber-600" />
+                        <span>Bàn Soát Vé CTV (Quét vé SV)</span>
+                      </div>
+                      <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">
+                        CTV
+                      </span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {role === "faculty_manager" && (
+                <>
+                  <button
+                    onClick={() => {
+                      onNavigate("/faculty/approvals")
+                      setMobileMenuOpen(false)
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-indigo-50 text-indigo-700 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-indigo-600" />
+                      <span>Bàn làm việc Khoa</span>
+                    </div>
+                    <span>→</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNavigate("/organizer/events")
+                      setMobileMenuOpen(false)
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left text-slate-700 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-slate-500" />
+                      <span>Sự kiện Khoa</span>
+                    </div>
+                    <span>→</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNavigate("staff-scanner")
+                      setMobileMenuOpen(false)
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <span>Soát vé Camera</span>
+                    </div>
+                    <span>→</span>
+                  </button>
+                </>
+              )}
+
+              {role === "organizer" && (
+                <>
+                  <button
+                    onClick={() => {
+                      onNavigate("/organizer/events")
+                      setMobileMenuOpen(false)
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-indigo-50 text-indigo-700 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-indigo-600" />
+                      <span>Quản lý sự kiện</span>
+                    </div>
+                    <span>→</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNavigate("/organizer/participants")
+                      setMobileMenuOpen(false)
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left text-slate-700 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-slate-500" />
+                      <span>Người tham gia</span>
+                    </div>
+                    <span>→</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNavigate("staff-scanner")
+                      setMobileMenuOpen(false)
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-4 h-4 text-amber-600" />
+                      <span>Soát vé Camera</span>
+                    </div>
+                    <span>→</span>
+                  </button>
+                </>
+              )}
+
+              {(role === "admin" || role === "student_affairs") && (
+                <>
+                  <button
+                    onClick={() => {
+                      onNavigate("/admin/dashboard")
+                      setMobileMenuOpen(false)
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left bg-indigo-50 text-indigo-700 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-indigo-600" />
+                      <span>Cổng Quản trị viên</span>
+                    </div>
+                    <span>→</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onNavigate(role === "student_affairs" ? "/affairs/approvals" : "/admin/reports")
+                      setMobileMenuOpen(false)
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-left text-slate-700 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4 text-slate-500" />
+                      <span>Duyệt hồ sơ sự kiện</span>
+                    </div>
+                    <span>→</span>
+                  </button>
+                </>
               )}
 
               <button
@@ -740,10 +985,10 @@ export default function WebNavbar({
                   onVerify()
                   setMobileMenuOpen(false)
                 }}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 text-left border border-slate-200 mt-2 cursor-pointer"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 text-left border border-slate-200 mt-2 cursor-pointer hover:bg-slate-50"
               >
                 <span>Tra cứu chứng chỉ số công khai</span>
-                <span>🔍</span>
+                <Search className="w-4 h-4 text-slate-400" />
               </button>
             </>
           ) : (
@@ -753,10 +998,10 @@ export default function WebNavbar({
                   onVerify()
                   setMobileMenuOpen(false)
                 }}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 text-left border border-slate-200 cursor-pointer"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 text-left border border-slate-200 cursor-pointer hover:bg-slate-50"
               >
                 <span>Tra cứu chứng chỉ số công khai</span>
-                <span>🔍</span>
+                <Search className="w-4 h-4 text-slate-400" />
               </button>
 
               <div className="pt-2 border-t border-slate-200 space-y-2">

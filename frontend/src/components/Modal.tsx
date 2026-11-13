@@ -29,7 +29,7 @@ export default function Modal({
   return (
     <div
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-navy/50 p-0 sm:p-4"
-      onMouseDown={(e: any) => e.target === e.currentTarget && onClose()}
+      onMouseDown={(e: React.MouseEvent<HTMLDivElement>) => e.target === e.currentTarget && onClose()}
     >
       <div
         ref={ref}
@@ -57,7 +57,7 @@ export function Field({
   label: string
   error?: string
   children: ReactNode
-  key?: any
+  key?: React.Key
 }) {
   return (
     <label className="block mb-3">

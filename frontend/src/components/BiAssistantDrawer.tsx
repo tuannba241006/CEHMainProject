@@ -1,5 +1,7 @@
 import { useState } from "react"
 import { EVENTS } from "../data/mock"
+import { Bot, BarChart3, X, Sparkles } from "lucide-react"
+import { reportsService } from "../api/services/reports.service"
 
 interface Props {
   role?: "admin" | "student_affairs"
@@ -12,7 +14,7 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
   const [aiMessages, setAiMessages] = useState<Array<{
     sender: "user" | "ai"
     text: string
-    table?: any
+    table?: Array<Record<string, unknown>>
   }>>([
     {
       sender: "ai",
@@ -30,85 +32,106 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
     setAiQuery("")
     setAiBusy(true)
 
-    setTimeout(() => {
-      let reply = ""
-      let table: any = undefined
-      const lower = q.toLowerCase()
+    reportsService
+      .textToInsight(q)
+      .then((res) => {
+        const data = res.data
+        if (data?.cau_tra_loi_tom_tat) {
+          setAiMessages((prev) => [
+            ...prev,
+            {
+              sender: "ai",
+              text: data.cau_tra_loi_tom_tat,
+              table:
+                data.bang_du_lieu && data.bang_du_lieu.length > 0
+                  ? data.bang_du_lieu
+                  : undefined,
+            },
+          ])
+          setAiBusy(false)
+          return
+        }
+        throw new Error("No summary returned")
+      })
+      .catch(() => {
+        let reply = ""
+        let table: Array<Record<string, unknown>> | undefined = undefined
+        const lower = q.toLowerCase()
 
-      if (lower.includes("tái phạm") || lower.includes("chế tài")) {
-        reply =
-          "Báo cáo sinh viên tái phạm No-show (≥ 2 lần vi phạm không check-in và không hủy vé trước T-4h): Phát hiện 3 trường hợp cần P.CTSV xem xét chế tài theo Điều 4 Quy chế ĐRL."
-        table = [
-          {
-            mssv: "22520112",
-            ho_ten: "Trần Văn ***",
-            so_lan: "2 lần",
-            khoa: "HTTT",
-            de_xuat: "Tạm khóa quyền đặt vé 30 ngày",
-          },
-          {
-            mssv: "22520543",
-            ho_ten: "Lê Thị ***",
-            so_lan: "3 lần",
-            khoa: "KHMT",
-            de_xuat: "Trừ 5 Điểm rèn luyện học kỳ",
-          },
-          {
-            mssv: "22520988",
-            ho_ten: "Nguyễn Hoàng ***",
-            so_lan: "2 lần",
-            khoa: "KTPM",
-            de_xuat: "Cảnh cáo in-app & Email nhắc nhở",
-          },
-        ]
-      } else if (lower.includes("no-show") || lower.includes("vi phạm")) {
-        reply =
-          "Phân tích 30 ngày qua cho P.CTSV: Toàn trường ghi nhận 7 trường hợp vi phạm No-show. Tỷ lệ No-show chung toàn trường chỉ ở mức 2.1% (thấp hơn ngưỡng báo động 5.0%)."
-        table = [
-          {
-            don_vi: "Khoa Hệ thống Thông tin",
-            vi_pham: "3 ca (42.8%)",
-            bien_phap: "Đã gửi cảnh báo P.CTSV",
-          },
-          {
-            don_vi: "Khoa Khoa học Máy tính",
-            vi_pham: "2 ca (28.6%)",
-            bien_phap: "Đang chờ đối soát",
-          },
-          {
-            don_vi: "Khoa Kỹ thuật Phần mềm",
-            vi_pham: "2 ca (28.6%)",
-            bien_phap: "Nhắc nhở qua email trường",
-          },
-        ]
-      } else if (
-        lower.includes("chuyên đề") ||
-        lower.includes("topic") ||
-        lower.includes("xu hướng")
-      ) {
-        reply =
-          "Xu hướng chuyên đề học kỳ này: Chuyên đề 'Trí tuệ Nhân tạo & Khoa học Dữ liệu' dẫn đầu mức độ quan tâm với 64% tổng lượt đăng ký, tiếp theo là 'Kỹ năng Lãnh đạo & Khởi nghiệp' (22%) và 'Lễ hội Âm nhạc & Văn hóa' (14%)."
-      } else if (
-        lower.includes("phòng") ||
-        lower.includes("hội trường") ||
-        lower.includes("lấp đầy")
-      ) {
-        reply =
-          "Hiệu suất hội trường: Hội trường A (Cơ sở 1) có tỷ lệ lấp đầy cao nhất đạt 92.5%, Hội trường E đạt 84.0%, Hội trường B đạt 78.5%. Toàn bộ các sự kiện đều tuân thủ khoảng đệm an toàn 15 phút giữa các ca."
-      } else if (
-        lower.includes("drl") ||
-        lower.includes("rèn luyện") ||
-        lower.includes("điểm")
-      ) {
-        reply =
-          "Tổng hợp Điểm rèn luyện: 94.2% sinh viên tham dự đạt chuẩn thời lượng tối thiểu Δt ≥ 70% và hoàn thành khảo sát 48h để nhận trọn vẹn điểm ĐRL theo Điều 3 & Điều 4."
-      } else {
-        reply = `Hệ thống ghi nhận ${EVENTS.length} sự kiện đang vận hành trong tháng. Tỷ lệ check-in thành công qua Kiosk Dynamic TOTP 30s đạt 97.8%. Đơn vị chủ trì tích cực nhất là Khoa Hệ thống Thông tin.`
-      }
+        if (lower.includes("tái phạm") || lower.includes("chế tài")) {
+          reply =
+            "Báo cáo sinh viên tái phạm No-show (≥ 2 lần vi phạm không check-in và không hủy vé trước T-4h): Phát hiện 3 trường hợp cần P.CTSV xem xét chế tài theo Điều 4 Quy chế ĐRL."
+          table = [
+            {
+              mssv: "22520112",
+              ho_ten: "Trần Văn ***",
+              so_lan: "2 lần",
+              khoa: "HTTT",
+              de_xuat: "Tạm khóa quyền đặt vé 30 ngày",
+            },
+            {
+              mssv: "22520543",
+              ho_ten: "Lê Thị ***",
+              so_lan: "3 lần",
+              khoa: "KHMT",
+              de_xuat: "Trừ 5 Điểm rèn luyện học kỳ",
+            },
+            {
+              mssv: "22520988",
+              ho_ten: "Nguyễn Hoàng ***",
+              so_lan: "2 lần",
+              khoa: "KTPM",
+              de_xuat: "Cảnh cáo in-app & Email nhắc nhở",
+            },
+          ]
+        } else if (lower.includes("no-show") || lower.includes("vi phạm")) {
+          reply =
+            "Phân tích 30 ngày qua cho P.CTSV: Toàn trường ghi nhận 7 trường hợp vi phạm No-show. Tỷ lệ No-show chung toàn trường chỉ ở mức 2.1% (thấp hơn ngưỡng báo động 5.0%)."
+          table = [
+            {
+              don_vi: "Khoa Hệ thống Thông tin",
+              vi_pham: "3 ca (42.8%)",
+              bien_phap: "Đã gửi cảnh báo P.CTSV",
+            },
+            {
+              don_vi: "Khoa Khoa học Máy tính",
+              vi_pham: "2 ca (28.6%)",
+              bien_phap: "Đang chờ đối soát",
+            },
+            {
+              don_vi: "Khoa Kỹ thuật Phần mềm",
+              vi_pham: "2 ca (28.6%)",
+              bien_phap: "Nhắc nhở qua email trường",
+            },
+          ]
+        } else if (
+          lower.includes("chuyên đề") ||
+          lower.includes("topic") ||
+          lower.includes("xu hướng")
+        ) {
+          reply =
+            "Xu hướng chuyên đề học kỳ này: Chuyên đề 'Trí tuệ Nhân tạo & Khoa học Dữ liệu' dẫn đầu mức độ quan tâm với 64% tổng lượt đăng ký, tiếp theo là 'Kỹ năng Lãnh đạo & Khởi nghiệp' (22%) và 'Lễ hội Âm nhạc & Văn hóa' (14%)."
+        } else if (
+          lower.includes("phòng") ||
+          lower.includes("hội trường") ||
+          lower.includes("lấp đầy")
+        ) {
+          reply =
+            "Hiệu suất hội trường: Hội trường A (Cơ sở 1) có tỷ lệ lấp đầy cao nhất đạt 92.5%, Hội trường E đạt 84.0%, Hội trường B đạt 78.5%. Toàn bộ các sự kiện đều tuân thủ khoảng đệm an toàn 15 phút giữa các ca."
+        } else if (
+          lower.includes("drl") ||
+          lower.includes("rèn luyện") ||
+          lower.includes("điểm")
+        ) {
+          reply =
+            "Tổng hợp Điểm rèn luyện: 94.2% sinh viên tham dự đạt chuẩn thời lượng tối thiểu Δt ≥ 70% và hoàn thành khảo sát 48h để nhận trọn vẹn điểm ĐRL theo Điều 3 & Điều 4."
+        } else {
+          reply = `Hệ thống ghi nhận ${EVENTS.length} sự kiện đang vận hành trong tháng. Tỷ lệ check-in thành công qua Kiosk Dynamic TOTP 30s đạt 97.8%. Đơn vị chủ trì tích cực nhất là Khoa Hệ thống Thông tin.`
+        }
 
-      setAiMessages((prev) => [...prev, { sender: "ai", text: reply, table }])
-      setAiBusy(false)
-    }, 600)
+        setAiMessages((prev) => [...prev, { sender: "ai", text: reply, table }])
+        setAiBusy(false)
+      })
   }
 
   return (
@@ -117,12 +140,12 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
       <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={() => setShowAiChat((prev) => !prev)}
-          className="flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white font-semibold text-xs sm:text-sm shadow-xl hover:shadow-2xl hover:scale-105 transition-all cursor-pointer border border-white/20"
+          className="flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm shadow-xl hover:shadow-2xl transition-all cursor-pointer border border-slate-700"
         >
-          <span className="text-base animate-pulse">✨</span>
-          <span>Trợ lý AI BI (Text-to-Insight)</span>
+          <BarChart3 className="w-4 h-4 text-indigo-400" />
+          <span>Trợ lý Phân tích Dữ liệu</span>
           {showAiChat ? (
-            <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded-full">
+            <span className="text-xs bg-slate-800 px-1.5 py-0.5 rounded-full border border-slate-700">
               Đóng
             </span>
           ) : (
@@ -131,29 +154,29 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
         </button>
       </div>
 
-      {/* UC-AI-02: Text-to-Insight Drawer / Modal */}
+      {/* Text-to-Insight Drawer / Modal */}
       {showAiChat && (
-        <div className="fixed bottom-22 right-4 sm:right-6 z-50 w-[92vw] sm:w-[480px] max-h-[600px] flex flex-col bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-22 right-4 sm:right-6 z-50 w-[92vw] sm:w-[480px] max-h-[600px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200">
           {/* Header */}
-          <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between border-b border-slate-800">
+          <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-lg">
-                ✨
+              <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
+                <BarChart3 className="w-4 h-4 text-indigo-400" />
               </div>
               <div>
                 <h3 className="font-display font-bold text-sm">
-                  Trợ lý AI BI Analytics
+                  Trợ lý Phân tích Dữ liệu
                 </h3>
-                <p className="text-[11px] text-slate-300">
-                  Phân tích dữ liệu thông minh
+                <p className="text-[11px] text-slate-400">
+                  Hỗ trợ truy vấn số liệu & Báo cáo quản trị
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowAiChat(false)}
-              className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer text-sm"
+              className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -230,15 +253,15 @@ export function BiAssistantDrawer({ role = "student_affairs" }: Props) {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {m.table.map((row: any, rIdx: number) => (
+                          {m.table.map((row: Record<string, unknown>, rIdx: number) => (
                             <tr key={rIdx}>
                               {Object.values(row).map(
-                                (val: any, vIdx: number) => (
+                                (val: unknown, vIdx: number) => (
                                   <td
                                     key={vIdx}
                                     className="py-1.5 pr-2 text-slate-700"
                                   >
-                                    {val}
+                                    {String(val ?? "")}
                                   </td>
                                 ),
                               )}

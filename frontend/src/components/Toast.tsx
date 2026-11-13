@@ -4,7 +4,9 @@ import {
   createContext,
   useContext,
   useCallback,
+  type ReactNode,
 } from "react"
+import { Check, X, AlertTriangle, Info } from "lucide-react"
 
 type ToastType = "success" | "error" | "warning" | "info"
 
@@ -54,7 +56,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ToastItem({ toast }: { toast: Toast; key?: any }) {
+function ToastItem({ toast }: { toast: Toast; key?: React.Key }) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -65,34 +67,35 @@ function ToastItem({ toast }: { toast: Toast; key?: any }) {
     success: {
       bg: "#f0fdf4",
       border: "#bbf7d0",
-      icon: "#059669",
+      iconBg: "#059669",
       text: "#166534",
-      emoji: "✓",
+      Icon: Check,
     },
     error: {
       bg: "#fef2f2",
       border: "#fecaca",
-      icon: "#dc2626",
+      iconBg: "#dc2626",
       text: "#991b1b",
-      emoji: "✕",
+      Icon: X,
     },
     warning: {
       bg: "#fffbeb",
       border: "#fde68a",
-      icon: "#d97706",
+      iconBg: "#d97706",
       text: "#92400e",
-      emoji: "!",
+      Icon: AlertTriangle,
     },
     info: {
       bg: "#eff6ff",
       border: "#bfdbfe",
-      icon: "#2563eb",
+      iconBg: "#2563eb",
       text: "#1e40af",
-      emoji: "ℹ",
+      Icon: Info,
     },
   }
 
   const c = configs[toast.type]
+  const IconComponent = c.Icon
 
   return (
     <div
@@ -105,10 +108,10 @@ function ToastItem({ toast }: { toast: Toast; key?: any }) {
       }}
     >
       <div
-        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5"
-        style={{ background: c.icon, color: "white" }}
+        className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-white mt-0.5"
+        style={{ background: c.iconBg }}
       >
-        {c.emoji}
+        <IconComponent className="w-3.5 h-3.5" />
       </div>
       <p className="text-sm font-medium" style={{ color: c.text }}>
         {toast.message}

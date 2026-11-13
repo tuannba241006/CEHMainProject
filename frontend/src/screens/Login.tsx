@@ -1,13 +1,12 @@
 import { useState } from "react"
 import type { Role } from "../App"
-import { useUser } from "../context/UserContext"
-import { isApiMode } from "../api/config"
+import { useUser, type UserData } from "../context/UserContext"
 import { getApiErrorMessage } from "../api/errors"
 import { authService } from "../api/services/auth.service"
 import uitCampusImg from "../assets/uit-campus.jpg"
 
 interface Props {
-  onLogin: (role: Role, email: string) => void
+  onLogin: (role: Role, email: string, user?: UserData) => void
   onVerify: () => void
   onBack?: () => void
   initialRegister?: boolean
@@ -127,45 +126,51 @@ export default function Login({
     setError("")
   }
 
+  async function quickLogin(account: DemoAccount) {
+    setEmail(account.email)
+    setPassword(account.password)
+    setError("")
+    setLoading(true)
+    try {
+      const user = await loginApi(account.email, account.password)
+      const role: Role =
+        user.loai_tai_khoan === "Admin"
+          ? "admin"
+          : user.loai_tai_khoan === "SinhVien"
+            ? "student"
+            : user.don_vi?.loai_don_vi === "Khoa" &&
+                user.don_vi.ma_don_vi_cha == null
+              ? "faculty_manager"
+              : "organizer"
+      onLogin(role, user.email, user)
+    } catch (caught) {
+      setError(getApiErrorMessage(caught))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setLoading(true)
     setError("")
-    if (isApiMode()) {
-      try {
-        const user = await loginApi(email, password)
-        const role: Role =
-          user.loai_tai_khoan === "Admin"
-            ? "admin"
-            : user.loai_tai_khoan === "SinhVien"
-              ? "student"
-              : user.don_vi?.loai_don_vi === "Khoa" &&
-                  user.don_vi.ma_don_vi_cha == null
-                ? "faculty_manager"
-                : "organizer"
-        onLogin(role, user.email)
-      } catch (caught) {
-        setError(getApiErrorMessage(caught))
-      } finally {
-        setLoading(false)
-      }
-      return
-    }
-    window.setTimeout(() => {
-      const account = ACCOUNTS.find(
-        (item) =>
-          item.email.toLowerCase() === email.trim().toLowerCase() &&
-          item.password === password,
-      )
+    try {
+      const user = await loginApi(email, password)
+      const role: Role =
+        user.loai_tai_khoan === "Admin"
+          ? "admin"
+          : user.loai_tai_khoan === "SinhVien"
+            ? "student"
+            : user.don_vi?.loai_don_vi === "Khoa" &&
+                user.don_vi.ma_don_vi_cha == null
+              ? "faculty_manager"
+              : "organizer"
+      onLogin(role, user.email, user)
+    } catch (caught) {
+      setError(getApiErrorMessage(caught))
+    } finally {
       setLoading(false)
-      if (!account)
-        return setError(
-          "Tài khoản hoặc mật khẩu không đúng. Hãy dùng tài khoản demo bên dưới.",
-        )
-      if (account.roles && account.roles.length > 1)
-        return setRoleChoices({ roles: account.roles, email: account.email })
-      onLogin(account.role, account.email)
-    }, 650)
+    }
   }
 
   async function submitRegistration() {
@@ -199,24 +204,20 @@ export default function Login({
     }
     setLoading(true)
     try {
-      if (isApiMode()) {
-        await authService.register({
-          ho_ten: registerData.name,
-          mssv: registerData.studentId,
-          email: registerData.email,
-          so_dien_thoai: registerData.phone || undefined,
-          lop_sinh_hoat: registerData.className,
-          ma_khoa: Number(registerData.facultyId),
-          mat_khau: registerData.password,
-          xac_nhan_mat_khau: registerData.confirmPassword,
-          dong_y_nghi_dinh_13: true,
-        })
-        window.location.assign(
-          `/verify-otp?email=${encodeURIComponent(registerData.email)}`,
-        )
-      } else {
-        onLogin("student", "student@demo.edu.vn")
-      }
+      await authService.register({
+        ho_ten: registerData.name,
+        mssv: registerData.studentId,
+        email: registerData.email,
+        so_dien_thoai: registerData.phone || undefined,
+        lop_sinh_hoat: registerData.className,
+        ma_khoa: Number(registerData.facultyId),
+        mat_khau: registerData.password,
+        xac_nhan_mat_khau: registerData.confirmPassword,
+        dong_y_nghi_dinh_13: true,
+      })
+      window.location.assign(
+        `/verify-otp?email=${encodeURIComponent(registerData.email)}`,
+      )
     } catch (caught) {
       setError(getApiErrorMessage(caught))
     } finally {
@@ -441,7 +442,7 @@ export default function Login({
             <div className="flex items-center gap-3 mb-3">
               <span className="h-px bg-slate-200 flex-1" />
               <span className="text-xs text-slate-400">
-                Tài khoản demo · nhấn để điền
+                Tài khoản trải nghiệm nhanh
               </span>
               <span className="h-px bg-slate-200 flex-1" />
             </div>
@@ -449,20 +450,26 @@ export default function Login({
               {portalAccounts(portal).map((account) => (
                 <button
                   key={account.email}
-                  onClick={() => fill(account)}
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3 text-left hover:border-indigo/30"
+                  type="button"
+                  onClick={() => void quickLogin(account)}
+                  className="w-full bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-left hover:border-indigo/40 hover:bg-indigo-50/20 transition-all cursor-pointer group"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-indigo-light text-indigo flex items-center justify-center text-xs font-bold">
-                    {account.initials}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-light text-indigo flex items-center justify-center text-xs font-bold shrink-0">
+                      {account.initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-navy">
+                        {account.label}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">
+                        {account.email} · {account.desc}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-navy">
-                      {account.label}
-                    </p>
-                    <p className="text-xs text-slate-400 truncate">
-                      {account.email} · {account.desc}
-                    </p>
-                  </div>
+                  <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg shrink-0 opacity-80 group-hover:opacity-100">
+                    Đăng nhập →
+                  </span>
                 </button>
               ))}
             </div>
@@ -619,11 +626,10 @@ export default function Login({
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
             <h2 className="font-display font-bold text-lg text-navy">
-              Chọn vai trò đã được cấp
+              Chọn vai trò truy cập
             </h2>
             <p className="text-sm text-slate-500 mt-1 mb-4">
-              Tài khoản demo này có nhiều vai trò. Bạn chỉ có thể vào các vai
-              trò đã được hệ thống cấp.
+              Tài khoản này được phân quyền nhiều vai trò. Vui lòng chọn phân hệ muốn truy cập:
             </p>
             <div className="space-y-2">
               {roleChoices.roles.map((role) => (

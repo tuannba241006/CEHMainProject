@@ -2,22 +2,39 @@ import { useNavigate } from "react-router"
 import { useUser } from "../../context/UserContext"
 import { OrgLayout } from "./OrgLayout"
 
+interface Props {
+  onNavigate?: (id: string) => void
+  onLogout?: () => void
+}
+
 /** Real settings entry rather than a non-existent /organizer/settings route. */
-export default function OrganizerSettings() {
+export default function OrganizerSettings({ onNavigate, onLogout }: Props = {}) {
   const navigate = useNavigate()
   const { user, logout } = useUser()
-  const nav = (id: string) => {
-    const paths: Record<string, string> = {
-      "org-dashboard": "/organizer/dashboard",
-      "org-events": "/organizer/events",
-      "org-participants": "/organizer/participants",
-      "org-staff": "/organizer/staff",
-      "org-settings": "/organizer/settings",
-    }
-    navigate(paths[id] || "/organizer/dashboard")
+  const paths: Record<string, string> = {
+    "org-dashboard": "/organizer/dashboard",
+    "org-events": "/organizer/events",
+    "org-event-form": "/organizer/events/create",
+    "org-participants": "/organizer/participants",
+    "org-staff": "/organizer/staff",
+    "org-cohost": "/organizer/cohost-invitations",
+    "org-rooms": "/organizer/rooms",
+    "org-scanner": "/staff/scanner",
+    "staff-scanner": "/staff/scanner",
+    "org-settings": "/organizer/settings",
+    "faculty-inbox": "/faculty/approvals",
+    "affairs-inbox": "/affairs/approvals",
+    "affairs-results": "/affairs/drl",
+    "affairs-certificates": "/affairs/certificates",
+    "admin-dashboard": "/admin/dashboard",
+    "admin-rooms": "/admin/rooms",
   }
+  const nav = onNavigate || ((id: string) => navigate(paths[id] || id))
+  const handleLogout =
+    onLogout || (() => void logout().finally(() => navigate("/login")))
+
   return (
-    <OrgLayout current="org-settings" onNavigate={nav} onLogout={() => void logout().finally(() => navigate("/login"))}>
+    <OrgLayout current="org-settings" onNavigate={nav} onLogout={handleLogout}>
       <section className="p-4 sm:p-6 lg:p-8 max-w-4xl" aria-label="Cài đặt ban tổ chức">
         <h1 className="font-display text-2xl font-bold text-navy">Cài đặt & tài khoản</h1>
         <p className="mt-1 text-sm text-slate-500">Thông tin người dùng hiện tại và các lối tắt quản lý.</p>

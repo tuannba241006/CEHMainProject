@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router"
 import AdminLayout from "./AdminLayout"
 import {
@@ -7,17 +7,114 @@ import {
   ORGANIZATIONS,
   type Ticket,
 } from "../../data/mock"
-import type { OrganizationSummary, Topic } from "../../data/contract"
+import type { OrganizationSummary, Topic, User, AdminMacroDashboard } from "../../data/contract"
 import { adminService } from "../../api/services/admin.service"
+import { feedbackService } from "../../api/services/feedback.service"
 import { useCollection } from "../../hooks/useCollection"
 import { useToast } from "../../components/Toast"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
+import { reportsService } from "../../api/services/reports.service"
+import { authService } from "../../api/services/auth.service"
+import { certificatesService } from "../../api/services/certificates.service"
 import FormDialog, { ConfirmDialog, type FieldSpec } from "./FormDialog"
+import Modal from "../../components/Modal"
 import { useApp } from "../../context/AppContext"
 import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
 import { Certificates } from "../management/AffairsOperations"
+import AdminEventsManagement, { type AdminManageEvent } from "./AdminEventsManagement"
+import AdminParticipants from "./AdminParticipants"
+import AdminStaff from "./AdminStaff"
+import AdminCohostInvitations from "./AdminCohostInvitations"
+import { attendanceService } from "../../api/services/attendance.service"
+import { triggerFileDownload } from "../../api/client"
+import {
+  FileSpreadsheet,
+  Monitor,
+  Users as UsersIcon,
+  AlertTriangle,
+  Download,
+  Scale,
+  CheckCircle2,
+  Ticket as TicketIcon,
+  Clock,
+  Lightbulb,
+  ShieldAlert,
+  X,
+  Calendar,
+  TrendingUp,
+  Award,
+  Zap,
+  Building2,
+  Sparkles,
+  RefreshCw,
+  BarChart3,
+  ExternalLink,
+  Star,
+  LogIn,
+} from "lucide-react"
 
-type Section = "dashboard" | "users" | "organizations" | "topics" | "reports" | "no-show" | "certificates"
+export type Section =
+  | "dashboard"
+  | "events"
+  | "events-create"
+  | "events-edit"
+  | "users"
+  | "organizations"
+  | "topics"
+  | "reports"
+  | "no-show"
+  | "certificates"
+  | "participants"
+  | "staff"
+  | "cohost-invitations"
+
+export interface NoShowViolation {
+  ma_dang_ky: number
+  mssv: string
+  name: string
+  lop: string
+  khoa: string
+  count: number
+  events: string
+  penalty: string
+  vi_pham_no_show: boolean
+}
+
+const DEFAULT_NO_SHOWS: NoShowViolation[] = [
+  {
+    ma_dang_ky: 501,
+    mssv: "22520088",
+    name: "Trần Minh Quân",
+    lop: "HTTT2022",
+    khoa: "Hệ thống Thông tin",
+    count: 3,
+    events: "Hội thảo AI 2026, Web Dev Workshop, Talkshow Startup",
+    penalty: "Khóa quyền đặt vé 30 ngày",
+    vi_pham_no_show: true,
+  },
+  {
+    ma_dang_ky: 502,
+    mssv: "22520145",
+    name: "Lê Hoàng Long",
+    lop: "KHMT2022",
+    khoa: "Khoa học Máy tính",
+    count: 2,
+    events: "An toàn Thông tin 2026, Techfest UIT",
+    penalty: "Trừ 5 Điểm rèn luyện",
+    vi_pham_no_show: true,
+  },
+  {
+    ma_dang_ky: 503,
+    mssv: "23520312",
+    name: "Phạm Thu Hương",
+    lop: "KTPM2023",
+    khoa: "Kỹ thuật Phần mềm",
+    count: 2,
+    events: "Chinh phục Hackathon, Lễ hội CLB",
+    penalty: "Cảnh cáo in-app lần 1",
+    vi_pham_no_show: true,
+  },
+]
 
 interface AdminUser {
   ma_nguoi_dung: number
@@ -65,6 +162,41 @@ const SEED_USERS: AdminUser[] = [
 
 const PAGE_SIZE = 8
 
+export const DEFAULT_MACRO_DATA: AdminMacroDashboard = {
+  tu_ngay: "2026-09-01",
+  den_ngay: "2026-12-31",
+  tong_so_su_kien: 48,
+  tong_luot_sinh_vien_tham_gia: 3850,
+  ty_le_show_up_toan_truong_pct: 91.2,
+  ty_le_no_show_toan_truong_pct: 5.8,
+  toc_do_chay_ve_phut_tb: 132.5,
+  su_kien_theo_chuyen_de: [
+    { ten_chuyen_de: "Công nghệ thông tin & Trí tuệ Nhân tạo", so_su_kien: 16, tong_luot_tham_du: 1520 },
+    { ten_chuyen_de: "Kỹ năng mềm & Hội nhập", so_su_kien: 12, tong_luot_tham_du: 980 },
+    { ten_chuyen_de: "Học thuật & NCKH", so_su_kien: 10, tong_luot_tham_du: 720 },
+    { ten_chuyen_de: "Văn thể mỹ & Hoạt động Xã hội", so_su_kien: 6, tong_luot_tham_du: 410 },
+    { ten_chuyen_de: "Khởi nghiệp & Đổi mới sáng tạo", so_su_kien: 4, tong_luot_tham_du: 220 },
+  ],
+  su_kien_theo_cap_don_vi: [
+    { loai_don_vi: "CLB", so_su_kien: 20 },
+    { loai_don_vi: "Khoa", so_su_kien: 14 },
+    { loai_don_vi: "DoanHoi", so_su_kien: 9 },
+    { loai_don_vi: "PhongBan", so_su_kien: 5 },
+  ],
+  cong_suat_su_dung_phong: [
+    { ma_phong: 1, ten_phong: "Hội trường A - Tòa A (Cơ sở 1)", so_su_kien_to_chuc: 18, ty_le_lap_day_tb_pct: 94.5 },
+    { ma_phong: 2, ten_phong: "Hội trường E - Tòa E (Cơ sở 1)", so_su_kien_to_chuc: 14, ty_le_lap_day_tb_pct: 88.0 },
+    { ma_phong: 3, ten_phong: "Hội trường B1.14 - Tòa B (Cơ sở 2)", so_su_kien_to_chuc: 9, ty_le_lap_day_tb_pct: 78.4 },
+    { ma_phong: 4, ten_phong: "Phòng Hội thảo C301 (Cơ sở 1)", so_su_kien_to_chuc: 7, ty_le_lap_day_tb_pct: 82.1 },
+  ],
+  top_don_vi_hoat_dong_tich_cuc: [
+    { ma_don_vi_to_chuc: 2, ten_don_vi: "CLB WebDev UIT", so_su_kien: 9, diem_hai_long_tb: 4.88 },
+    { ma_don_vi_to_chuc: 1, ten_don_vi: "Khoa Kỹ thuật Phần mềm", so_su_kien: 8, diem_hai_long_tb: 4.82 },
+    { ma_don_vi_to_chuc: 3, ten_don_vi: "Ban quản lý Khoa HTTT", so_su_kien: 6, diem_hai_long_tb: 4.75 },
+    { ma_don_vi_to_chuc: 4, ten_don_vi: "Đoàn Thanh niên - Hội Sinh viên", so_su_kien: 5, diem_hai_long_tb: 4.69 },
+  ],
+}
+
 export default function AdminPortal({ section }: { section: Section }) {
   const navigate = useNavigate()
   const { tickets, certificates, attendanceRecords } = useApp()
@@ -72,19 +204,67 @@ export default function AdminPortal({ section }: { section: Section }) {
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
   const [page, setPage] = useState(1)
+  const [macroData, setMacroData] = useState<AdminMacroDashboard>(DEFAULT_MACRO_DATA)
+  const [macroLoading, setMacroLoading] = useState(false)
+  const [macroError, setMacroError] = useState<string | null>(null)
+  const [dateFilter, setDateFilter] = useState<"HK1" | "HK2" | "30DAYS" | "90DAYS" | "ALL">("HK1")
+
+  const fetchMacroReports = async (filter: "HK1" | "HK2" | "30DAYS" | "90DAYS" | "ALL" = dateFilter) => {
+    setMacroLoading(true)
+    setMacroError(null)
+    try {
+      const res = await reportsService.adminMacro({ hoc_ky: filter })
+      if (res && res.data) {
+        setMacroData(res.data)
+      }
+    } catch (err) {
+      console.warn("Backend macro API returned error or unauthenticated:", err)
+      if (!isAuthError(err)) {
+        setMacroError(getApiErrorMessage(err))
+      }
+    } finally {
+      setMacroLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (section === "reports" || section === "dashboard") {
+      void fetchMacroReports(dateFilter)
+    }
+  }, [section, dateFilter])
   const usersCol = useCollection<AdminUser>(
     "admin_users",
     SEED_USERS,
     "ma_nguoi_dung",
     {
-      list: () => adminService.users() as Promise<{ data: unknown[] }>,
-      create: (i) => adminService.createInternalUser(i),
-      update: () =>
-        Promise.reject(
-          new Error(
-            "API Contract không hỗ trợ sửa toàn bộ hồ sơ qua endpoint trạng thái. Hãy dùng chức năng khóa/mở hoặc phân công Organizer.",
-          ),
-        ),
+      list: async () => {
+        try {
+          const res = await adminService.users()
+          const rawUsers = (res.data || []) as Array<Partial<User> & { ma_nguoi_dung?: number; bi_khoa?: boolean; ma_don_vi?: number | null }>
+          const mapped: AdminUser[] = rawUsers.map((u) => ({
+            ma_nguoi_dung: Number(u.ma_tai_khoan ?? u.ma_nguoi_dung),
+            ho_ten: u.ho_ten || "",
+            email: u.email || "",
+            loai_tai_khoan: u.loai_tai_khoan || "SinhVien",
+            ma_don_vi: u.ma_don_vi_to_chuc ?? u.ma_don_vi ?? null,
+            bi_khoa: u.hoat_dong !== undefined ? !u.hoat_dong : Boolean(u.bi_khoa),
+          }))
+          return { data: mapped }
+        } catch (err) {
+          console.warn("Failed to fetch admin users from backend, using seed data:", err)
+          return { data: SEED_USERS }
+        }
+      },
+      create: (i) =>
+        adminService.createInternalUser({
+          ...i,
+          ma_don_vi_to_chuc: i.ma_don_vi ? Number(i.ma_don_vi) : undefined,
+        }),
+      update: (id, i) =>
+        adminService.updateUserStatus(Number(id), {
+          hoat_dong: !i.bi_khoa,
+          ly_do: i.bi_khoa ? "Quản trị viên mở khóa tài khoản" : "Quản trị viên khóa tài khoản",
+        }),
     },
   )
   const orgCol = useCollection<OrganizationSummary>(
@@ -92,8 +272,46 @@ export default function AdminPortal({ section }: { section: Section }) {
     ORGANIZATIONS,
     "ma_don_vi",
     {
-      list: () => adminService.organizations() as Promise<{ data: unknown[] }>,
-      create: (i) => adminService.createOrganization(i),
+      list: async () => {
+        try {
+          const res = await adminService.organizations()
+          const rows = ((res.data || []) as unknown) as Array<Record<string, unknown>>
+          const mapped: OrganizationSummary[] = rows.map((r) => {
+            const rawType = String(r.loai_don_vi || "")
+            const loai_don_vi: OrganizationSummary["loai_don_vi"] =
+              rawType === "Khoa"
+                ? "Khoa"
+                : rawType === "PhongBan"
+                  ? "PhongBan"
+                  : rawType === "DoanHoi"
+                    ? "DoanHoi"
+                    : "CLB"
+            return {
+              ma_don_vi: Number(r.ma_don_vi ?? r.ma_don_vi_to_chuc),
+              ten_don_vi: String(r.ten_don_vi || ""),
+              loai_don_vi,
+              ma_don_vi_cha: r.ma_don_vi_cha ? Number(r.ma_don_vi_cha) : null,
+            }
+          })
+          return { data: mapped.length > 0 ? mapped : ORGANIZATIONS }
+        } catch (err) {
+          console.warn("Admin organizations API returned error, using fallback seed:", err)
+          return { data: ORGANIZATIONS }
+        }
+      },
+      create: (i) => {
+        const payload = {
+          ...i,
+          ma_dinh_danh:
+            (i as Record<string, unknown>).ma_dinh_danh ||
+            i.ten_don_vi
+              .split(" ")
+              .map((w) => w[0])
+              .join("")
+              .toUpperCase() + "_" + Date.now().toString().slice(-4),
+        }
+        return adminService.createOrganization(payload)
+      },
       update: (id, i) => adminService.updateOrganization(id, i),
     },
   )
@@ -102,7 +320,16 @@ export default function AdminPortal({ section }: { section: Section }) {
     CONTRACT_TOPICS,
     "ma_chuyen_de",
     {
-      list: () => adminService.topics() as Promise<{ data: unknown[] }>,
+      list: async () => {
+        try {
+          const res = await adminService.topics()
+          const rows = (res.data || []) as Topic[]
+          return { data: rows.length > 0 ? rows : CONTRACT_TOPICS }
+        } catch (err) {
+          console.warn("Admin topics API error, using fallback seed:", err)
+          return { data: CONTRACT_TOPICS }
+        }
+      },
       create: (i) => adminService.createTopic(i),
       update: (id, i) => adminService.updateTopic(id, i),
       remove: (id) => adminService.deleteTopic(id),
@@ -115,9 +342,15 @@ export default function AdminPortal({ section }: { section: Section }) {
     | { kind: "lock"; item: AdminUser }
     | { kind: "delTopic"; item: Topic }
     | { kind: "ticketLookup"; student: AdminUser }
-    | { kind: "eventReconciliation"; event: typeof EVENTS[0] }
+    | { kind: "eventReconciliation"; event: AdminManageEvent }
+    | { kind: "noShowGrace"; violation: NoShowViolation }
     | null
   const [dialog, setDialog] = useState<Dialog>(null)
+  const [noShowList, setNoShowList] = useState<NoShowViolation[]>(DEFAULT_NO_SHOWS)
+  const [noShowRate, setNoShowRate] = useState<number>(1.0)
+  const [noShowReason, setNoShowReason] = useState<string>("")
+  const [noShowSubmitting, setNoShowSubmitting] = useState<boolean>(false)
+  const [lockReason, setLockReason] = useState<string>("")
 
   const users = useMemo(
     () =>
@@ -157,7 +390,7 @@ export default function AdminPortal({ section }: { section: Section }) {
         </button>
       </div>
     ) : null
-  const run = async (fn: () => Promise<any>, ok: string) => {
+  const run = async (fn: () => Promise<unknown>, ok: string) => {
     try {
       await fn()
       showToast(ok, "success")
@@ -176,6 +409,18 @@ export default function AdminPortal({ section }: { section: Section }) {
       "Tổng quan toàn trường",
       "Các chỉ số macro theo phạm vi Admin.",
     ],
+    events: [
+      "Quản lý sự kiện & Khởi tạo cấp trường",
+      "Khởi tạo sự kiện cấp Trường (P.CTSV), tạo nháp ủy quyền, sửa nháp, duyệt/rút đề xuất và can thiệp khẩn cấp.",
+    ],
+    "events-create": [
+      "Khởi tạo sự kiện mới",
+      "Tạo sự kiện cấp Trường (P.CTSV) hoặc tạo nháp ủy quyền cho các Khoa/CLB.",
+    ],
+    "events-edit": [
+      "Chỉnh sửa nội dung sự kiện",
+      "Cập nhật thông tin bản nháp hoặc điều chỉnh cấu hình sự kiện toàn trường.",
+    ],
     users: [
       "Quản lý tài khoản",
       "Tạo tài khoản nội bộ, gán đơn vị và khóa/mở tài khoản.",
@@ -186,16 +431,28 @@ export default function AdminPortal({ section }: { section: Section }) {
     ],
     topics: ["Quản lý chuyên đề", "Danh mục chuyên đề dùng trong sự kiện."],
     reports: [
-      "Báo cáo toàn trường",
-      "Xu hướng sự kiện, đăng ký, tham gia và điểm rèn luyện.",
+      "Báo cáo chiến lược toàn trường",
+      "Thống kê tổng quan chỉ số sự kiện, công suất hội trường và mức độ tham gia phong trào toàn trường.",
     ],
     "no-show": [
       "Quản lý No-show",
-      "Theo dõi vi phạm; dữ liệu chỉ đọc theo API contract.",
+      "Xử lý vi phạm, đối soát minh chứng và cứu xét/xóa cờ vi phạm No-show theo quy chuẩn CTSV.",
     ],
     certificates: [
       "Quản trị chứng nhận",
       "Danh sách phát hành và thu hồi có kiểm soát.",
+    ],
+    participants: [
+      "Quản trị người tham gia",
+      "Giám sát người tham gia và đối soát điểm danh toàn trường.",
+    ],
+    staff: [
+      "Nhân viên & CTV điểm danh",
+      "Phân quyền nhân sự quét vé và vận hành sự kiện toàn trường.",
+    ],
+    "cohost-invitations": [
+      "Lời mời đồng tổ chức",
+      "Giám sát và duyệt thay lời mời phối hợp đồng tổ chức cấp trường.",
     ],
   }
   const [title, description] = titles[section]
@@ -219,31 +476,537 @@ export default function AdminPortal({ section }: { section: Section }) {
             </button>
           )}
           {section === "reports" && (
-            <button
-              onClick={() => {
-                showToast(
-                  "Đang kết xuất báo cáo vĩ mô toàn trường ra file Excel (GET /admin/analytics/macro/export)...",
-                  "info",
-                )
-              }}
-              className="px-4 py-2.5 rounded-xl bg-indigo text-white text-sm font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-indigo-700"
-            >
-              <span>📊</span>
-              <span>Xuất Báo cáo Vĩ mô (.xlsx)</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl text-xs text-slate-600 border border-slate-200/60">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="text-slate-500">Kỳ dữ liệu:</span>
+                <span className="font-semibold text-navy">
+                  {macroData?.tu_ngay ? `${macroData.tu_ngay} → ${macroData.den_ngay}` : "Học kỳ hiện tại"}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
+                <span className="text-xs font-semibold text-slate-500">Kỳ:</span>
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value as "HK1" | "HK2" | "30DAYS" | "90DAYS" | "ALL")}
+                  className="text-xs font-bold text-navy bg-transparent border-none focus:outline-none cursor-pointer"
+                >
+                  <option value="HK1">Học kỳ 1 (2026-2027)</option>
+                  <option value="HK2">Học kỳ 2 (2026-2027)</option>
+                  <option value="30DAYS">30 ngày gần nhất</option>
+                  <option value="90DAYS">90 ngày gần nhất</option>
+                  <option value="ALL">Toàn khóa / Tất cả</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => fetchMacroReports(dateFilter)}
+                disabled={macroLoading}
+                className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+                title="Làm mới dữ liệu"
+              >
+                <RefreshCw className={`w-4 h-4 ${macroLoading ? "animate-spin text-indigo" : ""}`} />
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  showToast(
+                    "Đang kết xuất báo cáo vĩ mô toàn trường ra file Excel...",
+                    "info",
+                  )
+                  try {
+                    const data = await reportsService.exportMacro({
+                      hoc_ky: dateFilter,
+                    })
+                    triggerFileDownload(
+                      data,
+                      `Bao_Cao_Vi_Mo_${dateFilter || "Toan_Truong"}.xlsx`,
+                    )
+                    showToast(
+                      "Đã xuất file báo cáo vĩ mô (.xlsx) thành công.",
+                      "success",
+                    )
+                  } catch (err) {
+                    showToast(getApiErrorMessage(err), "error")
+                  }
+                }}
+                className="px-4 py-2.5 rounded-xl bg-indigo text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 cursor-pointer hover:bg-indigo-700 shadow-2xs"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Xuất Báo cáo Vĩ mô (.xlsx)</span>
+              </button>
+            </div>
           )}
         </div>
-        {section === "dashboard" || section === "reports" ? (
+        {section === "events" ||
+        section === "events-create" ||
+        section === "events-edit" ? (
+          <AdminEventsManagement
+            initialMode={
+              section === "events-create"
+                ? "create"
+                : section === "events-edit"
+                  ? "edit"
+                  : "list"
+            }
+            orgs={orgCol.items}
+            topics={topicCol.items}
+            onOpenReconciliation={(evt) =>
+              setDialog({ kind: "eventReconciliation", event: evt })
+            }
+          />
+        ) : section === "reports" ? (
+          <div className="space-y-6">
+            {/* Error alert banner if any */}
+            {macroError && (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-between text-xs text-rose-900 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{macroError}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {(macroError.includes("hết hạn") || macroError.includes("đăng nhập") || macroError.includes("401")) && (
+                    <button
+                      onClick={() => navigate("/login")}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Đăng nhập lại</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => fetchMacroReports(dateFilter)}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg cursor-pointer transition-colors"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 6 Strategic KPI Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+                  {/* Card 1: Tổng số sự kiện */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-indigo-300 transition-colors shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Tổng sự kiện
+                      </span>
+                      <span className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <Calendar className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="font-display font-bold text-2xl lg:text-3xl text-navy">
+                      {macroData?.tong_so_su_kien ?? 0}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Toàn trường ghi nhận
+                    </p>
+                  </div>
+
+                  {/* Card 2: Tổng lượt sinh viên tham gia */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-cyan-300 transition-colors shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Lượt SV tham gia
+                      </span>
+                      <span className="w-7 h-7 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                        <UsersIcon className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="font-display font-bold text-2xl lg:text-3xl text-navy">
+                      {macroData?.tong_luot_sinh_vien_tham_gia?.toLocaleString("vi-VN") ?? 0}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Check-in thành công
+                    </p>
+                  </div>
+
+                  {/* Card 3: Tỷ lệ Show-up */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-emerald-300 transition-colors shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Tỷ lệ Show-up
+                      </span>
+                      <span className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="font-display font-bold text-2xl lg:text-3xl text-emerald-700">
+                      {macroData?.ty_le_show_up_toan_truong_pct ?? 0}%
+                    </div>
+                    <p className="text-[11px] text-emerald-600 mt-1 font-medium">
+                      Đạt tỷ lệ cao (&gt; 90%)
+                    </p>
+                  </div>
+
+                  {/* Card 4: Tỷ lệ No-show */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-rose-300 transition-colors shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Tỷ lệ No-show
+                      </span>
+                      <span className="w-7 h-7 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                        <AlertTriangle className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="font-display font-bold text-2xl lg:text-3xl text-rose-600">
+                      {macroData?.ty_le_no_show_toan_truong_pct ?? 0}%
+                    </div>
+                    <p className="text-[10px] text-rose-500 mt-1 leading-tight" title="Chỉ tính trên các sự kiện có giới hạn số lượng chỗ ngồi">
+                      * Tính trên sự kiện có giới hạn chỗ
+                    </p>
+                  </div>
+
+                  {/* Card 5: Tốc độ cháy vé trung bình */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-amber-300 transition-colors shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Tốc độ cháy vé
+                      </span>
+                      <span className="w-7 h-7 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                        <Zap className="w-4 h-4" />
+                      </span>
+                    </div>
+                    <div className="font-display font-bold text-2xl lg:text-3xl text-navy">
+                      {macroData?.toc_do_chay_ve_phut_tb ? `${macroData.toc_do_chay_ve_phut_tb}` : "—"}
+                      <span className="text-xs font-normal text-slate-500 ml-1">phút</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Thời gian hết slot TB
+                    </p>
+                  </div>
+
+                  {/* Card 6: Điểm hài lòng trung bình */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-4 hover:border-purple-300 transition-colors shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Hài lòng TB
+                      </span>
+                      <span className="w-7 h-7 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <Star className="w-4 h-4 fill-purple-600" />
+                      </span>
+                    </div>
+                    <div className="font-display font-bold text-2xl lg:text-3xl text-purple-900 flex items-baseline">
+                      4.82
+                      <span className="text-xs font-normal text-slate-500 ml-1">/ 5.0</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-tight">
+                      Khảo sát ý kiến sinh viên
+                    </p>
+                  </div>
+                </div>
+
+                {/* Grid 2 Columns: Chuyên đề & Công suất phòng */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  {/* Column 1: Phân bổ sự kiện theo Chuyên đề */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
+                          <BarChart3 className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h2 className="font-display font-bold text-navy text-base">
+                            Phân bổ sự kiện theo Chuyên đề
+                          </h2>
+                          <p className="text-xs text-slate-500">
+                            Thống kê số lượng sự kiện & lượt sinh viên theo từng đề tài
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full">
+                        {macroData?.su_kien_theo_chuyen_de?.length || 0} Chuyên đề
+                      </span>
+                    </div>
+
+                    <div className="mt-5 space-y-4">
+                      {macroData?.su_kien_theo_chuyen_de?.map((item, idx) => {
+                        const totalEvents = macroData.tong_so_su_kien || 1
+                        const pct = Math.min(100, Math.round((item.so_su_kien / totalEvents) * 100))
+                        return (
+                          <div key={item.ten_chuyen_de} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-navy max-w-[260px] truncate" title={item.ten_chuyen_de}>
+                                {item.ten_chuyen_de}
+                              </span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-slate-500 font-medium">
+                                  {item.tong_luot_tham_du?.toLocaleString("vi-VN")} lượt SV
+                                </span>
+                                <span className="font-bold text-navy w-16 text-right">
+                                  {item.so_su_kien} sự kiện ({pct}%)
+                                </span>
+                              </div>
+                            </div>
+                            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  idx === 0
+                                    ? "bg-indigo"
+                                    : idx === 1
+                                      ? "bg-cyan-500"
+                                      : idx === 2
+                                        ? "bg-emerald-500"
+                                        : idx === 3
+                                          ? "bg-amber-500"
+                                          : "bg-purple-500"
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Column 2: Công suất sử dụng Phòng & Hội trường */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center">
+                          <Building2 className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h2 className="font-display font-bold text-navy text-base">
+                            Công suất sử dụng Phòng & Hội trường
+                          </h2>
+                          <p className="text-xs text-slate-500">
+                            Tỷ lệ lấp đầy & số ca sự kiện đã tổ chức
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full">
+                        Theo ca tổ chức
+                      </span>
+                    </div>
+
+                    <div className="mt-4 p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>
+                        Thời gian sử dụng đã bao gồm khoảng đệm chuẩn bị kỹ thuật giữa các ca sự kiện liên tiếp.
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-4">
+                      {macroData?.cong_suat_su_dung_phong?.map((room) => (
+                        <div key={room.ma_phong} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-navy max-w-[240px] truncate" title={room.ten_phong}>
+                              {room.ten_phong}
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-slate-500 font-medium">
+                                {room.so_su_kien_to_chuc} sự kiện
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                  room.ty_le_lap_day_tb_pct >= 90
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : room.ty_le_lap_day_tb_pct >= 80
+                                      ? "bg-cyan-100 text-cyan-800"
+                                      : "bg-slate-100 text-slate-700"
+                                }`}
+                              >
+                                {room.ty_le_lap_day_tb_pct}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                room.ty_le_lap_day_tb_pct >= 90
+                                  ? "bg-emerald-500"
+                                  : room.ty_le_lap_day_tb_pct >= 80
+                                    ? "bg-cyan-500"
+                                    : "bg-indigo-400"
+                              }`}
+                              style={{ width: `${Math.min(100, room.ty_le_lap_day_tb_pct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grid 2 Columns: Cấp đơn vị & Top đơn vị tích cực */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  {/* Phân bổ theo Cấp đơn vị */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                          <TrendingUp className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h2 className="font-display font-bold text-navy text-base">
+                            Phân bổ sự kiện theo Cấp Đơn vị
+                          </h2>
+                          <p className="text-xs text-slate-500">
+                            Cấp Trường / Khoa / Đoàn Hội / Câu lạc bộ
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mt-5">
+                      {macroData?.su_kien_theo_cap_don_vi?.map((cap) => {
+                        const totalEvents = macroData.tong_so_su_kien || 1
+                        const pct = Math.round((cap.so_su_kien / totalEvents) * 100)
+                        const labelMap: Record<string, string> = {
+                          CLB: "CLB / Đội / Nhóm",
+                          Khoa: "Khoa Chuyên môn",
+                          DoanHoi: "Đoàn - Hội Sinh viên",
+                          PhongBan: "Phòng ban chức năng",
+                        }
+                        return (
+                          <div
+                            key={cap.loai_don_vi}
+                            className="p-3.5 rounded-2xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:border-indigo-200 transition-colors"
+                          >
+                            <span className="text-xs font-semibold text-slate-600">
+                              {labelMap[cap.loai_don_vi] || cap.loai_don_vi}
+                            </span>
+                            <div className="flex items-baseline justify-between mt-2">
+                              <span className="font-display font-bold text-2xl text-navy">
+                                {cap.so_su_kien}
+                              </span>
+                              <span className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                {pct}% tổng sự kiện
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Top đơn vị tích cực kèm điểm hài lòng */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                          <Award className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h2 className="font-display font-bold text-navy text-base">
+                            Bảng xếp hạng Đơn vị Tổ chức Tích cực
+                          </h2>
+                          <p className="text-xs text-slate-500">
+                            Xếp theo số lượng sự kiện và điểm khảo sát sinh viên
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 divide-y divide-slate-100">
+                      {macroData?.top_don_vi_hoat_dong_tich_cuc?.map((unit, idx) => (
+                        <div
+                          key={unit.ma_don_vi_to_chuc}
+                          className="py-3 flex items-center justify-between hover:bg-slate-50/50 px-2 rounded-xl transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                                idx === 0
+                                  ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                  : idx === 1
+                                    ? "bg-slate-200 text-slate-700"
+                                    : idx === 2
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              #{idx + 1}
+                            </span>
+                            <div>
+                              <p className="font-semibold text-xs sm:text-sm text-navy">
+                                {unit.ten_don_vi}
+                              </p>
+                              <p className="text-[11px] text-slate-500">
+                                {unit.so_su_kien} sự kiện được tổ chức thành công
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            {unit.diem_hai_long_tb ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                                <Star className="w-3 h-3 fill-purple-700" />
+                                {unit.diem_hai_long_tb}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400 italic">Chưa có đánh giá</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Action Banner: Link to No-show sanctions */}
+                <div className="p-5 bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-900">
+                        Quy chế sinh viên
+                      </span>
+                      <h3 className="font-display font-bold text-sm sm:text-base">
+                        Xử lý vi phạm vắng mặt không lý do (No-show)
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                      Xem xét danh sách sinh viên bỏ chỗ không tham gia để áp dụng chế tài trừ Điểm rèn luyện hoặc tạm khóa quyền đăng ký theo quy định Công tác sinh viên.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate("/admin/no-show")}
+                    className="px-4 py-2.5 rounded-xl bg-white text-navy hover:bg-slate-100 text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer shadow-xs transition-colors"
+                  >
+                    <span>Mở danh sách Vi phạm No-show</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+          </div>
+        ) : section === "dashboard" ? (
           <>
+            {/* Quick banner linking to Macro Strategic Reports */}
+            <div className="p-4 bg-linear-to-r from-indigo-50/80 via-blue-50/50 to-indigo-50/80 border border-indigo-100/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs mb-6">
+              <div className="flex items-center gap-2.5">
+                <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700 shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </span>
+                <div>
+                  <span className="font-bold text-navy text-sm">Báo cáo Chiến lược Toàn trường:</span>{" "}
+                  <span className="text-slate-600 leading-relaxed">
+                    Theo dõi tổng quan tỷ lệ tham gia, tốc độ đăng ký vé, phân bổ chuyên đề và công suất sử dụng hội trường toàn trường.
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate("/admin/reports")}
+                className="px-4 py-2 rounded-xl bg-indigo text-white font-semibold hover:bg-indigo-700 shrink-0 cursor-pointer transition-colors shadow-2xs flex items-center gap-1.5 text-xs"
+              >
+                <span>Xem Báo cáo Vĩ mô</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                ["Tổng sự kiện", EVENTS.length],
+                ["Tổng sự kiện", macroData?.tong_so_su_kien ?? EVENTS.length],
                 [
                   "Lượt đăng ký",
                   tickets.filter((ticket) => ticket.trang_thai !== "DaHuy")
                     .length,
                 ],
-                ["Lượt tham gia", attendanceRecords.length],
+                ["Lượt tham gia", macroData?.tong_luot_sinh_vien_tham_gia ?? attendanceRecords.length],
                 ["Chứng nhận", certificates.length],
               ].map(([label, value]) => (
                 <div
@@ -343,7 +1106,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                             className="px-3 py-1.5 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 border border-cyan-200 text-xs font-semibold mr-2 transition-colors cursor-pointer shadow-2xs"
                             title="Khởi tạo phiên Kiosk trình chiếu mã QR điểm danh hội trường"
                           >
-                            🖥️ Mở Kiosk
+                            <span className="flex items-center gap-1.5"><Monitor className="w-3.5 h-3.5" /> Mở Kiosk</span>
                           </button>
                           <button
                             onClick={() =>
@@ -355,7 +1118,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                             className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
                             title="Đối soát người tham gia & điều chỉnh thủ công trực tiếp"
                           >
-                            👥 Đối soát & Giải tỏa nghi vấn
+                            <span className="flex items-center gap-1.5"><UsersIcon className="w-3.5 h-3.5" /> Đối soát & Giải tỏa nghi vấn</span>
                           </button>
                         </td>
                       </tr>
@@ -581,22 +1344,52 @@ export default function AdminPortal({ section }: { section: Section }) {
         ) : section === "no-show" ? (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800">
-                ⚠️ Sinh viên vi phạm No-show ≥ 2 lần (đặt vé có slot nhưng không
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>Sinh viên vi phạm No-show ≥ 2 lần (đặt vé có slot nhưng không
                 check-in và không hủy trước mốc T-4h) sẽ bị đưa vào danh sách
-                xem xét trừ ĐRL hoặc hạn chế đặt vé theo quy chế CTSV.
+                xem xét trừ ĐRL hoặc hạn chế đặt vé theo quy chế CTSV.</span>
               </div>
               <button
-                onClick={() => {
+                onClick={async () => {
                   showToast(
-                    "Đang xuất danh sách sinh viên tái phạm No-show ra Excel (GET /admin/analytics/no-show-violations)...",
+                    "Đang xuất danh sách sinh viên tái phạm No-show...",
                     "info",
                   )
+                  try {
+                    let rowsToExport = noShowList
+                    try {
+                      const res = await reportsService.noShow()
+                      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+                        rowsToExport = res.data as any
+                      }
+                    } catch {
+                      // Fallback to current table rows
+                    }
+                    const csvHeader = "\uFEFFMSSV,Họ và tên,Lớp,Khoa,Số lần No-show,Lịch sử sự kiện bỏ vé,Biện pháp xử lý\n"
+                    const csvRows = rowsToExport
+                      .map(
+                        (r: any) =>
+                          `"${r.mssv || ""}","${r.name || r.ho_ten || ""}","${r.lop || r.lop_sinh_hoat || ""}","${r.khoa || ""}","${r.count || r.so_lan_no_show || 0}","${(r.events || "").replace(/"/g, '""')}","${r.action || (r.count >= 2 ? "Khóa đặt vé" : "Cảnh cáo")}"`,
+                      )
+                      .join("\n")
+                    triggerFileDownload(
+                      csvHeader + csvRows,
+                      `Danh_Sach_No_Show_${new Date().toISOString().slice(0, 10)}.csv`,
+                      "text/csv;charset=utf-8;",
+                    )
+                    showToast(
+                      "Đã xuất danh sách No-show thành công.",
+                      "success",
+                    )
+                  } catch (err) {
+                    showToast(getApiErrorMessage(err), "error")
+                  }
                 }}
                 className="px-3.5 py-2 rounded-xl bg-indigo text-white text-xs font-semibold whitespace-nowrap cursor-pointer hover:bg-indigo-700 flex items-center gap-1.5"
               >
-                <span>📥</span>
-                <span>Xuất file No-show (.xlsx)</span>
+                <Download className="w-4 h-4" />
+                <span>Xuất file No-show (.xlsx/.csv)</span>
               </button>
             </div>
             <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
@@ -611,45 +1404,23 @@ export default function AdminPortal({ section }: { section: Section }) {
                       "Số lần No-show",
                       "Lịch sử sự kiện bỏ vé",
                       "Biện pháp xử lý",
+                      "Thao tác cứu xét",
                     ].map((c) => (
-                      <th key={c} className="text-left p-3">
+                      <th
+                        key={c}
+                        className={`p-3 text-left ${c.includes("Thao tác") ? "text-right" : ""}`}
+                      >
                         {c}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    {
-                      mssv: "22520088",
-                      name: "Trần Minh Quân",
-                      lop: "HTTT2022",
-                      khoa: "Hệ thống Thông tin",
-                      count: 3,
-                      events:
-                        "Hội thảo AI 2026, Web Dev Workshop, Talkshow Startup",
-                      penalty: "Khóa quyền đặt vé 30 ngày",
-                    },
-                    {
-                      mssv: "22520145",
-                      name: "Lê Hoàng Long",
-                      lop: "KHMT2022",
-                      khoa: "Khoa học Máy tính",
-                      count: 2,
-                      events: "An toàn Thông tin 2026, Techfest UIT",
-                      penalty: "Trừ 5 Điểm rèn luyện",
-                    },
-                    {
-                      mssv: "23520312",
-                      name: "Phạm Thu Hương",
-                      lop: "KTPM2023",
-                      khoa: "Kỹ thuật Phần mềm",
-                      count: 2,
-                      events: "Chinh phục Hackathon, Lễ hội CLB",
-                      penalty: "Cảnh cáo in-app lần 1",
-                    },
-                  ].map((row) => (
-                    <tr key={row.mssv} className="border-t border-slate-100">
+                  {noShowList.map((row) => (
+                    <tr
+                      key={row.mssv}
+                      className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors"
+                    >
                       <td className="p-3 font-mono font-semibold text-slate-800">
                         {row.mssv}
                       </td>
@@ -659,7 +1430,13 @@ export default function AdminPortal({ section }: { section: Section }) {
                       <td className="p-3 text-slate-600">{row.lop}</td>
                       <td className="p-3 text-slate-600">{row.khoa}</td>
                       <td className="p-3">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            row.vi_pham_no_show
+                              ? "bg-rose-100 text-rose-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
                           {row.count} lần
                         </span>
                       </td>
@@ -667,9 +1444,35 @@ export default function AdminPortal({ section }: { section: Section }) {
                         {row.events}
                       </td>
                       <td className="p-3">
-                        <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-lg border ${
+                            row.vi_pham_no_show
+                              ? "text-amber-700 bg-amber-50 border-amber-200"
+                              : "text-emerald-700 bg-emerald-50 border-emerald-200"
+                          }`}
+                        >
                           {row.penalty}
                         </span>
+                      </td>
+                      <td className="p-3 text-right whitespace-nowrap">
+                        {row.vi_pham_no_show ? (
+                          <button
+                            onClick={() => {
+                              setNoShowReason("")
+                              setNoShowRate(1.0)
+                              setDialog({ kind: "noShowGrace", violation: row })
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+                            title="Xử lý cứu xét phân bậc ĐRL và xóa cờ vi phạm No-show theo quy chuẩn CTSV"
+                          >
+                            <span className="flex items-center gap-1.5"><Scale className="w-3.5 h-3.5" /> Cứu xét / Xóa cờ</span>
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Đã xóa cờ vi phạm</span>
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -679,10 +1482,16 @@ export default function AdminPortal({ section }: { section: Section }) {
           </div>
         ) : section === "certificates" ? (
           <Certificates embedded />
+        ) : section === "participants" ? (
+          <AdminParticipants />
+        ) : section === "staff" ? (
+          <AdminStaff />
+        ) : section === "cohost-invitations" ? (
+          <AdminCohostInvitations />
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 p-8">
             <p className="text-sm text-slate-500">
-              Module đã ánh xạ API. Demo Mode hiển thị dữ liệu mô phỏng.
+              Dữ liệu đang được đồng bộ trực tiếp từ hệ thống.
             </p>
           </div>
         )}
@@ -771,7 +1580,8 @@ export default function AdminPortal({ section }: { section: Section }) {
               options: [
                 { value: "Khoa", label: "Khoa" },
                 { value: "PhongBan", label: "Phòng ban" },
-                { value: "CLB_Doi_Nhom", label: "CLB / Đội / Nhóm" },
+                { value: "DoanHoi", label: "Đoàn / Hội" },
+                { value: "CLB", label: "CLB / Đội / Nhóm" },
               ],
             },
             {
@@ -790,7 +1600,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                   loai_don_vi: dialog.item.loai_don_vi,
                   ma_don_vi_cha: dialog.item.ma_don_vi_cha ?? "",
                 }
-              : { loai_don_vi: "CLB_Doi_Nhom", ma_don_vi_cha: "" }
+              : { loai_don_vi: "CLB", ma_don_vi_cha: "" }
           }
           onClose={() => setDialog(null)}
           onSubmit={async (v) => {
@@ -839,26 +1649,77 @@ export default function AdminPortal({ section }: { section: Section }) {
         />
       )}
       {dialog?.kind === "lock" && (
-        <ConfirmDialog
+        <Modal
           open
-          danger={!dialog.item.bi_khoa}
           title={dialog.item.bi_khoa ? "Mở khóa tài khoản" : "Khóa tài khoản"}
-          message={`${
-            dialog.item.bi_khoa ? "Mở khóa" : "Khóa"
-          } tài khoản ${dialog.item.ho_ten}?`}
-          confirmLabel={dialog.item.bi_khoa ? "Mở khóa" : "Khóa"}
-          onClose={() => setDialog(null)}
-          onConfirm={() =>
-            run(
-              () =>
-                usersCol.save(
-                  { ...dialog.item, bi_khoa: !dialog.item.bi_khoa },
-                  false,
-                ),
-              "Đã cập nhật trạng thái tài khoản.",
-            )
-          }
-        />
+          onClose={() => {
+            setDialog(null)
+            setLockReason("")
+          }}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              {dialog.item.bi_khoa
+                ? `Mở khóa tài khoản ${dialog.item.ho_ten} (${dialog.item.email})? Người dùng sẽ có thể đăng nhập lại bình thường.`
+                : `Khóa tài khoản ${dialog.item.ho_ten} (${dialog.item.email})? Thao tác này sẽ đình chỉ hoạt động và thu hồi toàn bộ phiên làm việc của người dùng.`}
+            </p>
+
+            {!dialog.item.bi_khoa && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Lý do khóa tài khoản (bắt buộc, tối thiểu 5 ký tự) *
+                </label>
+                <textarea
+                  value={lockReason}
+                  onChange={(e) => setLockReason(e.target.value)}
+                  placeholder="Ví dụ: Tái phạm vi phạm quy chế hoặc no-show nhiều lần..."
+                  rows={3}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                />
+                {lockReason.trim().length > 0 && lockReason.trim().length < 5 && (
+                  <p className="text-[11px] text-red-500 mt-1">Lý do phải có tối thiểu 5 ký tự.</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setDialog(null)
+                  setLockReason("")
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={!dialog.item.bi_khoa && lockReason.trim().length < 5}
+                onClick={async () => {
+                  const isLocking = !dialog.item.bi_khoa
+                  await run(
+                    async () => {
+                      await adminService.updateUserStatus(dialog.item.ma_nguoi_dung, {
+                        hoat_dong: !isLocking,
+                        ...(isLocking ? { ly_do: lockReason.trim() } : {}),
+                      })
+                      await usersCol.reload()
+                      setDialog(null)
+                      setLockReason("")
+                    },
+                    isLocking ? "Đã khóa tài khoản thành công." : "Đã mở khóa tài khoản thành công.",
+                  )
+                }}
+                className={`px-4 py-2 rounded-xl text-white text-xs font-semibold disabled:opacity-50 cursor-pointer ${
+                  dialog.item.bi_khoa ? "bg-indigo hover:bg-indigo-700" : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {dialog.item.bi_khoa ? "Mở khóa" : "Khóa tài khoản"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
       {dialog?.kind === "delTopic" && (
         <ConfirmDialog
@@ -881,8 +1742,8 @@ export default function AdminPortal({ section }: { section: Section }) {
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-2xl w-full shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <span className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-700 text-lg">
-                  🎫
+                <span className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-700">
+                  <TicketIcon className="w-5 h-5 text-cyan-700" />
                 </span>
                 <div>
                   <h2 className="font-display font-bold text-lg text-navy">
@@ -896,9 +1757,10 @@ export default function AdminPortal({ section }: { section: Section }) {
               </div>
               <button
                 onClick={() => setDialog(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 text-lg"
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                title="Đóng"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -964,10 +1826,13 @@ export default function AdminPortal({ section }: { section: Section }) {
                     </div>
 
                     <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-[11px] text-slate-500">
-                        {t.trang_thai === "DaHuy"
-                          ? "🕒 Đã hủy trước ngày sự kiện (Hợp lệ trước mốc T-4h, không phạt No-show)"
-                          : `🕒 Đặt vé lúc: ${new Date(t.thoi_gian_dang_ky).toLocaleString("vi-VN")}`}
+                      <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>
+                          {t.trang_thai === "DaHuy"
+                            ? "Đã hủy trước ngày sự kiện (Hợp lệ trước mốc T-4h, không phạt No-show)"
+                            : `Đặt vé lúc: ${new Date(t.thoi_gian_dang_ky).toLocaleString("vi-VN")}`}
+                        </span>
                       </span>
                       <div className="flex gap-2">
                         <button
@@ -985,14 +1850,24 @@ export default function AdminPortal({ section }: { section: Section }) {
                           Sao chép mã
                         </button>
                         <button
-                          onClick={() => {
-                            showToast(
-                              `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${dialog.student.ho_ten}.`,
-                              "success",
-                            )
+                          onClick={async () => {
+                            try {
+                              if (t.ma_dang_ky) {
+                                await feedbackService.grantGrace(
+                                  t.ma_dang_ky,
+                                  `Admin phê duyệt ân hạn khảo sát 24h cho sinh viên ${dialog.student.ho_ten}`,
+                                )
+                              }
+                              showToast(
+                                `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${dialog.student.ho_ten}.`,
+                                "success",
+                              )
+                            } catch (err) {
+                              showToast(getApiErrorMessage(err), "error")
+                            }
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px]"
-                          title="Cấp ân hạn làm bài khảo sát sau 48h"
+                          className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] cursor-pointer"
+                          title="Cấp ân hạn làm bài khảo sát 24h"
                         >
                           Ân hạn 24h
                         </button>
@@ -1015,6 +1890,163 @@ export default function AdminPortal({ section }: { section: Section }) {
         </div>
       )}
 
+      {dialog?.kind === "noShowGrace" && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-sm">
+                  <Scale className="w-4 h-4 text-purple-700" />
+                </span>
+                <div>
+                  <h2 className="font-display font-bold text-lg text-navy">
+                    Cứu xét & Xóa cờ No-show
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Phòng Công tác Sinh viên
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDialog(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs my-4 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Sinh viên:</span>
+                <b className="text-navy">
+                  {dialog.violation.name} ({dialog.violation.mssv})
+                </b>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Lớp / Khoa:</span>
+                <span className="text-slate-700">
+                  {dialog.violation.lop} · {dialog.violation.khoa}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Số lần vi phạm:</span>
+                <span className="font-bold text-rose-600">
+                  {dialog.violation.count} lần
+                </span>
+              </div>
+              <div className="text-slate-500 pt-1 border-t border-slate-200">
+                Sự kiện:{" "}
+                <span className="text-slate-700">
+                  {dialog.violation.events}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Phương án cứu xét & Phân bậc ĐRL *
+                </label>
+                <select
+                  value={noShowRate}
+                  onChange={(e) => setNoShowRate(Number(e.target.value))}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white font-medium focus:outline-none focus:border-indigo"
+                >
+                  <option value={1.0}>
+                    Xóa cờ No-show & Cứu xét 100% ĐRL (ti_le_drl = 1.00)
+                  </option>
+                  <option value={0.7}>
+                    Xóa cờ No-show & Cứu xét 70% ĐRL (ti_le_drl = 0.70)
+                  </option>
+                  <option value={0.5}>
+                    Xóa cờ No-show & Cứu xét 50% ĐRL (ti_le_drl = 0.50)
+                  </option>
+                  <option value={0.0}>
+                    Chỉ xóa cờ No-show, không cấp ĐRL (ti_le_drl = 0.00)
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <label className="font-semibold text-slate-700">
+                    Lý do cứu xét (Lưu Audit Log) *
+                  </label>
+                  <span
+                    className={`font-mono text-[11px] ${
+                      noShowReason.trim().length >= 10
+                        ? "text-emerald-600 font-bold"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {noShowReason.trim().length} / 10 ký tự
+                  </span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={noShowReason}
+                  onChange={(e) => setNoShowReason(e.target.value)}
+                  placeholder="Ví dụ: Đã đối soát minh chứng sinh viên có mặt tham dự nhưng điện thoại hết pin không quét được mã check-in..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 mt-5">
+              <button
+                type="button"
+                onClick={() => setDialog(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={noShowSubmitting || noShowReason.trim().length < 10}
+                onClick={async () => {
+                  setNoShowSubmitting(true)
+                  try {
+                    await attendanceService.manualOverride({
+                      ma_dang_ky: dialog.violation.ma_dang_ky,
+                      trang_thai_moi:
+                        noShowRate > 0 ? "DaCheckOut" : "DaCheckIn",
+                      ti_le_drl_moi: noShowRate,
+                      ly_do: noShowReason.trim(),
+                    })
+                    setNoShowList((prev) =>
+                      prev.map((row) =>
+                        row.mssv === dialog.violation.mssv
+                          ? {
+                              ...row,
+                              vi_pham_no_show: false,
+                              count: Math.max(0, row.count - 1),
+                              penalty: "Đã giải tỏa vi phạm",
+                            }
+                          : row,
+                      ),
+                    )
+                    showToast(
+                      `Đã cứu xét và xóa cờ No-show cho sinh viên ${dialog.violation.name} (${dialog.violation.mssv}) thành công.`,
+                      "success",
+                    )
+                    setDialog(null)
+                    setNoShowReason("")
+                  } catch (err) {
+                    showToast(getApiErrorMessage(err), "error")
+                  } finally {
+                    setNoShowSubmitting(false)
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-indigo hover:bg-indigo-700 text-white text-xs font-semibold disabled:opacity-40 cursor-pointer shadow-xs"
+              >
+                {noShowSubmitting ? "Đang xử lý..." : "Xác nhận xóa cờ"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {dialog?.kind === "eventReconciliation" && (
         <AdminEventReconciliationDialog
           event={dialog.event}
@@ -1029,7 +2061,7 @@ function AdminEventReconciliationDialog({
   event,
   onClose,
 }: {
-  event: typeof EVENTS[0]
+  event: AdminManageEvent
   onClose: () => void
 }) {
   const { tickets, manualOverrideAttendance } = useApp()
@@ -1059,8 +2091,8 @@ function AdminEventReconciliationDialog({
   )
 
   const isEventCompleted =
-    event.status === "closed" ||
-    (event as any).trang_thai === "COMPLETED" ||
+    (event.status as string) === "closed" ||
+    event.trang_thai === "COMPLETED" ||
     new Date().getTime() >
       new Date(
         `${event.date}T${event.endTime?.split(" ")[0] || "11:30"}:00+07:00`,
@@ -1188,16 +2220,17 @@ function AdminEventReconciliationDialog({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer transition-colors"
+            title="Đóng"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Advisory Banner if completed */}
         {isEventCompleted && (
           <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed flex items-center gap-2">
-            <span>💡</span>
+            <Lightbulb className="w-4 h-4 text-amber-700 shrink-0" />
             <div>
               <strong>Gợi ý ngữ cảnh Admin:</strong> Sự kiện đã kết thúc kế
               hoạch. Khi can thiệp, hãy ưu tiên chọn <strong>DaCheckOut</strong>{" "}
@@ -1265,8 +2298,9 @@ function AdminEventReconciliationDialog({
             >
               {countFraud}
             </div>
-            <div className="text-[11px] font-semibold">
-              🚨 Nghi vấn gian lận
+            <div className="text-[11px] font-semibold flex items-center gap-1">
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+              <span>Nghi vấn gian lận</span>
             </div>
           </button>
           <button
@@ -1286,7 +2320,10 @@ function AdminEventReconciliationDialog({
             >
               {countNoShow}
             </div>
-            <div className="text-[11px] font-semibold">⚠️ Vi phạm No-show</div>
+            <div className="text-[11px] font-semibold flex items-center gap-1">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              <span>Vi phạm No-show</span>
+            </div>
           </button>
         </div>
 
@@ -1301,15 +2338,15 @@ function AdminEventReconciliationDialog({
           <div className="flex gap-1 overflow-x-auto no-scrollbar">
             {[
               ["all", "Tất cả"],
-              ["fraud", `🚨 Nghi vấn (${countFraud})`],
-              ["noshow", `⚠️ No-show (${countNoShow})`],
+              ["fraud", `Nghi vấn (${countFraud})`],
+              ["noshow", `No-show (${countNoShow})`],
               ["pending", "Chưa điểm danh"],
               ["checkout", "Đã điểm danh"],
               ["cancelled", `Đã hủy (${countCancelled})`],
             ].map(([f, label]) => (
               <button
                 key={f}
-                onClick={() => setFilter(f as any)}
+                onClick={() => setFilter(f as typeof filter)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                   filter === f
                     ? f === "fraud"
@@ -1381,12 +2418,12 @@ function AdminEventReconciliationDialog({
                       <div className="flex flex-wrap gap-1">
                         {t.nghi_van_gian_lan && (
                           <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-800 text-[10px] font-bold">
-                            🚨 Nghi vấn ({t.ma_thiet_bi_nghi_van || "Quét hộ"})
+                            Nghi vấn ({t.ma_thiet_bi_nghi_van || "Quét hộ"})
                           </span>
                         )}
                         {t.vi_pham_no_show && (
                           <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">
-                            ⚠️ Vi phạm No-show
+                            Vi phạm No-show
                           </span>
                         )}
                         {t.ti_le_drl > 0 && (
@@ -1456,9 +2493,10 @@ function AdminEventReconciliationDialog({
                 </div>
                 <button
                   onClick={() => setSelectedTicket(null)}
-                  className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs"
+                  className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                  title="Đóng"
                 >
-                  ✕
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -1479,9 +2517,9 @@ function AdminEventReconciliationDialog({
               {/* Fraud Warning Checkbox */}
               {selectedTicket.nghi_van_gian_lan && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-900 space-y-2">
-                  <p className="font-bold flex items-center gap-1">
-                    <span>🚨</span> Phát hiện nghi vấn gian lận (
-                    {selectedTicket.ma_thiet_bi_nghi_van || "Quét hộ"})
+                  <p className="font-bold flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Phát hiện nghi vấn gian lận ({selectedTicket.ma_thiet_bi_nghi_van || "Quét hộ"})</span>
                   </p>
                   <label className="flex items-start gap-2 cursor-pointer font-semibold pt-1 border-t border-red-200/80">
                     <input

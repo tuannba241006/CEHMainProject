@@ -71,16 +71,19 @@ $authRoutes = function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('/me', [AuthController::class, 'me'])->name('auth.me');
         Route::put('/profile', [AuthController::class, 'updateProfile'])->name('auth.profile');
-        Route::put('/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
+        Route::match(['put', 'post'], '/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
     });
 };
 
-// Admin routes definition (UC-ADM-01)
+// Admin routes definition (UC-ADM-01, UC-REP-02)
 $adminRoutes = function () {
     Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
         Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users.index');
         Route::post('/users', [AdminUserController::class, 'createInternal'])->name('admin.users.create');
         Route::post('/users/create-internal', [AdminUserController::class, 'createInternal'])->name('admin.users.create-internal');
+        Route::get('/analytics/macro', [EventAnalyticsController::class, 'macroAnalytics'])->name('admin.analytics.macro');
+        Route::get('/analytics/no-show-violations', [EventAnalyticsController::class, 'noShowViolations'])->name('admin.analytics.no-show');
+        Route::get('/analytics/macro/export', [EventAnalyticsController::class, 'exportMacro'])->name('admin.analytics.macro.export');
     });
 };
 
