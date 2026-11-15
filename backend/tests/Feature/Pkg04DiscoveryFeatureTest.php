@@ -139,6 +139,31 @@ class Pkg04DiscoveryFeatureTest extends TestCase
             ->assertDontSee('PKG04 Auto Workshop Python');
     }
 
+    public function test_public_event_list_filters_by_topic_and_drl_condition(): void
+    {
+        $otherConditionEvent = $this->createEvent([
+            'ten_su_kien' => 'PKG04 Auto Event Other DRL Condition',
+            'dieu_khoan_drl' => 'Dieu3',
+        ]);
+
+        $response = $this->getJson(
+            '/api/v1/events?ma_chuyen_de='.$this->topic->ma_chuyen_de.'&dieu_khoan_drl=KhongCo&limit=20'
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertSee('PKG04 Auto Workshop Laravel')
+            ->assertSee('PKG04 Auto Workshop Python')
+            ->assertDontSee('PKG04 Auto Secret Draft')
+            ->assertDontSee('PKG04 Auto Event Other DRL Condition');
+
+        $this->assertCount(3, $response->json('data'));
+        $this->assertNotContains(
+            $otherConditionEvent->ma_su_kien,
+            array_column($response->json('data'), 'ma_su_kien')
+        );
+    }
+
     public function test_invalid_limit_returns_422(): void
     {
         $this->getJson('/api/v1/events?limit=999')
