@@ -10,3 +10,4 @@ __pycache__/
 coverage/
 frontend/coverage/
 .playwright-mcp/
+/backup_ceh_*.sql

@@ -24,7 +24,10 @@ def make_request(url: str, method: str = "GET", data: bytes = None) -> dict:
         with urllib.request.urlopen(req, timeout=5) as resp:
             content = resp.read()
             if content:
-                return json.loads(content.decode("utf-8"))
+                try:
+                    return json.loads(content.decode("utf-8"))
+                except json.JSONDecodeError:
+                    return {"raw": content.decode("utf-8").strip()}
             return {}
     except urllib.error.URLError as e:
         sys.stderr.write(f"Error connecting to Mailpit at {url}: {e}\n")
