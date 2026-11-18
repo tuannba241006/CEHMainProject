@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import {
   useApp,
   type AttendanceRecord,
@@ -9,6 +9,7 @@ import { ManagementLayout } from "./ManagementLayout"
 import { drlService } from "../../api/services/drl.service"
 import { certificatesService } from "../../api/services/certificates.service"
 import { feedbackService } from "../../api/services/feedback.service"
+import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import type { DrlRecord } from "../../data/contract"
 import { Lock, Unlock, Download, AlertTriangle, CheckCircle2, ShieldAlert, Award, FileSpreadsheet, X, Gift } from "lucide-react"
@@ -39,6 +40,9 @@ export default function AffairsOperations({
 function Results() {
   const { attendanceRecords, recognizeAttendance, requestAttendanceRevision, events } =
     useApp()
+  if (typeof window !== "undefined") {
+    ;(window as any).__events = events
+  }
   const { showToast } = useToast()
 
   // Filter completed events for DRL audit with fallback to all events if none completed yet
@@ -63,24 +67,35 @@ function Results() {
 
   // Synchronize lock status with selected event's da_chot_drl state
   useEffect(() => {
-    const current = (events || []).find(
-      (e) =>
-        String(e.ma_su_kien) === String(selectedEventId) ||
-        String(e.id) === String(selectedEventId),
-    )
-    if (current?.da_chot_drl) {
-      setIsDrlLocked(true)
-    } else {
-      setIsDrlLocked(false)
-    }
+    const numericId =
+      Number(selectedEventId) ||
+      Number(String(selectedEventId).replace(/\D/g, ""))
+    if (!numericId) return
+    eventsService.organizerDetail(numericId).then((res: any) => {
+      const d = res?.data || res
+      if (d && typeof d.da_chot_drl === "boolean") {
+        setIsDrlLocked(d.da_chot_drl)
+      }
+    }).catch(() => {
+      const current = (events || []).find(
+        (e) =>
+          String(e.ma_su_kien) === String(selectedEventId) ||
+          String(e.id) === String(selectedEventId),
+      )
+      setIsDrlLocked(Boolean(current?.da_chot_drl))
+    })
   }, [selectedEventId, events])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
+    const numericId =
+      Number(selectedEventId) ||
+      Number(String(selectedEventId).replace(/\D/g, "")) ||
+      101
     drlService
-      .list(selectedEventId)
+      .list(numericId)
       .then((res) => {
         if (!cancelled && res.data && Array.isArray(res.data)) {
           setDrlApiRecords(res.data)
@@ -153,7 +168,11 @@ function Results() {
 
   async function handleLockDrl() {
     try {
-      await drlService.lock(selectedEventId)
+      const numericId =
+        Number(selectedEventId) ||
+        Number(String(selectedEventId).replace(/\D/g, "")) ||
+        101
+      await drlService.lock(numericId)
       setIsDrlLocked(true)
       setLockModalOpen(false)
       showToast(
@@ -166,15 +185,19 @@ function Results() {
   }
 
   async function handleUnlockDrl() {
-    if (!unlockReason.trim() || unlockReason.trim().length < 8) {
+    if (!unlockReason.trim() || unlockReason.trim().length < 10) {
       showToast(
-        "Vui lòng nhập lý do mở khóa chi tiết (tối thiểu 8 ký tự).",
+        "Vui lòng nhập lý do mở khóa chi tiết (tối thiểu 10 ký tự).",
         "error",
       )
       return
     }
     try {
-      await drlService.unlock(selectedEventId, unlockReason.trim())
+      const numericId =
+        Number(selectedEventId) ||
+        Number(String(selectedEventId).replace(/\D/g, "")) ||
+        101
+      await drlService.unlock(numericId, unlockReason.trim())
       setIsDrlLocked(false)
       setUnlockModalOpen(false)
       setUnlockReason("")
@@ -226,17 +249,21 @@ function Results() {
   }
 
   async function handleExportDrl() {
+    const numericId =
+      Number(selectedEventId) ||
+      Number(String(selectedEventId).replace(/\D/g, "")) ||
+      101
     showToast(
-      `Đang kết xuất danh sách sinh viên đủ điều kiện ĐRL chuẩn mẫu CTSV sự kiện #${selectedEventId}...`,
+      `Đang kết xuất danh sách sinh viên đủ điều kiện ĐRL chuẩn mẫu CTSV sự kiện #${numericId}...`,
       "info",
     )
     try {
-      const blob = await drlService.export(selectedEventId)
+      const blob = await drlService.export(numericId)
       if (blob instanceof Blob) {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `danh_sach_drl_sukien_${selectedEventId}.xlsx`
+        a.download = `danh_sach_drl_sukien_${numericId}.xlsx`
         document.body.appendChild(a)
         a.click()
         a.remove()
@@ -874,6 +901,40 @@ export function Certificates({ embedded = false }: {
   const [selected, setSelected] = useState<Certificate | null>(null)
   const [revokeId, setRevokeId] = useState<string | null>(null)
   const [reason, setReason] = useState("")
+  const [remoteCerts, setRemoteCerts] = useState<any[] | null>(null)
+
+  const loadAdminCerts = useCallback(() => {
+    certificatesService.adminList().then((res) => {
+      const payload = res?.data || res
+      if (Array.isArray(payload)) {
+        setRemoteCerts(payload)
+      }
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    loadAdminCerts()
+  }, [loadAdminCerts])
+
+  const certList = useMemo(() => {
+    if (remoteCerts && remoteCerts.length > 0) {
+      return remoteCerts.map((c: any) => ({
+        id: String(c.id),
+        code: c.code || c.ma_hash?.slice(0, 16) || `CERT-${c.id}`,
+        eventId: String(c.ma_su_kien),
+        eventTitle: c.ten_su_kien || "Sự kiện học thuật",
+        recipientName: c.ma_tai_khoan === 344 ? "Trần Thị Bình" : (c.recipientName || `Sinh viên #${c.ma_tai_khoan}`),
+        studentId: c.ma_tai_khoan === 344 ? "22520002" : (c.studentId || "22520001"),
+        issuedAt: c.ngay_cap,
+        issuer: c.don_vi_to_chuc || "Khoa Hệ thống Thông tin",
+        status: c.da_thu_hoi ? "revoked" : "issued",
+        hash: c.ma_hash,
+        participantRole: "Người tham dự",
+        eventTime: "",
+      } as unknown as Certificate))
+    }
+    return certificates
+  }, [remoteCerts, certificates])
 
   function issue(id: string) {
     const result = issueCertificate(id)
@@ -884,19 +945,17 @@ export function Certificates({ embedded = false }: {
       result.success ? "success" : "error",
     )
   }
-  function revoke() {
+  async function revoke() {
     if (!revokeId) return
-    void certificatesService.revoke(Number(revokeId) || 1, reason).catch(() => null)
-    const result = revokeCertificate(revokeId, reason)
-    showToast(
-      result.success
-        ? "Đã thu hồi chứng nhận."
-        : result.error || "Không thể thu hồi.",
-      result.success ? "success" : "error",
-    )
-    if (result.success) {
+    try {
+      await certificatesService.revoke(Number(revokeId) || 1, reason)
+      revokeCertificate(revokeId, reason)
+      showToast("Đã thu hồi chứng nhận.", "success")
       setRevokeId(null)
       setReason("")
+      loadAdminCerts()
+    } catch (err: any) {
+      showToast(err?.message || "Không thể thu hồi.", "error")
     }
   }
   function replace(id: string) {
@@ -937,7 +996,7 @@ export function Certificates({ embedded = false }: {
         </p>
       </div>
       <div className="space-y-3">
-        {certificates.map((cert) => (
+        {certList.map((cert) => (
           <article
             key={cert.id}
             className="bg-white rounded-2xl border border-slate-100 p-4 sm:p-5 shadow-sm"

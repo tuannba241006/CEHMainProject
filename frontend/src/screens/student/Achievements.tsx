@@ -9,6 +9,7 @@ import type { Certificate } from "../../context/AppContext"
 import type { Ticket as ContractTicket } from "../../data/contract"
 import { certificatesService } from "../../api/services/certificates.service"
 import { ticketsService } from "../../api/services/tickets.service"
+import { triggerFileDownload } from "../../api/client"
 import {
   GraduationCap,
   Award,
@@ -63,6 +64,15 @@ export default function Achievements({ onBack, onVerify }: Props) {
     }
   }, [])
 
+  const handleDownloadCertificate = async (certId: number | string) => {
+    try {
+      const blob = await certificatesService.download(certId)
+      triggerFileDownload(blob, `chung-nhan-${certId}.pdf`, "application/pdf")
+    } catch (err) {
+      console.error("Failed to download certificate:", err)
+    }
+  }
+
   const mappedTicketsAsResults = useMemo(() => {
     if (!remoteTickets || remoteTickets.length === 0) return []
     return remoteTickets
@@ -92,10 +102,25 @@ export default function Achievements({ onBack, onVerify }: Props) {
       ? mappedTicketsAsResults
       : attendanceRecords.filter((row) => row.studentId === user.studentId)
 
-  const activeCertList = remoteCertificates || certificates
-  const myCertificates = activeCertList.filter(
-    (item) => item.studentId === user.studentId,
-  )
+  const myCertificates = useMemo(() => {
+    if (remoteCertificates) {
+      return remoteCertificates.map((c: any) => ({
+        ...c,
+        id: c.id,
+        code: c.code || c.ma_hash?.slice(0, 16) || `CERT-${c.id}`,
+        eventId: c.eventId || String(c.ma_su_kien),
+        eventTitle: c.eventTitle || c.ten_su_kien || "Sự kiện học thuật",
+        studentId: user.studentId,
+        studentName: user.name,
+        issuedAt: c.issuedAt || c.ngay_cap,
+        issuer: c.issuer || c.don_vi_to_chuc || "Khoa Hệ thống Thông tin",
+        status: c.da_thu_hoi ? "revoked" : (c.status || "valid"),
+        hash: c.ma_hash || c.hash,
+        pdfUrl: c.file_pdf_url || c.pdfUrl,
+      }))
+    }
+    return certificates.filter((item) => item.studentId === user.studentId)
+  }, [remoteCertificates, certificates, user.studentId, user.name])
   const officialContribution = myResults.reduce(
     (sum, row) => sum + (row.officialPoints || 0),
     0,
@@ -334,7 +359,7 @@ export default function Achievements({ onBack, onVerify }: Props) {
                     </button>
                     {cert.status === "issued" && (
                       <button
-                        onClick={() => window.print()}
+                        onClick={() => handleDownloadCertificate(cert.id)}
                         className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer"
                       >
                         <Printer className="w-3.5 h-3.5 text-slate-500" />

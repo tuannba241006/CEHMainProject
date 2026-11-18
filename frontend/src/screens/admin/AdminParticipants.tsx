@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useNavigate } from "react-router"
 import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { drlService } from "../../api/services/drl.service"
 import { feedbackService } from "../../api/services/feedback.service"
+import { attendanceService } from "../../api/services/attendance.service"
 import { triggerFileDownload } from "../../api/client"
 import { getApiErrorMessage } from "../../api/errors"
 import type { Ticket } from "../../data/mock"
@@ -87,16 +88,71 @@ export default function AdminParticipants() {
     ) || null
   }, [events, selectedEventId])
 
+  const [apiTickets, setApiTickets] = useState<Ticket[]>([])
+
+  const fetchParticipants = useCallback(() => {
+    if (!selectedEventId) {
+      setApiTickets([])
+      return
+    }
+    const numericId = String(selectedEventId).replace(/\D/g, "")
+    if (!numericId) return
+    attendanceService.participants(numericId).then((res: any) => {
+      const payload = res?.data || res
+      if (Array.isArray(payload)) {
+        const mapped: Ticket[] = payload.map((p: any) => ({
+          id: `TKT-${p.ma_dang_ky}`,
+          ma_dang_ky: p.ma_dang_ky,
+          eventId: String(selectedEventId),
+          ma_su_kien: Number(numericId),
+          eventTitle: currentEvent?.title || "",
+          eventDate: "",
+          eventTime: "",
+          eventLocation: "",
+          faculty: p.khoa || "",
+          qrCode: "",
+          registeredAt: p.thoi_gian_dang_ky || "",
+          studentName: p.ho_ten || "",
+          studentId: p.mssv || "",
+          ticketCode: `TKT-${p.ma_dang_ky}`,
+          status: p.trang_thai === "DaCheckOut" || p.trang_thai === "DaCheckIn" ? "attended" : (p.trang_thai === "DaHuy" ? "cancelled" : "pending"),
+          trang_thai: p.trang_thai,
+          ti_le_drl: p.ti_le_drl != null ? Number(p.ti_le_drl) : 1.0,
+          da_feedback: Boolean(p.da_feedback),
+          du_dieu_kien_drl: Boolean(p.du_dieu_kien_drl),
+          han_an_han_feedback: p.han_an_han_feedback,
+          nghi_van_gian_lan: Boolean(p.nghi_van_gian_lan),
+          checkInTime: p.thoi_gian_check_in,
+          checkOutTime: p.thoi_gian_check_out,
+          userEmail: "",
+          department: p.khoa || "",
+        } as unknown as Ticket))
+        setApiTickets(mapped)
+      }
+    }).catch(() => {})
+  }, [selectedEventId, currentEvent?.title])
+
+  useEffect(() => {
+    fetchParticipants()
+  }, [fetchParticipants])
+
   // Tickets for current event
   const eventTickets = useMemo(() => {
     if (!selectedEventId) return []
-    return tickets.filter(
+    const fromContext = tickets.filter(
       (t) =>
         t.eventId === selectedEventId ||
         String(t.ma_su_kien) === String(selectedEventId) ||
         (currentEvent && (t.eventId === currentEvent.id || t.ma_su_kien === currentEvent.ma_su_kien)),
     )
-  }, [tickets, selectedEventId, currentEvent])
+    if (apiTickets.length > 0) {
+      const map = new Map<number | string, Ticket>()
+      fromContext.forEach(t => map.set(t.ma_dang_ky || t.id, t))
+      apiTickets.forEach(t => map.set(t.ma_dang_ky || t.id, t))
+      return Array.from(map.values())
+    }
+    return fromContext
+  }, [tickets, selectedEventId, currentEvent, apiTickets])
 
   // Filtered tickets based on search & status
   const displayedTickets = useMemo(() => {
@@ -197,13 +253,14 @@ export default function AdminParticipants() {
     }
     setSubmittingGrace(true)
     try {
-      await feedbackService.grantGrace(graceTicket.id || graceTicket.ma_dang_ky, graceReason.trim())
+      await feedbackService.grantGrace(graceTicket.ma_dang_ky || Number(String(graceTicket.id).replace(/\D/g, "")), graceReason.trim())
       showToast(
         `Đã cấp ân hạn 24h nộp bài khảo sát cho sinh viên ${graceTicket.studentName} (${graceTicket.studentId}) - UC-FEED-01.`,
         "success",
       )
       setGraceTicket(null)
       setGraceReason("")
+      fetchParticipants()
     } catch (err) {
       showToast(getApiErrorMessage(err), "error")
     } finally {
