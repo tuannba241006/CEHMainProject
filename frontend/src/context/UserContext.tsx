@@ -5,7 +5,7 @@ import type {
   OrganizationSummary,
 } from "../data/contract"
 import { ORGANIZATIONS } from "../data/mock"
-import { isApiMode, tokenStore } from "../api/config"
+import { tokenStore, isApiMode } from "../api/config"
 import { authService } from "../api/services/auth.service"
 
 export type AppRole = "student" | "organizer" | "faculty_manager" | "student_affairs" | "admin"
@@ -78,7 +78,11 @@ interface UserContextType {
   updateUser: (
     patch: Partial<Pick<UserData, "name" | "phone" | "avatar">>,
   ) => void
-  loginAs: (email: string, role?: AppRole) => void
+  loginAs: (
+    email: string,
+    role?: AppRole,
+    customUser?: UserData | ContractUser,
+  ) => void
   loginApi: (username: string, password: string) => Promise<UserData>
   logout: () => Promise<void>
 }
@@ -91,19 +95,95 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const stored = sessionStorage.getItem("ceh_demo_role")
     return stored as AppRole | null
   })
-  const [loading, setLoading] = useState(isApiMode())
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!isApiMode()) return
-    authService
-      .me()
-      .then(({ data }) => {
-        setUser(fromContractUser(data))
-        setRole(roleFromUser(data))
-      })
-      .catch(() => setRole(null))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    const token = tokenStore.get()
+    const storedRole = sessionStorage.getItem("ceh_demo_role") as AppRole | null
+    const storedEmail = sessionStorage.getItem("ceh_demo_email")
+
+    // CSRF pre-fetch is handled during auth actions (login/register) to prevent wiping active sessions.
+
+    if (token || isApiMode()) {
+      authService
+        .me()
+        .then(({ data }) => {
+          if (cancelled || !data) return
+          const u = fromContractUser(data)
+          setUser(u)
+          setRole(roleFromUser(data))
+          try {
+            sessionStorage.setItem("ceh_user_data", JSON.stringify(u))
+          } catch {}
+        })
+        .catch(() => {
+          if (cancelled) return
+          if (!isApiMode() && storedRole && storedEmail) {
+            loginAs(storedEmail, storedRole)
+          } else {
+            setRole(null)
+            setUser(DEFAULT_USER)
+            tokenStore.clear()
+            try {
+              sessionStorage.removeItem("ceh_demo_role")
+              sessionStorage.removeItem("ceh_demo_email")
+              sessionStorage.removeItem("ceh_user_data")
+            } catch {}
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    } else if (storedRole && storedEmail) {
+      const storedUserData = sessionStorage.getItem("ceh_user_data")
+      if (storedUserData) {
+        try {
+          const parsed = JSON.parse(storedUserData) as UserData
+          if (parsed.email === storedEmail) {
+            setUser(parsed)
+            setLoading(false)
+            return
+          }
+        } catch {}
+      }
+      loginAs(storedEmail, storedRole)
+      setLoading(false)
+    } else {
+      setLoading(false)
+    }
+
+    return () => {
+      cancelled = true
+    }
   }, [])
+
+  useEffect(() => {
+    function handleSessionExpired(event: Event) {
+      const customEvt = event as CustomEvent<{ path?: string }>
+      const path = customEvt.detail?.path || ""
+      // Only proceed with session termination if the canonical /auth/me check failed
+      if (!path.includes("/auth/me")) {
+        return
+      }
+      setRole(null)
+      setUser(DEFAULT_USER)
+      tokenStore.clear()
+      try {
+        sessionStorage.removeItem("ceh_demo_role")
+        sessionStorage.removeItem("ceh_demo_email")
+        sessionStorage.removeItem("ceh_user_data")
+      } catch {}
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("ceh:session_expired", handleSessionExpired)
+      return () => {
+        window.removeEventListener("ceh:session_expired", handleSessionExpired)
+      }
+    }
+  }, [])
+
 
   function updateUser(
     patch: Partial<Pick<UserData, "name" | "phone" | "avatar">>,
@@ -127,11 +207,37 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     })
   }
 
-  function loginAs(email: string, selectedRole?: AppRole) {
+  function loginAs(
+    email: string,
+    selectedRole?: AppRole,
+    customUser?: UserData | ContractUser,
+  ) {
     const resolvedRole = selectedRole || roleFromEmail(email)
     setRole(resolvedRole)
     sessionStorage.setItem("ceh_demo_role", resolvedRole)
     sessionStorage.setItem("ceh_demo_email", email)
+
+    if (customUser) {
+      const u =
+        "displayName" in customUser ? customUser : fromContractUser(customUser)
+      setUser(u)
+      try {
+        sessionStorage.setItem("ceh_user_data", JSON.stringify(u))
+      } catch {}
+      return
+    }
+
+    const storedUserData = sessionStorage.getItem("ceh_user_data")
+    if (storedUserData) {
+      try {
+        const parsed = JSON.parse(storedUserData) as UserData
+        if (parsed.email === email) {
+          setUser(parsed)
+          return
+        }
+      } catch {}
+    }
+
     if (selectedRole === "admin" || email.includes("admin@")) {
       setUser({
         ...DEFAULT_USER,
@@ -153,7 +259,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       })
       return
     }
-    if (email === "checkin@demo.edu.vn" || email === "22520099@gm.uit.edu.vn") {
+    if (
+      email === "checkin@demo.edu.vn" ||
+      email === "22521999@gm.uit.edu.vn" ||
+      email === "22520099@gm.uit.edu.vn"
+    ) {
       setUser({
         ma_tai_khoan: 2,
         ho_ten: "Trần Minh Phúc",
@@ -182,6 +292,42 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         phone: "0909 888 777",
         role: "Sinh viên · CTV điểm danh",
       })
+      return
+    }
+
+    if (email === "22520001@gm.uit.edu.vn" || email === "student@demo.edu.vn") {
+      const svUser: UserData = {
+        ma_tai_khoan: 1,
+        ho_ten: "Nguyễn Văn An",
+        mssv: "22520001",
+        email: "22520001@gm.uit.edu.vn",
+        loai_tai_khoan: "SinhVien",
+        so_dien_thoai: "0901 234 567",
+        lop_sinh_hoat: "KTPM2022.1",
+        ma_khoa: 1,
+        khoa: "Khoa Kỹ thuật Phần mềm",
+        ma_don_vi_to_chuc: null,
+        don_vi: null,
+        avatar_url: null,
+        dong_y_nghi_dinh_13: true,
+        buoc_doi_mat_khau: false,
+        la_nhan_vien_soat_ve: false,
+        hoat_dong: true,
+        thoi_gian_tao: "2026-09-01T08:00:00+07:00",
+
+        name: "Nguyễn Văn An",
+        displayName: "Văn An",
+        initials: "VA",
+        avatar: null,
+        studentId: "22520001",
+        faculty: "Khoa Kỹ thuật Phần mềm",
+        phone: "0901 234 567",
+        role: "Sinh viên",
+      }
+      setUser(svUser)
+      try {
+        sessionStorage.setItem("ceh_user_data", JSON.stringify(svUser))
+      } catch {}
       return
     }
 
@@ -293,17 +439,33 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // Default to student
-    setUser(DEFAULT_USER)
-  }
+    const studentMatch = email.match(/^(\d{8})@gm\.uit\.edu\.vn$/i)
+    if (studentMatch) {
+      const mssv = studentMatch[1]
+      const svUser: UserData = {
+        ...DEFAULT_USER,
+        ma_tai_khoan: Number(mssv) % 10000 || 1,
+        mssv,
+        email,
+        studentId: mssv,
+        ho_ten: mssv === "22520001" ? "Nguyễn Văn An" : `Sinh viên ${mssv}`,
+        name: mssv === "22520001" ? "Nguyễn Văn An" : `Sinh viên ${mssv}`,
+        displayName: mssv === "22520001" ? "Văn An" : `SV ${mssv.slice(-4)}`,
+        initials: "SV",
+      }
+      setUser(svUser)
+      try {
+        sessionStorage.setItem("ceh_user_data", JSON.stringify(svUser))
+      } catch {}
+      return
+    }
 
-  // Session restoration must rebuild the matching profile, not just the role.
-  useEffect(() => {
-    if (isApiMode()) return
-    const storedRole = sessionStorage.getItem("ceh_demo_role") as AppRole | null
-    const storedEmail = sessionStorage.getItem("ceh_demo_email")
-    if (storedRole && storedEmail) loginAs(storedEmail, storedRole)
-  }, [])
+    // Default fallback to student
+    setUser(DEFAULT_USER)
+    try {
+      sessionStorage.setItem("ceh_user_data", JSON.stringify(DEFAULT_USER))
+    } catch {}
+  }
 
   async function loginApi(username: string, password: string) {
     const res = await authService.login(username, password)
@@ -312,21 +474,27 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
     const nextUser = fromContractUser(res.data)
     setUser(nextUser)
-    setRole(roleFromUser(res.data))
+    const nextRole = roleFromUser(res.data)
+    setRole(nextRole)
+    try {
+      sessionStorage.setItem("ceh_demo_role", nextRole)
+      sessionStorage.setItem("ceh_demo_email", nextUser.email)
+      sessionStorage.setItem("ceh_user_data", JSON.stringify(nextUser))
+    } catch {}
     return nextUser
   }
 
   async function logout() {
     try {
-      if (isApiMode()) {
-        await authService.logout()
-      }
+      await authService.logout()
     } catch (e) {
       console.warn("Logout error:", e)
     } finally {
       tokenStore.clear()
       sessionStorage.removeItem("ceh_demo_role")
       sessionStorage.removeItem("ceh_demo_email")
+      sessionStorage.removeItem("ceh_user_data")
+      sessionStorage.setItem("ceh_just_logged_out", "true")
       setRole(null)
       setUser(DEFAULT_USER)
     }
@@ -337,7 +505,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         role,
-        authenticated: role !== null,
+        authenticated: !loading && role !== null,
         loading,
         updateUser,
         loginAs,

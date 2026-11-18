@@ -5,7 +5,7 @@ import { getApiErrorMessage } from "../../api/errors"
 export interface FieldSpec {
   name: string
   label: string
-  type?: "text" | "number" | "email" | "select" | "checkbox"
+  type?: "text" | "number" | "email" | "select" | "checkbox" | "datetime-local" | "date"
   options?: { value: string; label: string }[]
   required?: boolean
   min?: number
@@ -14,7 +14,7 @@ export interface FieldSpec {
 type Values = Record<string, string | number | boolean | null | undefined>
 
 interface Props {
-  key?: any
+  key?: React.Key
   open: boolean
   title: string
   description?: string

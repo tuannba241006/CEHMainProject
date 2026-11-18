@@ -30,9 +30,8 @@ class RoomScheduleController extends Controller
 
         if (! $result['success']) {
             if ($result['error_code'] === 'DATE_RANGE_TOO_LARGE') {
-                return response()->json([
-                    'success' => false,
-                    'error' => [
+                return $this->errorResponse(
+                    [
                         'code' => 'DATE_RANGE_TOO_LARGE',
                         'details' => [
                             'max_days' => 31,
@@ -40,8 +39,14 @@ class RoomScheduleController extends Controller
                             'den_ngay' => $denNgay,
                         ],
                     ],
-                    'message' => $result['message'],
-                ], 422);
+                    $result['message'],
+                    [
+                        'max_days' => 31,
+                        'tu_ngay' => $tuNgay,
+                        'den_ngay' => $denNgay,
+                    ],
+                    422
+                );
             }
         }
 
@@ -67,16 +72,19 @@ class RoomScheduleController extends Controller
 
         if (! $result['success']) {
             if ($result['error_code'] === 'EXCLUDE_EVENT_FORBIDDEN') {
-                return response()->json([
-                    'success' => false,
-                    'error' => [
+                return $this->errorResponse(
+                    [
                         'code' => 'EXCLUDE_EVENT_FORBIDDEN',
                         'details' => [
                             'exclude_event_id' => $excludeEventId,
                         ],
                     ],
-                    'message' => $result['message'],
-                ], 403);
+                    $result['message'],
+                    [
+                        'exclude_event_id' => $excludeEventId,
+                    ],
+                    403
+                );
             }
         }
 

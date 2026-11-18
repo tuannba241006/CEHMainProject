@@ -9,6 +9,21 @@ import {
   CertificatePreview,
 } from "../management/AffairsOperations"
 import type { Certificate } from "../../context/AppContext"
+import { feedbackService } from "../../api/services/feedback.service"
+import { getApiErrorMessage } from "../../api/errors"
+import {
+  QrCode,
+  Calendar,
+  MapPin,
+  User as UserIcon,
+  CheckCircle2,
+  Sun,
+  AlertTriangle,
+  Clock,
+  Sparkles,
+  X,
+  Star,
+} from "lucide-react"
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> =
   {
@@ -38,9 +53,19 @@ export default function MyTickets({
     getStudentWaitlistEntries,
     claimWaitlistOffer,
     declineWaitlistOffer,
+    refreshTickets,
+    ticketsLoading,
+    ticketsError,
   } = useApp()
   const { user } = useUser()
   const { showToast } = useToast()
+
+  const userIdentifier = user?.studentId || user?.email || user?.ma_tai_khoan
+  useEffect(() => {
+    if (refreshTickets) {
+      void refreshTickets(user)
+    }
+  }, [userIdentifier, refreshTickets])
   const [tab, setTab] = useState<"upcoming" | "waitlist" | "history">(
     initialTab,
   )
@@ -53,11 +78,11 @@ export default function MyTickets({
 
   // UC-TCK-01: Auto-request Screen Wake Lock when ticket QR is open
   useEffect(() => {
-    let sentinel: any = null
+    let sentinel: { release: () => Promise<void> } | null = null
     if (showQR && "wakeLock" in navigator) {
-      ;(navigator as any).wakeLock
+      ;(navigator as unknown as { wakeLock: { request: (type: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock
         .request("screen")
-        .then((s: any) => {
+        .then((s) => {
           sentinel = s
           setWakeLockActive(true)
         })
@@ -127,7 +152,8 @@ export default function MyTickets({
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 text-white font-semibold text-xs hover:bg-cyan-700 transition-colors shadow-xs cursor-pointer"
             >
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              <span>📷 Tự quét mã Kiosk Hội trường</span>
+              <QrCode className="w-4 h-4 shrink-0" />
+              <span>Tự quét mã Kiosk Hội trường</span>
             </button>
             <button
               onClick={() => onNavigate("home")}
@@ -305,9 +331,35 @@ export default function MyTickets({
         </div>
       )}
 
+      {ticketsError && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl flex items-center justify-between text-xs">
+          <span className="flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" /> {ticketsError}</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onNavigate("/login")}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium cursor-pointer transition-colors"
+            >
+              Đăng nhập lại
+            </button>
+            <button
+              onClick={() => refreshTickets && refreshTickets(user)}
+              className="underline font-semibold cursor-pointer text-amber-900"
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Ticket List View */}
       {tab !== "waitlist" &&
-        (list.length === 0 ? (
+        (ticketsLoading && list.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6 animate-pulse">
+            <div className="w-12 h-12 rounded-full bg-slate-200 mx-auto mb-3" />
+            <div className="h-4 bg-slate-200 rounded-md w-3/4 mx-auto mb-2" />
+            <div className="h-3 bg-slate-100 rounded-md w-1/2 mx-auto" />
+          </div>
+        ) : list.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-4">
               <svg
@@ -384,7 +436,7 @@ export default function MyTickets({
                     {/* Metadata rows */}
                     <div className="space-y-2 text-xs text-slate-600 mb-5">
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400">📅</span>
+                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="font-medium text-slate-800">
                           {(
                             parseCalendarDate(ticket.eventDate) ?? new Date(0)
@@ -399,12 +451,12 @@ export default function MyTickets({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400">📍</span>
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span className="truncate">{ticket.eventLocation}</span>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400">👤</span>
+                        <UserIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span>
                           {ticket.studentName} ({ticket.studentId})
                         </span>
@@ -412,7 +464,7 @@ export default function MyTickets({
 
                       {ticket.checkinTime && (
                         <div className="flex items-center gap-2 text-emerald-700 font-medium pt-1">
-                          <span>✓</span>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           <span>Check-in lúc {ticket.checkinTime}</span>
                         </div>
                       )}
@@ -497,9 +549,10 @@ export default function MyTickets({
               </h2>
               <button
                 onClick={() => setShowQR(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                title="Đóng"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -513,7 +566,7 @@ export default function MyTickets({
 
             {wakeLockActive && (
               <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full mb-4 border border-emerald-100">
-                <span>☀️</span>
+                <Sun className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>Screen Wake Lock đang giữ sáng màn hình</span>
               </div>
             )}
@@ -676,18 +729,32 @@ function AfterEvent({
       item.eventId === ticket.eventId && item.studentId === user.studentId,
   )
 
-  function sendSurvey() {
-    const result = submitSurvey({
-      eventId: ticket.eventId,
-      studentId: user.studentId,
-      ...form,
-    })
-    showToast(
-      result.success
-        ? "Đã gửi đánh giá ẩn danh."
-        : result.error || "Không thể gửi đánh giá.",
-      result.success ? "success" : "error",
-    )
+  async function sendSurvey() {
+    try {
+      const comment = [form.useful, form.improvement]
+        .filter(Boolean)
+        .join(". ")
+        .trim()
+      await feedbackService.submit(ticket.eventId, {
+        diem_noi_dung: form.content || 5,
+        diem_dien_gia: form.overall || 5,
+        diem_to_chuc: form.organization || 5,
+        y_kien_dong_gop: comment || "Đánh giá chất lượng sự kiện",
+      })
+      const result = submitSurvey({
+        eventId: ticket.eventId,
+        studentId: user.studentId,
+        ...form,
+      })
+      showToast(
+        result.success
+          ? "Đã gửi đánh giá thành công! Bạn đã đủ điều kiện nhận ĐRL và tải Giấy chứng nhận."
+          : result.error || "Không thể gửi đánh giá.",
+        result.success ? "success" : "error",
+      )
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
   function sendReview() {
@@ -723,9 +790,10 @@ function AfterEvent({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+            title="Đóng"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -1035,13 +1103,13 @@ function Rating({
             key={star}
             type="button"
             onClick={() => onChange(star)}
-            className={`w-8 h-8 rounded-lg text-base cursor-pointer transition-colors ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
               star <= value
-                ? "bg-amber-50 text-amber-500 font-bold"
+                ? "bg-amber-50 text-amber-500"
                 : "bg-slate-50 text-slate-300"
             }`}
           >
-            ★
+            <Star className={`w-4 h-4 ${star <= value ? "fill-amber-400" : ""}`} />
           </button>
         ))}
       </div>

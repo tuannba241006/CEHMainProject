@@ -18,12 +18,15 @@ use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\KioskSessionController;
 use App\Http\Controllers\Api\MacroBiController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomScheduleController;
 use App\Http\Controllers\Api\SelfAttendanceController;
 use App\Http\Controllers\Api\StaffAttendanceController;
 use App\Http\Controllers\Api\TicketCancelController;
 use App\Http\Controllers\Api\TicketController;
+use App\Http\Controllers\Api\TopicController;
+use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\WaitlistController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -46,10 +49,16 @@ Route::get('/v1/events', [EventCatalogController::class, 'index'])->name('v1.eve
 
 Route::get('/v1/topics', [EventCatalogController::class, 'topics'])->name('v1.topics.public.index');
 
+// Public organizations list (no auth) — Gap 3 Endpoint 2
+Route::get('/v1/organizations', [OrganizationController::class, 'publicIndex'])->name('v1.organizations.public');
+
 // Root API aliases: /api/...
 Route::get('/events', [EventCatalogController::class, 'index'])->name('events.public.index');
 
 Route::get('/topics', [EventCatalogController::class, 'topics'])->name('topics.public.index');
+
+// Public organizations list (no auth) — Gap 3 Endpoint 2
+Route::get('/organizations', [OrganizationController::class, 'publicIndex'])->name('organizations.public');
 Route::get('/v1/events/{id}', [EventPublicDetailController::class, 'show'])->whereNumber('id')->name('v1.events.public.show');
 
 Route::get('/events/{id}', [EventPublicDetailController::class, 'show'])->whereNumber('id')->name('events.public.show');
@@ -72,16 +81,36 @@ $authRoutes = function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('/me', [AuthController::class, 'me'])->name('auth.me');
         Route::put('/profile', [AuthController::class, 'updateProfile'])->name('auth.profile');
-        Route::put('/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
+        Route::match(['put', 'post'], '/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
     });
 };
 
-// Admin routes definition (UC-ADM-01)
+// Admin routes definition (UC-ADM-01, UC-REP-02)
 $adminRoutes = function () {
     Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
         Route::get('/users', [AdminUserController::class, 'index'])->name('admin.users.index');
         Route::post('/users', [AdminUserController::class, 'createInternal'])->name('admin.users.create');
         Route::post('/users/create-internal', [AdminUserController::class, 'createInternal'])->name('admin.users.create-internal');
+        Route::put('/users/{id}/status', [AdminUserController::class, 'updateStatus'])->name('admin.users.status');
+        Route::put('/users/{id}/assign-organizer', [AdminUserController::class, 'assignOrganizer'])->name('admin.users.assign-organizer');
+
+        // Gap 3 Endpoint 4: Admin CRUD Organizations
+        Route::get('/organizations', [OrganizationController::class, 'adminIndex'])->name('admin.organizations.index');
+        Route::post('/organizations', [OrganizationController::class, 'adminStore'])->name('admin.organizations.store');
+        Route::put('/organizations/{id}', [OrganizationController::class, 'adminUpdate'])->whereNumber('id')->name('admin.organizations.update');
+
+        // Gap 3 Endpoint 5: Admin CRUD Topics
+        Route::get('/topics', [TopicController::class, 'index'])->name('admin.topics.index');
+        Route::post('/topics', [TopicController::class, 'store'])->name('admin.topics.store');
+        Route::put('/topics/{id}', [TopicController::class, 'update'])->whereNumber('id')->name('admin.topics.update');
+        Route::delete('/topics/{id}', [TopicController::class, 'destroy'])->whereNumber('id')->name('admin.topics.destroy');
+    });
+};
+
+// Gap 3 Endpoint 3: Image upload routes
+$uploadRoutes = function () {
+    Route::middleware(['auth:sanctum,web', 'password.changed'])->group(function () {
+        Route::post('/uploads/images', [UploadController::class, 'uploadImage'])->name('uploads.images');
     });
 };
 
@@ -134,6 +163,11 @@ $eventRoutes = function () {
     // PKG-05: Concurrency ticket booking (UC-BOOK-01, FR-14)
     Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
         Route::post('/{id}/book', [BookingController::class, 'bookTicket'])->name('events.book');
+    });
+
+    // Gap 3 Endpoint 1: booking-check (all authenticated users)
+    Route::middleware(['auth:sanctum,web', 'role:SinhVien,ToChuc,Admin', 'password.changed'])->group(function () {
+        Route::get('/{id}/booking-check', [BookingController::class, 'precheck'])->whereNumber('id')->name('events.booking.precheck');
     });
 };
 
@@ -250,7 +284,7 @@ $drlAndAnalyticsRoutes = function () {
 };
 
 // Version 1 API routes (/api/v1/...)
-Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes, $waitlistRoutes, $feedbackAndCertificateRoutes, $drlAndAnalyticsRoutes) {
+Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRoutes, $eventRoutes, $organizerRoutes, $ticketRoutes, $notificationRoutes, $attendanceRoutes, $waitlistRoutes, $feedbackAndCertificateRoutes, $drlAndAnalyticsRoutes, $uploadRoutes) {
     Route::prefix('auth')->group($authRoutes);
     Route::prefix('admin')->group($adminRoutes);
     Route::prefix('rooms')->group($roomRoutes);
@@ -262,6 +296,7 @@ Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRout
     $attendanceRoutes();
     $feedbackAndCertificateRoutes();
     $drlAndAnalyticsRoutes();
+    $uploadRoutes();
 });
 
 // Root API alias routes (/api/...)
@@ -276,3 +311,4 @@ $waitlistRoutes();
 $attendanceRoutes();
 $feedbackAndCertificateRoutes();
 $drlAndAnalyticsRoutes();
+$uploadRoutes();

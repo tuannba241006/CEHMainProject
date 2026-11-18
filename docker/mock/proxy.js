@@ -4,10 +4,8 @@ const PRISM_PORT = 4011;
 const LISTEN_PORT = 4010;
 
 const server = http.createServer((req, res) => {
-  // Strip /api/v1 prefix if present to support both /api/v1/... and root endpoints
-  const path = req.url.startsWith('/api/v1')
-    ? req.url.replace('/api/v1', '') || '/'
-    : req.url;
+  // Strip /api/v1 or /api prefix if present to support /api/..., /api/v1/... and root endpoints
+  const path = req.url.replace(/^\/api(\/v1)?/, '') || '/';
 
   const options = {
     hostname: '127.0.0.1',

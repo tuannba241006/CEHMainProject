@@ -1,9 +1,13 @@
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
-import { isApiMode } from "../../api/config"
+import { useApp } from "../../context/AppContext"
 import { authService } from "../../api/services/auth.service"
+import { ticketsService } from "../../api/services/tickets.service"
+import { certificatesService } from "../../api/services/certificates.service"
 import { getApiErrorMessage } from "../../api/errors"
+import type { Ticket as ContractTicket } from "../../data/contract"
+import { Camera, Trash2, AlertTriangle, X } from "lucide-react"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -16,6 +20,81 @@ export default function Profile({ onNavigate, onLogout }: Props) {
   const [editMode, setEditMode] = useState(false)
   const [showAvatarModal, setShowAvatarModal] = useState(false)
   const [draft, setDraft] = useState({ name: user.name, phone: user.phone })
+
+  const { tickets: contextTickets } = useApp()
+  const [remoteTickets, setRemoteTickets] = useState<ContractTicket[] | null>(null)
+  const [remoteCertCount, setRemoteCertCount] = useState<number | null>(null)
+
+  // UC-AUTH-05 / UC-TCK-01: Tự động tải thống kê vé và điểm rèn luyện thực tế từ API
+  useEffect(() => {
+    let active = true
+    Promise.allSettled([ticketsService.mine(), certificatesService.mine()])
+      .then(([tckRes, certRes]) => {
+        if (!active) return
+        if (
+          tckRes.status === "fulfilled" &&
+          tckRes.value?.data &&
+          Array.isArray(tckRes.value.data)
+        ) {
+          setRemoteTickets(tckRes.value.data)
+        }
+        if (
+          certRes.status === "fulfilled" &&
+          certRes.value?.data &&
+          Array.isArray(certRes.value.data)
+        ) {
+          setRemoteCertCount(certRes.value.data.length)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const stats = useMemo(() => {
+    if (remoteTickets !== null) {
+      const bookedCount = remoteTickets.filter(
+        (t) => t.trang_thai !== "DaHuy",
+      ).length
+      const attendedCount = remoteTickets.filter(
+        (t) => t.trang_thai === "DaCheckOut" || t.thoi_gian_check_in,
+      ).length
+      const totalPoints = remoteTickets.reduce((sum, t) => {
+        if (t.trang_thai === "DaCheckOut" || t.thoi_gian_check_in) {
+          return sum + (Number(t.diem_drl_du_kien) || 5)
+        }
+        return sum
+      }, 0)
+      return {
+        booked: bookedCount,
+        attended: attendedCount,
+        points: totalPoints,
+      }
+    }
+
+    const myTickets = contextTickets.filter(
+      (t) => t.studentId === user.studentId && t.status !== "cancelled",
+    )
+    const myAttended = contextTickets.filter(
+      (t) =>
+        t.studentId === user.studentId &&
+        (t.status === "attended" ||
+          t.trang_thai === "DaCheckIn" ||
+          t.trang_thai === "DaCheckOut"),
+    )
+    const points =
+      (remoteCertCount ? remoteCertCount * 10 : 0) +
+      myAttended.reduce(
+        (sum, t) => sum + (Number((t as unknown as { diem_drl_du_kien?: number }).diem_drl_du_kien) || 5),
+        0,
+      )
+    return {
+      booked: myTickets.length,
+      attended: myAttended.length,
+      points,
+    }
+  }, [remoteTickets, remoteCertCount, contextTickets, user.studentId])
 
   const [saving, setSaving] = useState(false)
 
@@ -38,13 +117,11 @@ export default function Profile({ onNavigate, onLogout }: Props) {
 
     setChangingPass(true)
     try {
-      if (isApiMode()) {
-        await authService.changePassword({
-          mat_khau_hien_tai: currentPassword,
-          mat_khau_moi: newPassword,
-          xac_nhan_mat_khau: confirmPassword,
-        })
-      }
+      await authService.changePassword({
+        mat_khau_hien_tai: currentPassword,
+        mat_khau_moi: newPassword,
+        xac_nhan_mat_khau_moi: confirmPassword,
+      })
       showToast(
         "Đã đổi mật khẩu thành công. Các phiên làm việc khác đã được thu hồi bảo mật.",
         "success",
@@ -63,12 +140,10 @@ export default function Profile({ onNavigate, onLogout }: Props) {
     if (saving) return
     setSaving(true)
     try {
-      if (isApiMode()) {
-        await authService.updateProfile({
-          so_dien_thoai: draft.phone,
-          avatar_url: user.avatar_url,
-        })
-      }
+      await authService.updateProfile({
+        so_dien_thoai: draft.phone,
+        avatar_url: user.avatar_url,
+      })
       updateUser({ phone: draft.phone })
       setEditMode(false)
       showToast("Đã cập nhật thông tin hồ sơ thành công.", "success")
@@ -312,7 +387,8 @@ export default function Profile({ onNavigate, onLogout }: Props) {
             >
               {passError && (
                 <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-100 font-medium">
-                  ⚠️ {passError}
+                  <AlertTriangle className="w-3.5 h-3.5 inline mr-1 text-rose-600" />
+                  <span>{passError}</span>
                 </p>
               )}
               <div>
@@ -379,7 +455,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                 <div className="text-xl font-display font-bold text-indigo-600">
-                  3
+                  {stats.booked}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium mt-1">
                   Vé đã đặt
@@ -387,7 +463,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
               </div>
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                 <div className="text-xl font-display font-bold text-emerald-600">
-                  1
+                  {stats.attended}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium mt-1">
                   Đã tham gia
@@ -395,7 +471,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
               </div>
               <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                 <div className="text-xl font-display font-bold text-cyan-600">
-                  25
+                  {stats.points}
                 </div>
                 <div className="text-[10px] text-slate-500 font-medium mt-1">
                   Điểm tích lũy
@@ -472,9 +548,10 @@ export default function Profile({ onNavigate, onLogout }: Props) {
               </h3>
               <button
                 onClick={() => setShowAvatarModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
+                title="Đóng"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -505,7 +582,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
                 className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors text-left flex items-center justify-between cursor-pointer"
               >
                 <span>Chọn ảnh mẫu chân dung sinh viên</span>
-                <span>📸</span>
+                <Camera className="w-4 h-4 text-slate-500" />
               </button>
 
               <button
@@ -517,7 +594,7 @@ export default function Profile({ onNavigate, onLogout }: Props) {
                 className="w-full py-2.5 px-4 rounded-xl border border-rose-100 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors text-left flex items-center justify-between cursor-pointer"
               >
                 <span>Xóa ảnh đại diện (sử dụng chữ cái đầu)</span>
-                <span>🗑️</span>
+                <Trash2 className="w-4 h-4 text-rose-500" />
               </button>
             </div>
 

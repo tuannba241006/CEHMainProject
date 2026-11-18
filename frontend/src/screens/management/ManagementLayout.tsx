@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { BarChart3 } from "lucide-react"
 import type { Role } from "../../App"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
@@ -56,6 +57,13 @@ const icons = {
       d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"
     />
   ),
+  camera: (
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"
+    />
+  ),
 }
 
 export function ManagementLayout({
@@ -82,12 +90,12 @@ export function ManagementLayout({
     ? [
         {
           id: "faculty-inbox",
-          label: "Hồ sơ chờ khoa duyệt (Bước 1)",
+          label: "Hồ sơ chờ thẩm định",
           icon: icons.inbox,
         },
         {
           id: "org-events",
-          label: "Tổ chức sự kiện Khoa (Host A)",
+          label: "Sự kiện trực thuộc Khoa",
           icon: icons.event,
         },
       ]
@@ -122,7 +130,7 @@ export function ManagementLayout({
     ? "Ban Quản lý Khoa"
     : "Quản trị viên (Admin - P.CTSV / Ban Giám hiệu)"
   const subtitle = isFaculty
-    ? "Ban tổ chức cấp Khoa & Thẩm định bước 1"
+    ? "Ban tổ chức & Thẩm định cấp Khoa"
     : "Quản trị viên cao nhất cấp Trường"
   const initials = isFaculty ? "KQ" : "AD"
   const unread = notifications.filter(
@@ -143,12 +151,6 @@ export function ManagementLayout({
             <p className="text-[11px] text-slate-400 truncate">{subtitle}</p>
           </div>
         </div>
-        <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
-          <p className="text-xs font-semibold text-amber-700">Tài khoản demo</p>
-          <p className="text-xs text-amber-600 mt-0.5">
-            Dữ liệu và thao tác chỉ dùng để mô phỏng.
-          </p>
-        </div>
         {unread > 0 && (
           <button
             onClick={() =>
@@ -160,13 +162,12 @@ export function ManagementLayout({
           </button>
         )}
         {!isFaculty && (
-          <div className="mt-3 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 p-2.5">
-            <p className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-              <span>✨</span> Trợ lý AI BI
+          <div className="mt-3 rounded-xl bg-slate-50 border border-slate-200/80 p-2.5">
+            <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+              <BarChart3 className="w-3.5 h-3.5 text-indigo-600 shrink-0" /> Phân tích Thống kê BI
             </p>
             <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-              Truy vấn số liệu vĩ mô, tỷ lệ No-show & ĐRL toàn trường qua nút
-              bấm góc phải.
+              Truy vấn số liệu vĩ mô, tỷ lệ No-show & ĐRL toàn trường qua bảng điều khiển nhanh.
             </p>
           </div>
         )}
@@ -264,7 +265,7 @@ export function ManagementLayout({
             <p className="font-display font-semibold text-sm text-navy">
               {title}
             </p>
-            <p className="text-xs text-amber-600">Chế độ demo</p>
+            <p className="text-xs text-slate-500">Cổng Quản lý</p>
           </div>
           <div className="w-9 h-9 rounded-full bg-cyan text-white flex items-center justify-center text-xs font-bold">
             {initials}
@@ -275,15 +276,15 @@ export function ManagementLayout({
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
               {isFaculty
-                ? "Ban Quản lý Khoa (Host A & Reviewer)"
+                ? "Ban Quản lý Khoa"
                 : "Quản trị viên (Admin - P.CTSV / Ban Giám hiệu)"}
             </span>
             <span className="text-slate-300">/</span>
             <span className="text-sm font-semibold text-slate-800">
               {current === "faculty-inbox"
-                ? "Thẩm định hồ sơ CLB cấp Khoa (Bước 1)"
+                ? "Thẩm định hồ sơ sự kiện"
                 : current === "affairs-inbox"
-                  ? "Phê duyệt hồ sơ cấp Trường & Phòng ốc (Bước 2)"
+                  ? "Phê duyệt hồ sơ cấp Trường & Phòng ốc"
                   : current === "affairs-results"
                     ? "Phê duyệt kết quả & Điểm ĐRL"
                     : current === "affairs-certificates"

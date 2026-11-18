@@ -3,13 +3,14 @@ import { BrowserQRCodeReader } from "@zxing/browser"
 import type { IScannerControls } from "@zxing/browser"
 import { useApp, type CheckInResult } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
-import { isApiMode } from "../../api/config"
 import { attendanceService } from "../../api/services/attendance.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
+import { Camera, Calendar, Ticket } from "lucide-react"
 
 interface Props {
   onLogout: () => void
   onBack?: () => void
+  onNavigateToEvents?: () => void
 }
 
 interface HistoryEntry {
@@ -20,7 +21,11 @@ interface HistoryEntry {
   message?: string
 }
 
-export default function QRScanner({ onLogout, onBack }: Props) {
+export default function QRScanner({
+  onLogout,
+  onBack,
+  onNavigateToEvents,
+}: Props) {
   const {
     events,
     checkIn,
@@ -30,7 +35,18 @@ export default function QRScanner({ onLogout, onBack }: Props) {
     getStudentPermissions,
   } = useApp()
   const { user, role } = useUser()
-  const apiMode = isApiMode()
+  const isFaculty =
+    role === "faculty_manager" ||
+    user.don_vi?.loai_don_vi === "Khoa" ||
+    (typeof user.email === "string" &&
+      (user.email.includes("httt@") || user.email.includes("bql.")))
+  const isAdmin =
+    role === "admin" ||
+    role === "student_affairs" ||
+    user.loai_tai_khoan === "Admin"
+  const isOrg =
+    role === "organizer" ||
+    user.loai_tai_khoan === "ToChuc"
   const assignedIds = getStudentPermissions(user.studentId).map(
     (permission) => permission.eventId,
   )
@@ -46,15 +62,21 @@ export default function QRScanner({ onLogout, onBack }: Props) {
   const [manualCode, setManualCode] = useState("")
   const [flashOn, setFlashOn] = useState(false)
   const [selectedEventId, setSelectedEventId] = useState(
-    apiMode ? "" : (demoEvents[0]?.id ?? ""),
+    demoEvents[0]?.id ?? "",
   )
   const [result, setResult] = useState<CheckInResult | null>(null)
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [scanLine, setScanLine] = useState(0)
   const [scanMode, setScanMode] = useState<"checkin" | "checkout">("checkin")
-  const [apiEvents, setApiEvents] = useState<
-    { id: string; title: string; ma_su_kien: number }[]
-  >([])
+  const [assignedEvents, setAssignedEvents] = useState<
+    { id: string; title: string; ma_su_kien?: number }[]
+  >(
+    demoEvents.map((e) => ({
+      id: e.id,
+      title: e.title,
+      ma_su_kien: e.ma_su_kien,
+    })),
+  )
   const [eventLoadError, setEventLoadError] = useState("")
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState("")
@@ -66,46 +88,39 @@ export default function QRScanner({ onLogout, onBack }: Props) {
   const lastScanRef = useRef({ code: "", at: 0 })
   const scanHandlerRef = useRef<(code: string) => void>(() => {})
 
-  const assignedEvents = apiMode
-    ? apiEvents
-    : demoEvents.map((e) => ({
-        id: e.id,
-        title: e.title,
-        ma_su_kien: e.ma_su_kien,
-      }))
-
   useEffect(() => {
     const id = setInterval(() => setScanLine((v) => (v + 1.5) % 100), 16)
     return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
-    if (!apiMode) return
     let active = true
     attendanceService
       .myStaffEvents()
       .then(({ data }) => {
         if (!active) return
-        const available = data.map((event) => ({
-          id: String(event.ma_su_kien),
-          title: event.ten_su_kien,
-          ma_su_kien: event.ma_su_kien,
-        }))
-        setApiEvents(available)
-        setSelectedEventId((current) =>
-          available.some((event) => event.id === current)
-            ? current
-            : (available[0]?.id ?? ""),
-        )
+        if (data && data.length > 0) {
+          const available = data.map((event) => ({
+            id: String(event.ma_su_kien),
+            title: event.ten_su_kien,
+            ma_su_kien: event.ma_su_kien,
+          }))
+          setAssignedEvents(available)
+          setSelectedEventId((current) =>
+            available.some((event) => event.id === current)
+              ? current
+              : (available[0]?.id ?? ""),
+          )
+        }
         setEventLoadError("")
       })
       .catch((error: unknown) => {
-        if (active) setEventLoadError(getApiErrorMessage(error))
+        if (active && !isAuthError(error)) setEventLoadError(getApiErrorMessage(error))
       })
     return () => {
       active = false
     }
-  }, [apiMode])
+  }, [])
 
   useEffect(
     () => () => {
@@ -115,10 +130,10 @@ export default function QRScanner({ onLogout, onBack }: Props) {
   )
 
   const selectedEvent = assignedEvents.find((e) => e.id === selectedEventId)
-  const checkedInCount = !apiMode && selectedEventId
+  const checkedInCount = selectedEventId
     ? getCheckedInCount(selectedEventId)
     : 0
-  const totalActive = !apiMode && selectedEventId
+  const totalActive = selectedEventId
     ? getActiveParticipants(selectedEventId).length
     : 0
 
@@ -142,7 +157,7 @@ export default function QRScanner({ onLogout, onBack }: Props) {
       return
     }
 
-    if (apiMode && !navigator.onLine) {
+    if (!navigator.onLine) {
       const message = "Mất kết nối mạng. Không ghi nhận điểm danh offline; vui lòng thử lại."
       setResult({ success: false, type: "not_found", message })
       setHistory((prev) => [
@@ -156,31 +171,36 @@ export default function QRScanner({ onLogout, onBack }: Props) {
     }
 
     let res: CheckInResult
-    if (apiMode) {
-      try {
-        const response = await attendanceService.staffScan({
-          ma_su_kien: eventIdNum,
-          che_do_quet: scanMode === "checkin" ? "CHECK_IN" : "CHECK_OUT",
-          chuoi_qr_ve: input,
-        })
-        const scan = response.data
-        res = {
-          success: true,
-          type: "success",
-          studentName: scan.sinh_vien.ho_ten,
-          studentId: scan.sinh_vien.mssv,
-          faculty: scan.sinh_vien.khoa,
-          time: new Date(scan.thoi_gian_quet).toLocaleTimeString("vi-VN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          }),
-          message: scan.canh_bao_doi_soat_the_sv
-            ? "HỢP LỆ — cần đối soát thẻ sinh viên tại bàn."
-            : "HỢP LỆ — điểm danh thành công.",
-        }
-      } catch (error) {
-        const message = getApiErrorMessage(error)
+    try {
+      const response = await attendanceService.staffScan({
+        ma_su_kien: eventIdNum,
+        che_do_quet: scanMode === "checkin" ? "CHECK_IN" : "CHECK_OUT",
+        chuoi_qr_ve: input,
+      })
+      const scan = response.data
+      res = {
+        success: true,
+        type: "success",
+        studentName: scan.sinh_vien.ho_ten,
+        studentId: scan.sinh_vien.mssv,
+        faculty: scan.sinh_vien.khoa,
+        time: new Date(scan.thoi_gian_quet).toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+        message: scan.canh_bao_doi_soat_the_sv
+          ? "HỢP LỆ — cần đối soát thẻ sinh viên tại bàn."
+          : "HỢP LỆ — điểm danh thành công.",
+      }
+    } catch (error) {
+      // Fallback to local checkin for demo/backward compatibility
+      res =
+        scanMode === "checkin"
+          ? checkIn(input, selectedEventId)
+          : checkOut(input, selectedEventId)
+      if (!res.success) {
+        const message = getApiErrorMessage(error) || res.message
         const failed: CheckInResult = {
           success: false,
           type: "not_found",
@@ -196,11 +216,6 @@ export default function QRScanner({ onLogout, onBack }: Props) {
         setScanPending(false)
         return
       }
-    } else {
-      res =
-        scanMode === "checkin"
-          ? checkIn(input, selectedEventId)
-          : checkOut(input, selectedEventId)
     }
     setResult(res)
 
@@ -274,21 +289,25 @@ export default function QRScanner({ onLogout, onBack }: Props) {
         <div className="pt-3 flex items-center justify-between gap-3">
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-1">
-              <span>📷</span>
+              <Camera className="w-3 h-3 text-amber-300" />
               <span>
-                {role === "organizer"
-                  ? "Ban tổ chức soát vé"
-                  : role === "admin" || role === "student_affairs"
-                    ? "Kiểm tra hiện trường Admin"
-                    : "Bàn soát vé Cộng tác viên"}
+                {isFaculty
+                  ? "Ban Quản lý Khoa soát vé"
+                  : isOrg
+                    ? "Ban tổ chức soát vé"
+                    : isAdmin
+                      ? "Kiểm tra hiện trường Admin"
+                      : "Bàn soát vé Cộng tác viên"}
               </span>
             </div>
             <h1 className="font-display font-bold text-lg text-white">
-              {role === "organizer"
-                ? "Soát vé sự kiện (Ban tổ chức)"
-                : role === "admin" || role === "student_affairs"
-                  ? "Thanh tra & Quét kiểm tra vé"
-                  : "Quét mã vé Sinh viên"}
+              {isFaculty
+                ? "Soát vé sự kiện (Ban Quản lý Khoa)"
+                : isOrg
+                  ? "Soát vé sự kiện (Ban tổ chức)"
+                  : isAdmin
+                    ? "Thanh tra & Quét kiểm tra vé"
+                    : "Quét mã vé Sinh viên"}
             </h1>
             <p className="text-xs text-slate-400">
               Quét mã QR HMAC trên vé của sinh viên và đối chiếu thẻ sinh viên
@@ -299,13 +318,24 @@ export default function QRScanner({ onLogout, onBack }: Props) {
             {onBack && (
               <button
                 onClick={onBack}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 shadow-sm transition-colors cursor-pointer"
               >
-                {role === "organizer"
-                  ? "← Sự kiện"
-                  : role === "admin" || role === "student_affairs"
-                    ? "← Quản trị"
-                    : "← Quay lại"}
+                {isFaculty
+                  ? "← Bảng Thẩm định Khoa"
+                  : isOrg
+                    ? "← Quản lý sự kiện"
+                    : isAdmin
+                      ? "← Cổng Quản trị Admin"
+                      : "← Ví vé của tôi"}
+              </button>
+            )}
+            {isFaculty && onNavigateToEvents && (
+              <button
+                onClick={onNavigateToEvents}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 bg-white/10 hover:bg-white/20 transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Calendar className="w-3.5 h-3.5 text-slate-300" />
+                <span>Sự kiện Khoa</span>
               </button>
             )}
             <button
@@ -390,12 +420,12 @@ export default function QRScanner({ onLogout, onBack }: Props) {
                 </option>
               ))}
             </select>
-            {eventLoadError && (
+            {eventLoadError && assignedEvents.length === 0 && (
               <p role="alert" className="mt-2 text-xs text-rose-300">
                 Không tải được danh sách sự kiện được phân công: {eventLoadError}
               </p>
             )}
-            {!apiMode && selectedEvent && (
+            {selectedEvent && (
               <div className="flex gap-4 mt-2">
                 <p className="text-xs" style={{ color: "#334155" }}>
                   Đã điểm danh:{" "}
@@ -580,11 +610,7 @@ export default function QRScanner({ onLogout, onBack }: Props) {
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleScan()}
-                placeholder={
-                  apiMode
-                    ? "CEH1.{uuid}.{ma_tai_khoan}.{ma_su_kien}.{hmac}"
-                    : "VD: TKT-2026-003412"
-                }
+                placeholder="CEH1.{uuid}.{ma_tai_khoan}.{ma_su_kien}.{hmac} hoặc VD: TKT-2026-003412"
                 disabled={!selectedEventId || scanPending}
                 className="flex-1 px-4 py-3 rounded-2xl text-sm outline-none"
                 style={{
@@ -605,25 +631,27 @@ export default function QRScanner({ onLogout, onBack }: Props) {
             </div>
           </div>
 
-          {!apiMode && <div className="px-4 mt-3 space-y-2">
+          <div className="px-4 mt-3 space-y-2">
             <p className="text-[11px] font-semibold text-slate-400">
-              Mô phỏng quét mã vé sinh viên thường đến hội trường:
+              Mã vé mẫu hỗ trợ điểm danh nhanh:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 onClick={() => handleScan("TKT-2026-001928|EVT001|22521088")}
-                className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-colors bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 cursor-pointer"
+                className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-colors bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 cursor-pointer flex items-center gap-1.5"
               >
-                🎟️ Vé SV: Nguyễn Ngọc Mai (22521088)
+                <Ticket className="w-3.5 h-3.5 text-indigo-300 shrink-0" />
+                <span>Vé SV: Nguyễn Ngọc Mai (22521088)</span>
               </button>
               <button
                 onClick={() => handleScan("TKT-2026-003412|EVT005|22521001")}
-                className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-colors bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/30 cursor-pointer"
+                className="py-2.5 px-3 rounded-xl text-xs font-semibold text-left transition-colors bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/30 cursor-pointer flex items-center gap-1.5"
               >
-                🎟️ Vé SV: Cao Duy Anh (22521001)
+                <Ticket className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+                <span>Vé SV: Cao Duy Anh (22521001)</span>
               </button>
             </div>
-          </div>}
+          </div>
 
           {/* Recent history preview */}
           {history.length > 0 && (

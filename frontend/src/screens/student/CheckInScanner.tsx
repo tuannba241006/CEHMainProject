@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
-import { isApiMode } from "../../api/config"
 import { attendanceService } from "../../api/services/attendance.service"
 import { ticketsService } from "../../api/services/tickets.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import type { Ticket } from "../../data/contract"
 import { kioskQrPattern, useKioskCamera } from "../../hooks/useKioskCamera"
+import { MapPin, LogIn, LogOut, AlertTriangle, Check } from "lucide-react"
 
 type ScanMode = "checkin" | "checkout"
 
@@ -52,10 +52,9 @@ function getDeviceId() {
 export default function CheckInScanner({ onNavigate }: Props) {
   const { user } = useUser()
   const { tickets, checkIn, checkOut } = useApp()
-  const apiMode = isApiMode()
   const [deviceId] = useState(getDeviceId)
   const [wallet, setWallet] = useState<Ticket[]>([])
-  const [walletLoading, setWalletLoading] = useState(apiMode)
+  const [walletLoading, setWalletLoading] = useState(true)
   const [walletError, setWalletError] = useState("")
   const [selection, setSelection] = useState("")
   const [modeOverride, setModeOverride] = useState<ScanMode | null>(null)
@@ -69,7 +68,6 @@ export default function CheckInScanner({ onNavigate }: Props) {
   )
 
   useEffect(() => {
-    if (!apiMode) return
     let active = true
     setWalletLoading(true)
     setWalletError("")
@@ -79,7 +77,7 @@ export default function CheckInScanner({ onNavigate }: Props) {
         if (active) setWallet(data)
       })
       .catch((error: unknown) => {
-        if (active) setWalletError(getApiErrorMessage(error))
+        if (active && !isAuthError(error)) setWalletError(getApiErrorMessage(error))
       })
       .finally(() => {
         if (active) setWalletLoading(false)
@@ -87,7 +85,7 @@ export default function CheckInScanner({ onNavigate }: Props) {
     return () => {
       active = false
     }
-  }, [apiMode, user.studentId])
+  }, [user.studentId])
 
   const studentTickets = tickets.filter(
     (ticket) =>
@@ -95,27 +93,30 @@ export default function CheckInScanner({ onNavigate }: Props) {
       ticket.trang_thai !== "DaHuy" &&
       ticket.status !== "cancelled",
   )
-  const eventOptions = apiMode
-    ? wallet
-        .filter((ticket) => ticket.trang_thai !== "DaHuy")
-        .map((ticket) => ({
-          id: String(ticket.ma_su_kien),
-          title: ticket.ten_su_kien,
-          status: ticket.trang_thai,
+  const eventOptions =
+    wallet.length > 0
+      ? wallet
+          .filter((ticket) => ticket.trang_thai !== "DaHuy")
+          .map((ticket) => ({
+            id: String(ticket.ma_su_kien),
+            title: ticket.ten_su_kien,
+            status: ticket.trang_thai,
+            room: ticket.ten_phong,
+            location: ticket.co_so,
+          }))
+      : studentTickets.map((ticket) => ({
+          id: String(ticket.ma_su_kien || ticket.eventId),
+          title: ticket.ten_su_kien || ticket.eventTitle,
+          status:
+            ticket.trang_thai ||
+            (ticket.checkoutTime
+              ? "DaCheckOut"
+              : ticket.checkinTime
+                ? "DaCheckIn"
+                : "DaDangKy"),
           room: ticket.ten_phong,
           location: ticket.co_so,
         }))
-    : studentTickets.map((ticket) => ({
-        id: ticket.eventId,
-        title: ticket.eventTitle,
-        status: ticket.checkoutTime
-          ? "DaCheckOut"
-          : ticket.checkinTime
-            ? "DaCheckIn"
-            : ticket.trang_thai,
-        room: ticket.ten_phong,
-        location: ticket.co_so,
-      }))
 
   const selectedEventId = selection || eventOptions[0]?.id || ""
   const selectedEvent = eventOptions.find((event) => event.id === selectedEventId)
@@ -149,49 +150,53 @@ export default function CheckInScanner({ onNavigate }: Props) {
     const eventTitle = event?.title || `Sự kiện #${eventId}`
 
     try {
-      if (apiMode) {
-        const payload = { ma_su_kien: Number(eventId), totp_code: code }
-        if (mode === "checkin") {
-          const { data, message } = await attendanceService.selfCheckin(payload, deviceId)
-          setWallet((current) => current.map((ticket) =>
+      const payload = {
+        ma_su_kien: Number(eventId),
+        totp_code: code,
+        dynamic_totp_code: code,
+      }
+      if (mode === "checkin") {
+        const { data, message } = await attendanceService.selfCheckin(payload, deviceId)
+        setWallet((current) =>
+          current.map((ticket) =>
             ticket.ma_dang_ky === data.ma_dang_ky ? { ...ticket, ...data } : ticket,
-          ))
-          setResult({
-            mode,
-            eventTitle,
-            time: attendanceTime.format(new Date(data.thoi_gian_check_in)),
-            message: message || "Điểm danh Check-in thành công.",
-          })
-        } else {
-          const { data, message } = await attendanceService.selfCheckout(payload, deviceId)
-          setWallet((current) => current.map((ticket) =>
-            ticket.ma_dang_ky === data.ma_dang_ky ? { ...ticket, ...data } : ticket,
-          ))
-          setResult({
-            mode,
-            eventTitle,
-            time: attendanceTime.format(new Date(data.thoi_gian_check_out)),
-            message: message || "Điểm danh Check-out thành công.",
-            score: {
-              durationMinutes: data.thoi_luong_tham_du_phut,
-              attendancePercentage: data.ty_le_tham_du_pct,
-              drlRate: data.ti_le_drl,
-            },
-          })
-        }
-      } else {
-        const ticket = studentTickets.find(
-          (item) => item.eventId === eventId || String(item.ma_su_kien) === eventId,
+          ),
         )
-        if (!ticket) throw new Error("Không tìm thấy vé tham dự sự kiện.")
-        const scan = mode === "checkin" ? checkIn : checkOut
-        const outcome = scan(ticket.qrCode, ticket.eventId)
-        if (!outcome.success) throw new Error(outcome.message)
+        const localTicket = studentTickets.find(
+          (t) => t.eventId === eventId || String(t.ma_su_kien) === eventId,
+        )
+        if (localTicket) {
+          checkIn(localTicket.qrCode, localTicket.eventId)
+        }
         setResult({
           mode,
-          eventTitle: ticket.eventTitle,
-          time: outcome.time || attendanceTime.format(new Date()),
-          message: outcome.message,
+          eventTitle,
+          time: attendanceTime.format(new Date(data.thoi_gian_check_in)),
+          message: message || "Điểm danh Check-in thành công.",
+        })
+      } else {
+        const { data, message } = await attendanceService.selfCheckout(payload, deviceId)
+        setWallet((current) =>
+          current.map((ticket) =>
+            ticket.ma_dang_ky === data.ma_dang_ky ? { ...ticket, ...data } : ticket,
+          ),
+        )
+        const localTicket = studentTickets.find(
+          (t) => t.eventId === eventId || String(t.ma_su_kien) === eventId,
+        )
+        if (localTicket) {
+          checkOut(localTicket.qrCode, localTicket.eventId)
+        }
+        setResult({
+          mode,
+          eventTitle,
+          time: attendanceTime.format(new Date(data.thoi_gian_check_out)),
+          message: message || "Điểm danh Check-out thành công.",
+          score: {
+            durationMinutes: data.thoi_luong_tham_du_phut,
+            attendancePercentage: data.ty_le_tham_du_pct,
+            drlRate: data.ti_le_drl,
+          },
         })
       }
 
@@ -289,8 +294,9 @@ export default function CheckInScanner({ onNavigate }: Props) {
               </select>
             )}
             {selectedEvent && (
-              <p className="text-[11px] text-slate-500 mt-1.5">
-                📍 {selectedEvent.room} · {selectedEvent.location}
+              <p className="text-[11px] text-slate-500 mt-1.5 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>{selectedEvent.room} · {selectedEvent.location}</span>
               </p>
             )}
           </div>
@@ -316,7 +322,8 @@ export default function CheckInScanner({ onNavigate }: Props) {
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <span>➡️ Quét vào (Check-in)</span>
+              <LogIn className="w-4 h-4" />
+              <span>Quét vào (Check-in)</span>
             </button>
             <button
               disabled={loading}
@@ -331,7 +338,8 @@ export default function CheckInScanner({ onNavigate }: Props) {
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
-              <span>⬅️ Quét ra (Check-out)</span>
+              <LogOut className="w-4 h-4" />
+              <span>Quét ra (Check-out)</span>
             </button>
           </div>
 
@@ -433,7 +441,7 @@ export default function CheckInScanner({ onNavigate }: Props) {
               )}
             </div>
 
-            {!apiMode && (
+            {import.meta.env.DEV && (
               <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
                 <span>Demo mô phỏng nhanh:</span>
                 <button
@@ -476,8 +484,9 @@ export default function CheckInScanner({ onNavigate }: Props) {
               </button>
             </div>
             {error && (
-              <p className="mt-3 text-xs text-rose-600 font-medium bg-rose-50 p-2.5 rounded-xl border border-rose-100">
-                ⚠️ {error}
+              <p className="mt-3 text-xs text-rose-600 font-medium bg-rose-50 p-2.5 rounded-xl border border-rose-100 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{error}</span>
               </p>
             )}
           </div>
@@ -494,7 +503,7 @@ export default function CheckInScanner({ onNavigate }: Props) {
                 <div
                   className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-xl bg-emerald-600 text-white"
                 >
-                  ✓
+                  <Check className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-base">

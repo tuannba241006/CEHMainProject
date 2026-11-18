@@ -69,6 +69,40 @@ export class ApiError extends Error {
   }
 }
 
+export function isApiError(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError ||
+    (typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      typeof (error as { status: unknown }).status === "number")
+  )
+}
+
+export function isAuthError(error: unknown): boolean {
+  if (!error) return false
+  if (isApiError(error)) {
+    return error.status === 401 || error.code === "UNAUTHENTICATED"
+  }
+  if (typeof error === "object" && error !== null) {
+    const errObj = error as {
+      status?: unknown
+      code?: unknown
+      message?: unknown
+    }
+    if (errObj.status === 401 || errObj.code === "UNAUTHENTICATED") return true
+    if (
+      typeof errObj.message === "string" &&
+      (errObj.message.includes("không hợp lệ hoặc đã hết hạn") ||
+        errObj.message.includes("Phiên đăng nhập") ||
+        errObj.message.includes("Vui lòng đăng nhập"))
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 export function getApiErrorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message

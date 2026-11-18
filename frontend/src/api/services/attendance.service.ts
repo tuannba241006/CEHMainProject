@@ -1,6 +1,6 @@
 import { api } from "../client"
-import type { Participant, TicketStatus } from "../../data/contract"
-import type { ApiEnvelope } from "./auth.service"
+import type { Participant, StaffAssignment, TicketStatus } from "../../data/contract"
+import type { ApiEnvelope, PaginationMeta } from "./auth.service"
 
 export interface KioskTotpData {
   ma_su_kien: number
@@ -35,18 +35,19 @@ export interface StaffEventOption {
   ten_su_kien: string
 }
 
-interface SelfAttendancePayload {
+export interface SelfAttendancePayload {
   ma_su_kien: number
-  totp_code: string
+  totp_code?: string
+  dynamic_totp_code?: string
 }
 
-interface SelfCheckInData {
+export interface SelfCheckInData {
   ma_dang_ky: number
   trang_thai: "DaCheckIn"
   thoi_gian_check_in: string
 }
 
-interface SelfCheckOutData {
+export interface SelfCheckOutData {
   ma_dang_ky: number
   trang_thai: "DaCheckOut"
   thoi_gian_check_out: string
@@ -85,6 +86,8 @@ export interface ManualOverridePayload {
   trang_thai_moi: "DaCheckIn" | "DaCheckOut"
   ti_le_drl_moi: number
   ly_do: string
+  ticketId?: string
+  da_doi_soat_the?: boolean
 }
 
 export type ManualOverrideData = Pick<
@@ -123,26 +126,39 @@ export const attendanceService = {
     chuoi_qr_ve: string
   }) => api.post<ApiEnvelope<StaffScanData>>("/attendance/staff-scan", payload),
   selfCheckin: (payload: SelfAttendancePayload, deviceId: string) =>
-    api.post<ApiEnvelope<SelfCheckInData>>("/attendance/self-check-in", payload, {
-      headers: { "X-Device-Id": deviceId },
-    }),
+    api.post<ApiEnvelope<SelfCheckInData>>(
+      "/attendance/self-check-in",
+      payload,
+      {
+        headers: { "X-Device-Id": deviceId },
+      },
+    ),
   selfCheckout: (payload: SelfAttendancePayload, deviceId: string) =>
-    api.post<ApiEnvelope<SelfCheckOutData>>("/attendance/self-check-out", payload, {
-      headers: { "X-Device-Id": deviceId },
-    }),
+    api.post<ApiEnvelope<SelfCheckOutData>>(
+      "/attendance/self-check-out",
+      payload,
+      {
+        headers: { "X-Device-Id": deviceId },
+      },
+    ),
   participants: (
     eventId: number | string,
     query?: Record<string, string | number>,
   ) =>
-    api.get<ApiEnvelope<ParticipantAttendanceData[]> & { meta: { last_page: number } }>(`/events/${eventId}/participants`, {
+    api.get<
+      ApiEnvelope<ParticipantAttendanceData[]> & { meta?: PaginationMeta }
+    >(`/events/${eventId}/participants`, {
       query,
     }),
   manualOverride: (payload: ManualOverridePayload) =>
-    api.post<ApiEnvelope<ManualOverrideData>>("/attendance/manual-override", payload),
+    api.post<ApiEnvelope<ManualOverrideData>>(
+      "/attendance/manual-override",
+      payload,
+    ),
   staff: (eventId: number | string) =>
-    api.get<ApiEnvelope<unknown[]>>(`/events/${eventId}/staff`),
+    api.get<ApiEnvelope<StaffAssignment[]>>(`/events/${eventId}/staff`),
   assignStaff: (eventId: number | string, danh_sach_mssv: string[]) =>
-    api.post<ApiEnvelope<unknown[]>>(`/events/${eventId}/staff`, {
+    api.post<ApiEnvelope<StaffAssignment[]>>(`/events/${eventId}/staff`, {
       danh_sach_mssv,
     }),
   revokeStaff: (eventId: number | string, userId: number | string) =>

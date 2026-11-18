@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import type { Role } from "../../App"
 import {
   useApp,
@@ -9,10 +9,10 @@ import { useToast } from "../../components/Toast"
 import { ManagementLayout } from "./ManagementLayout"
 import { useUser } from "../../context/UserContext"
 import { formatCalendarDate, inDateRange } from "../../utils/date"
-import { isApiMode } from "../../api/config"
 import { eventsService } from "../../api/services/events.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import { ROOMS } from "../../data/mock"
+import { AlertTriangle, Zap, RotateCcw, RefreshCw, Building2, Check } from "lucide-react"
 
 interface Props {
   role: Extract<Role, "faculty_manager" | "student_affairs">
@@ -56,8 +56,39 @@ export default function ApprovalWorkspace({
   onNavigate,
   onLogout,
 }: Props) {
-  const { approvalCases } = useApp()
+  const { approvalCases, refreshReviewQueue } = useApp()
   const { user, role: activeRole } = useUser()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .reviewQueue()
+      .then((res) => {
+        if (!cancelled && res.data && refreshReviewQueue) {
+          void refreshReviewQueue()
+        }
+      })
+      .catch((err) => {
+        console.warn("Review queue API note:", err)
+        if (isAuthError(err)) {
+          return
+        }
+        if (!cancelled && (!approvalCases || approvalCases.length === 0)) {
+          setError(getApiErrorMessage(err))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [refreshReviewQueue, approvalCases])
+
   const faculty = user.faculty || user.khoa || ""
   const canView = (item: ApprovalCase) =>
     role !== "faculty_manager" ||
@@ -124,6 +155,8 @@ export default function ApprovalWorkspace({
           onSelect={onSelect}
           faculty={faculty}
           isAdmin={activeRole === "admin"}
+          loading={loading}
+          error={error}
         />
       )}
     </ManagementLayout>
@@ -136,14 +169,19 @@ function ApprovalList({
   onSelect,
   faculty,
   isAdmin,
+  loading,
+  error,
 }: {
   role: Props["role"]
   cases: ApprovalCase[]
   onSelect: (id: string) => void
   faculty: string
   isAdmin: boolean
+  loading?: boolean
+  error?: string | null
 }) {
   const [search, setSearch] = useState("")
+  const [errorDismissed, setErrorDismissed] = useState(false)
   const [status, setStatus] = useState("all")
   const [unit, setUnit] = useState("all")
   const [term, setTerm] = useState("semester")
@@ -198,6 +236,23 @@ function ApprovalList({
             : "Thẩm định sự kiện và quy tắc điểm dự kiến."}
         </p>
       </div>
+
+      {error && !errorDismissed && (
+        <div className="mb-5 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center justify-between gap-2.5 text-sm">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorDismissed(true)}
+            className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {[
           ["Tổng hồ sơ", scoped.length],
@@ -272,7 +327,15 @@ function ApprovalList({
           </select>
         </label>
       </div>
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-slate-100 p-8 space-y-4 animate-pulse">
+          <div className="h-5 bg-slate-200 rounded w-1/4 mb-2" />
+          <div className="h-10 bg-slate-100 rounded w-full" />
+          <div className="h-10 bg-slate-100 rounded w-full" />
+          <div className="h-10 bg-slate-100 rounded w-full" />
+          <div className="h-10 bg-slate-100 rounded w-full" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-slate-100">
           <p className="font-medium text-slate-500">Không có hồ sơ phù hợp</p>
           <p className="text-sm text-slate-400 mt-1">
@@ -406,58 +469,104 @@ function ApprovalDetail({
   onBack: () => void
 }) {
   const { updateApproval } = useApp()
+  const { role: activeRole } = useUser()
   const { showToast } = useToast()
   const [dialog, setDialog] =
-    useState<"revision" | "reject" | "emergency_room" | "emergency_cancel" | null>(
-      null,
-    )
+    useState<
+      | "revision"
+      | "reject"
+      | "emergency_room"
+      | "emergency_cancel"
+      | "withdraw"
+      | "reopen"
+      | null
+    >(null)
   const [reason, setReason] = useState("")
   const [newRoomId, setNewRoomId] = useState("")
   const [documentNotice, setDocumentNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [tab, setTab] =
     useState<"overview" | "documents" | "points" | "history">("overview")
+
+  const isAdminOrAffairs = role === "student_affairs" || activeRole === "admin"
   const canProcess =
     role === "faculty_manager"
       ? item.status === "faculty_pending"
       : item.status === "affairs_pending"
 
+  const canAdminOverrideFaculty =
+    isAdminOrAffairs && item.status === "faculty_pending"
+  const canWithdrawProposal =
+    isAdminOrAffairs &&
+    (item.status === "faculty_pending" || item.status === "affairs_pending")
+  const canReopenRejected =
+    isAdminOrAffairs &&
+    (item.status === "faculty_rejected" || item.status === "affairs_rejected")
+
   async function act(
-    action: "faculty_approve" | "affairs_approve" | "request_revision" | "reject",
+    action:
+      | "faculty_approve"
+      | "faculty_approve_by_admin"
+      | "affairs_approve"
+      | "request_revision"
+      | "reject"
+      | "withdraw"
+      | "reopen"
+      | "emergency_cancel"
+      | "emergency_room",
   ) {
     if (busy) return
     setBusy(true)
     try {
-      if (isApiMode()) {
+      if (action === "emergency_cancel") {
+        await eventsService.emergencyCancel(item.eventId, reason.trim())
+      } else if (action === "emergency_room") {
+        const roomId =
+          Number(newRoomId) ||
+          (newRoomId === "Hội trường A" ? 1 : newRoomId === "Hội trường B" ? 2 : 3)
+        await eventsService.changeRoom(item.eventId, {
+          ma_phong_moi: roomId,
+          ly_do: reason.trim(),
+        })
+      } else if (action === "withdraw") {
+        await eventsService.withdraw(item.eventId, reason.trim())
+      } else if (action === "reopen") {
+        await eventsService.reopen(item.eventId, reason.trim())
+      } else {
         const hanh_dong =
           action === "faculty_approve"
             ? "APPROVE_FACULTY"
-            : action === "affairs_approve"
-              ? "APPROVE_ADMIN"
-              : action === "request_revision"
-                ? "REQUEST_EDIT"
-                : role === "faculty_manager"
-                  ? "REJECT_FACULTY"
-                  : "REJECT_ADMIN"
+            : action === "faculty_approve_by_admin"
+              ? "APPROVE_FACULTY_BY_ADMIN"
+              : action === "affairs_approve"
+                ? "APPROVE_ADMIN"
+                : action === "request_revision"
+                  ? "REQUEST_EDIT"
+                  : role === "faculty_manager"
+                    ? "REJECT_FACULTY"
+                    : "REJECT_ADMIN"
         await eventsService.review(item.eventId, {
           hanh_dong,
           ...(reason.trim() ? { ly_do: reason.trim() } : {}),
         })
-        showToast(
-          "Backend đã tiếp nhận quyết định. Vui lòng tải lại danh sách.",
-          "success",
-        )
-      } else {
-        const result = updateApproval(item.id, action, reason)
-        if (!result.success)
-          throw new Error(result.error || "Không thể xử lý hồ sơ.")
-        showToast(
-          action.includes("approve")
-            ? "Đã duyệt hồ sơ."
-            : "Đã cập nhật trạng thái hồ sơ.",
-          "success",
-        )
       }
+      const result = await updateApproval(item.id, action, reason, true)
+      if (!result.success)
+        throw new Error(result.error || "Không thể xử lý hồ sơ.")
+      showToast(
+        action.includes("approve")
+          ? "Đã duyệt hồ sơ thành công."
+          : action === "emergency_cancel"
+            ? "Đã hủy sự kiện khẩn cấp và gửi thông báo thu hồi vé."
+            : action === "emergency_room"
+              ? "Đã điều chuyển phòng khẩn cấp và thông báo cho sinh viên."
+              : action === "withdraw"
+                ? "Đã rút đề xuất cưỡng chế về DRAFT (giải phóng phòng)."
+                : action === "reopen"
+                  ? "Đã tái mở bản nháp để chỉnh sửa."
+                  : "Đã cập nhật trạng thái hồ sơ.",
+        action === "emergency_cancel" ? "warning" : "success",
+      )
       setDialog(null)
       setReason("")
     } catch (error) {
@@ -488,56 +597,96 @@ function ApprovalDetail({
             {item.unit} · Gửi bởi {item.submitter}
           </p>
         </div>
-        {canProcess && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {canAdminOverrideFaculty && (
             <button
-              onClick={() => setDialog("reject")}
+              onClick={() => act("faculty_approve_by_admin")}
               disabled={busy}
-              className="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-semibold"
+              className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+              title="Admin/CTSV can thiệp duyệt thay cấp Khoa khi Khoa chậm trễ hoặc gặp sự cố (APPROVE_FACULTY_BY_ADMIN)"
             >
-              Từ chối
+              <Zap className="w-4 h-4" />
+              <span>Duyệt thay cấp Khoa (Sự cố)</span>
             </button>
-            <button
-              onClick={() => setDialog("revision")}
-              disabled={busy}
-              className="px-4 py-2.5 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold"
-            >
-              Yêu cầu bổ sung
-            </button>
-            <button
-              onClick={() =>
-                act(
-                  role === "faculty_manager"
-                    ? "faculty_approve"
-                    : "affairs_approve",
-                )
-              }
-              className="px-4 py-2.5 rounded-xl bg-indigo text-white text-sm font-semibold cursor-pointer"
-            >
-              {role === "faculty_manager"
-                ? "Duyệt & chuyển CTSV"
-                : "Duyệt sự kiện & quy tắc điểm"}
-            </button>
-          </div>
-        )}
+          )}
 
-        {/* UC-EVT-03: Emergency Actions for Approved Events */}
-        {item.status === "approved" && (
-          <div className="flex gap-2">
+          {canWithdrawProposal && (
             <button
-              onClick={() => setDialog("emergency_room")}
-              className="px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold cursor-pointer hover:bg-amber-100"
+              onClick={() => setDialog("withdraw")}
+              disabled={busy}
+              className="px-3.5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+              title="Can thiệp rút hồ sơ đang thẩm định về DRAFT và tự động giải phóng phòng đã giữ chỗ"
             >
-              🔄 Đổi phòng khẩn cấp
+              <RotateCcw className="w-4 h-4" />
+              <span>Rút đề xuất cưỡng chế</span>
             </button>
+          )}
+
+          {canReopenRejected && (
             <button
-              onClick={() => setDialog("emergency_cancel")}
-              className="px-3 py-2 rounded-xl border border-rose-300 bg-rose-50 text-rose-700 text-xs font-semibold cursor-pointer hover:bg-rose-100"
+              onClick={() => setDialog("reopen")}
+              disabled={busy}
+              className="px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+              title="Khôi phục sự kiện bị từ chối về bản nháp để chỉnh sửa"
             >
-              ⚠️ Hủy sự kiện khẩn cấp
+              <RefreshCw className="w-4 h-4" />
+              <span>Tái mở bản nháp</span>
             </button>
-          </div>
-        )}
+          )}
+
+          {canProcess && (
+            <>
+              <button
+                onClick={() => setDialog("reject")}
+                disabled={busy}
+                className="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 cursor-pointer transition-colors"
+              >
+                Từ chối
+              </button>
+              <button
+                onClick={() => setDialog("revision")}
+                disabled={busy}
+                className="px-4 py-2.5 rounded-xl border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-50 cursor-pointer transition-colors"
+              >
+                Yêu cầu bổ sung
+              </button>
+              <button
+                onClick={() =>
+                  act(
+                    role === "faculty_manager"
+                      ? "faculty_approve"
+                      : "affairs_approve",
+                  )
+                }
+                className="px-4 py-2.5 rounded-xl bg-indigo text-white text-sm font-semibold cursor-pointer hover:bg-indigo-700 transition-colors"
+              >
+                {role === "faculty_manager"
+                  ? "Duyệt & chuyển CTSV"
+                  : "Duyệt sự kiện & quy tắc điểm"}
+              </button>
+            </>
+          )}
+
+          {/* UC-EVT-03: Emergency Actions for Approved Events */}
+          {item.status === "approved" && (
+            <>
+              <button
+                onClick={() => setDialog("emergency_room")}
+                className="px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold cursor-pointer hover:bg-amber-100 flex items-center gap-1.5"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Đổi phòng khẩn cấp</span>
+              </button>
+              <button
+                onClick={() => setDialog("emergency_cancel")}
+                className="px-3 py-2 rounded-xl border border-rose-300 bg-rose-50 text-rose-700 text-xs font-semibold cursor-pointer hover:bg-rose-100 flex items-center gap-1.5"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Hủy sự kiện khẩn cấp</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <div className="flex gap-1 p-1 rounded-xl bg-slate-100 overflow-x-auto no-scrollbar mb-5">
         {([
@@ -724,14 +873,22 @@ function ApprovalDetail({
                   ? "Từ chối hồ sơ"
                   : dialog === "emergency_room"
                     ? "Điều chuyển phòng khẩn cấp"
-                    : "Hủy sự kiện khẩn cấp"}
+                    : dialog === "emergency_cancel"
+                      ? "Hủy sự kiện khẩn cấp"
+                      : dialog === "withdraw"
+                        ? "Rút đề xuất cưỡng chế (Về DRAFT)"
+                        : "Tái mở bản nháp để chỉnh sửa"}
             </h2>
             <p className="text-sm text-slate-500 mt-1 mb-4">
               {dialog === "emergency_room"
                 ? "Chọn phòng mới khả dụng và nhập lý do sự cố kỹ thuật:"
                 : dialog === "emergency_cancel"
                   ? "Cảnh báo: Toàn bộ vé sinh viên đã nhận sẽ tự động bị thu hồi kèm email thông báo xin lỗi."
-                  : "Lý do là bắt buộc và sẽ được lưu trong lịch sử xử lý."}
+                  : dialog === "withdraw"
+                    ? "Admin can thiệp rút hồ sơ đang thẩm định về DRAFT. Phòng hội trường đang giữ chỗ sẽ được tự động giải phóng. Yêu cầu nhập lý do kiểm toán (tối thiểu 10 ký tự):"
+                    : dialog === "reopen"
+                      ? "Khôi phục hồ sơ đã bị từ chối quay về DRAFT để Ban tổ chức có thể hoàn thiện lại. Yêu cầu nhập lý do kiểm toán (tối thiểu 10 ký tự):"
+                      : "Lý do là bắt buộc (tối thiểu 10 ký tự) và sẽ được lưu trong lịch sử kiểm toán."}
             </p>
 
             {dialog === "emergency_room" && (
@@ -765,7 +922,11 @@ function ApprovalDetail({
               placeholder={
                 dialog === "emergency_room"
                   ? "Lý do đổi phòng (VD: Hệ thống máy chiếu Hội trường A gặp sự cố)..."
-                  : "Nhập lý do cụ thể..."
+                  : dialog === "withdraw"
+                    ? "Lý do rút đề xuất cưỡng chế (tối thiểu 10 ký tự)..."
+                    : dialog === "reopen"
+                      ? "Lý do tái mở bản nháp để Ban tổ chức chỉnh sửa (tối thiểu 10 ký tự)..."
+                      : "Nhập lý do cụ thể (tối thiểu 10 ký tự)..."
               }
               className="w-full p-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo"
             />
@@ -782,30 +943,33 @@ function ApprovalDetail({
               <button
                 onClick={() => {
                   if (dialog === "emergency_room") {
-                    showToast(
-                      "Đã điều chuyển phòng khẩn cấp thành công. Toàn bộ sinh viên đã nhận được thông báo in-app.",
-                      "success",
-                    )
-                    setDialog(null)
-                    setReason("")
+                    act("emergency_room")
                   } else if (dialog === "emergency_cancel") {
-                    showToast(
-                      "Đã hủy sự kiện khẩn cấp (POST /events/{id}/emergency-cancel). Đã phát lệnh thu hồi vé.",
-                      "warning",
-                    )
-                    setDialog(null)
-                    setReason("")
+                    act("emergency_cancel")
+                  } else if (dialog === "withdraw") {
+                    act("withdraw")
+                  } else if (dialog === "reopen") {
+                    act("reopen")
                   } else {
                     act(dialog === "revision" ? "request_revision" : "reject")
                   }
                 }}
                 disabled={
-                  !reason.trim() || (dialog === "emergency_room" && !newRoomId)
+                  !reason.trim() ||
+                  ((dialog === "reject" ||
+                    dialog === "withdraw" ||
+                    dialog === "reopen") &&
+                    reason.trim().length < 10) ||
+                  (dialog === "emergency_room" && !newRoomId)
                 }
                 className={`flex-1 py-2.5 rounded-xl text-white text-sm font-semibold cursor-pointer disabled:opacity-50 ${
-                  dialog === "reject" || dialog === "emergency_cancel"
-                    ? "bg-red-600"
-                    : "bg-amber-600"
+                  dialog === "reject" ||
+                  dialog === "emergency_cancel" ||
+                  dialog === "withdraw"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : dialog === "reopen"
+                      ? "bg-indigo hover:bg-indigo-700"
+                      : "bg-amber-600 hover:bg-amber-700"
                 }`}
               >
                 Xác nhận
@@ -888,7 +1052,7 @@ function Progress({ status }: { status: ApprovalStatus }) {
                 : "bg-slate-100 text-slate-400"
             }`}
           >
-            {i < index ? "✓" : i + 1}
+            {i < index ? <Check className="w-3.5 h-3.5" /> : i + 1}
           </div>
           <span
             className={`text-sm ${
