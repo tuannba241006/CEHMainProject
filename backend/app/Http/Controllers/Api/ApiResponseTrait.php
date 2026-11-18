@@ -36,7 +36,7 @@ trait ApiResponseTrait
      * Standardized Error Response conforming to OpenAPI v3.2.3.
      */
     public function errorResponse(
-        string $errorCode,
+        string|array $errorCode,
         string $message,
         mixed $details = null,
         int $code = 400,

@@ -83,16 +83,17 @@ class RoomController extends Controller
 
         if (! $result['success']) {
             if ($result['error_code'] === 'ROOM_MAINTENANCE_CONFLICT') {
-                return response()->json([
-                    'success' => false,
-                    'error' => [
+                return $this->errorResponse(
+                    [
                         'code' => 'ROOM_MAINTENANCE_CONFLICT',
                         'details' => [
                             'affected_events' => $result['affected_events'],
                         ],
                     ],
-                    'message' => 'Không thể chuyển sang bảo trì: có sự kiện đã duyệt trùng khung giờ bảo trì.',
-                ], 409);
+                    'Không thể chuyển sang bảo trì: có sự kiện đã duyệt trùng khung giờ bảo trì.',
+                    ['affected_events' => $result['affected_events']],
+                    409
+                );
             }
         }
 
@@ -113,16 +114,17 @@ class RoomController extends Controller
 
         if (! $result['success']) {
             if ($result['error_code'] === 'ROOM_HAS_BOOKING_HISTORY') {
-                return response()->json([
-                    'success' => false,
-                    'error' => [
+                return $this->errorResponse(
+                    [
                         'code' => 'ROOM_HAS_BOOKING_HISTORY',
                         'details' => [
                             'total_bookings' => $result['total_bookings'],
                         ],
                     ],
-                    'message' => 'Không thể xóa phòng đã có lịch sử đặt. Hãy chuyển sang trạng thái bảo trì nếu cần.',
-                ], 409);
+                    'Không thể xóa phòng đã có lịch sử đặt. Hãy chuyển sang trạng thái bảo trì nếu cần.',
+                    ['total_bookings' => $result['total_bookings']],
+                    409
+                );
             }
         }
 
