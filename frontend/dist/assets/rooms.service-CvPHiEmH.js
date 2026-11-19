@@ -1,0 +1,1 @@
+import{r as e}from"./index-C21yiKey.js";const s={list:o=>e.get("/rooms",{query:o}),create:o=>e.post("/rooms",o),detail:o=>e.get(`/rooms/${o}`),update:(o,r)=>e.put(`/rooms/${o}`,r),remove:o=>e.delete(`/rooms/${o}`),schedule:(o,r)=>e.get(`/rooms/${o}/schedule`,{query:r}),availability:(o,r)=>e.get(`/rooms/${o}/availability`,{query:r})};export{s as r};

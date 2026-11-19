@@ -549,6 +549,17 @@ export interface OrganizerDashboard {
   diem_noi_dung_tb?: number | null
   diem_dien_gia_tb?: number | null
   diem_to_chuc_tb?: number | null
+  phan_bo_theo_khoa?: Array<{
+    ma_khoa: number | null
+    ten_khoa: string
+    so_luong_dang_ky: number
+    so_luong_tham_du: number
+  }>
+  luu_luong_theo_khung_gio?: Array<{
+    khung_gio: string
+    so_luot_check_in: number
+    so_luot_check_out: number
+  }>
 }
 
 // ─── Standard QR Format Utilities (Contract v3.2.3 Spec) ────────────────────
