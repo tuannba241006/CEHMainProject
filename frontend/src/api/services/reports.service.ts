@@ -8,10 +8,17 @@ import type {
 import type { ApiEnvelope } from "./auth.service"
 
 export const reportsService = {
-  organizer: (eventId: number | string) =>
+  /**
+   * Dashboard phân tích chỉ số hiệu quả sự kiện dành cho Ban tổ chức (UC-REP-01).
+   * Khớp 100% với OpenAPI v3.2.3: GET /organizer/events/{id}/analytics (operationId: getOrganizerEventAnalytics)
+   */
+  organizerAnalytics: (eventId: number | string) =>
     api.get<ApiEnvelope<OrganizerDashboard>>(
       `/organizer/events/${eventId}/analytics`,
     ),
+  /** Giữ lại ủy thác để tương thích ngược */
+  organizer: (eventId: number | string) =>
+    reportsService.organizerAnalytics(eventId),
   adminMacro: (query?: Record<string, string | number>) =>
     api.get<ApiEnvelope<AdminMacroDashboard>>("/admin/analytics/macro", { query }),
   noShow: (query?: Record<string, string | number>) =>

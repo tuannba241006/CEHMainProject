@@ -52,8 +52,8 @@ When user's prompt is NOT in English:
 
 **ALL testing and bug fixing MUST comply with `@[rules/test-integrity-harness]`.**
 
-- **Permission Layer**: Test specifications are FROZEN and READ-ONLY during bug fixes. Never alter test assertions or simplify test scenarios (e.g. multi-user concurrency must never be reduced to single-user spam).
-- **Verification Layer**: Must verify zero diff on test files (`git diff --stat -- tests/`) and produce empirical runtime log evidence before declaring any task complete.
+- **Permission Layer & Hierarchy**: Core backend test specifications (`backend/tests/**`) are strictly FROZEN and READ-ONLY during bug fixes. Frontend tests (`frontend/src/test/**`) are classified as secondary/mock-reliant with softened immutability; production code must never be contorted or polluted with technical debt (such as redundant aliases) solely to appease frontend test mocks. When frontend test discrepancies arise, the agent MUST STOP and consult the user with clear options and technical rationales.
+- **Verification Layer**: Must verify zero diff on backend test files and produce empirical runtime log evidence before declaring any task complete.
 - **Authoring Layer**: When writing new tests, every test MUST trace back to Use Cases in `docs/srs_v3_1_3.md` and error codes in `docs/openapi_v3.2.3.yml`. Tautological / fake mock tests are strictly forbidden.
 
 ---

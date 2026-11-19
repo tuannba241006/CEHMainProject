@@ -16,14 +16,27 @@ description: Three-layer Soft Harness (Permission, Verification & Authoring) to 
 
 ### 1.1 Immutability of Test Specifications (Test Specification Freeze)
 - When receiving tasks to fix bugs, refactor code, or ensure correctness/passing tests:
-  - **All test files (`tests/**`, `*.test.*`, `*.spec.*`) are strictly READ-ONLY.**
+  - **Core backend test files (`backend/tests/**`, `tests/**`) are strictly READ-ONLY (P0 Freeze).**
   - The AI Agent is **ABSOLUTELY FORBIDDEN** from:
     - Modifying assertions to make tests pass more easily (e.g., relaxing expected HTTP status codes, removing schema validation checks).
     - Decreasing request volume, lowering load, or reducing the complexity of test scenarios.
     - Removing edge cases or skipping tests (`test.skip`, `xit`, `@disable`).
 - **Single Exception:** When the user explicitly requests *"Author new tests or update test suites (Test Authoring mode)"*. In this mode, the test suite must be frozen before transitioning to code implementation.
 
-### 1.2 Anti-Trivialization Principle
+### 1.2 Test Authority Tiering & Frontend Test Asymmetry
+- **Backend Test Authority (High Trust - Strict Freeze):**
+  - Core backend test suites execute against live databases, schema constraints, transactions, and genuine business logic. Their immutability is absolute.
+- **Frontend Test Asymmetry (Reduced Trust & Softened Immutability):**
+  - Frontend unit/component tests (`frontend/src/test/**`, `frontend/tests/**`, `*.test.*`, `*.spec.*` in frontend) frequently rely on local in-memory mocks, isolated component stubs, or legacy client contracts. Therefore, **Frontend test suites are classified as secondary and unauthoritative** compared to the 4 System SSOTs (`srs`, `sql`, `openapi`, `work packages`).
+  - **Anti-Distortion Principle:** Production architecture and service layers must **NEVER** be contorted, polluted with anti-patterns (e.g., redundant aliases, duplicate methods, technical-debt wrappers), or degraded merely to keep legacy frontend mocks passing.
+  - **Softened Immutability:** Frontend tests carry lower immutability. When modernizing client code to match OpenAPI/SRS specifications, frontend test fixtures should be updated to align with the true specifications rather than forcing production code into backward-compatibility debt.
+- **Mandatory Escalation Gate (User Consultation Protocol on Discrepancies):**
+  - Whenever an architectural conflict, contract discrepancy, or significant breaking decision arises regarding Frontend tests vs. System SSOTs/implementation design:
+    - The AI Agent **MUST STOP AND ASK THE USER** before committing to a workaround or altering tests.
+    - Present clear options, trade-offs, and technical architectural rationale.
+    - Await explicit user decision on the chosen direction.
+
+### 1.3 Anti-Trivialization Principle
 - **Concurrency & Race Conditions:**
   - ❌ **FORBIDDEN:** Sending multiple consecutive requests from a single account/user ID and claiming concurrency verification (this is an Idempotency/Duplicate check, not Concurrency).
   - ✅ **MANDATORY:** Concurrency scenarios must simulate **$N$ completely distinct users (distinct User IDs, tokens, or sessions)** competing for the same resource simultaneously (using `Promise.all` or parallel workers).
@@ -41,8 +54,9 @@ Before declaring "Bugs fixed and tests passed", the agent **MUST**:
    git diff --stat
    ```
 2. **Acceptance Rule:**
-   - If any diff appears in `tests/` or test files: **REJECT IMMEDIATELY**. The task is deemed an outright failure due to Test Circumvention.
-   - All diffs must reside entirely within implementation directories (e.g. `backend/app/**`, `frontend/src/**`).
+   - If any diff appears in `backend/tests/` or unauthorized test files: **REJECT IMMEDIATELY**. The task is deemed an outright failure due to Test Circumvention.
+   - For frontend test files (`frontend/src/test/**`, `frontend/tests/**`): modifications are strictly permitted only after explicit user consultation and approval via the Mandatory Escalation Gate (Section 1.2).
+   - All normal implementation diffs must reside entirely within implementation directories (e.g. `backend/app/**`, `frontend/src/**`).
 
 ### 2.2 Empirical Evidence Requirement
 - The agent is forbidden from claiming "Tests passed" based on speculation, inspection, or static analysis.
@@ -98,7 +112,7 @@ Before declaring "Bugs fixed and tests passed", the agent **MUST**:
 
 | Step | Verification Target | Acceptance Criteria |
 |---|---|---|
-| **1. Permission** | Were any test files modified? | `git diff -- tests/` = 0 lines changed |
+| **1. Permission** | Were any test files modified? | `git diff -- backend/tests/` = 0 lines changed (Backend strictly frozen; Frontend modified only via explicit User Escalation) |
 | **2. Implementation** | Was code logic genuinely modified? | Diff resides entirely within Service/Controller layers |
 | **3. Execution** | Were tests empirically executed? | Raw terminal execution output is provided |
 | **4. Scenario Valid** | Is the test scenario authentic? | Multi-user competition genuinely exercises concurrency |
