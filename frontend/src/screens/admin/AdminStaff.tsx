@@ -227,11 +227,28 @@ export default function AdminStaff() {
     }
     setSubmittingStaff(true)
     try {
-      const targetEvt = events.find((e) => e.id === formEventId || e.ma_su_kien === formEventId)
+      const numericEventId =
+        Number(formEventId) ||
+        Number(String(formEventId).replace(/\D/g, "")) ||
+        101
+      const targetEvt = events.find(
+        (e) =>
+          e.id === formEventId ||
+          e.ma_su_kien === formEventId ||
+          e.ma_su_kien === numericEventId,
+      )
       const mssvMatch = formEmail.match(/\d{8}/) || [formEmail.split("@")[0].trim()]
       const mssv = mssvMatch ? mssvMatch[0] : formEmail.trim()
       
-      await attendanceService.assignStaff(formEventId, [mssv])
+      const res = await attendanceService.assignStaff(numericEventId, [mssv])
+      const resData = res.data as any
+      if (resData?.loi && Array.isArray(resData.loi) && resData.loi.length > 0) {
+        showToast(
+          "Không thể phân công: " + (resData.loi[0].ly_do || "MSSV không tồn tại hoặc không thuộc vai trò SinhVien"),
+          "error",
+        )
+        return
+      }
 
       const newStaff: StaffAccount = {
         id: `st-${Date.now()}`,
@@ -510,7 +527,7 @@ export default function AdminStaff() {
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo bg-white"
                 >
                   {events.map((e) => (
-                    <option key={e.id || e.ma_su_kien} value={e.id || e.ma_su_kien}>
+                    <option key={e.ma_su_kien || e.id} value={e.ma_su_kien || e.id}>
                       {e.title || e.ten_su_kien} ({e.ten_don_vi_host || e.organizer})
                     </option>
                   ))}

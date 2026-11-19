@@ -27,6 +27,29 @@ export interface VerifiedCertificateDisplay {
   status: string
 }
 
+function maskName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "***"
+  if (parts.length === 1) {
+    const first = parts[0].slice(0, 1)
+    const last = parts[0].length > 2 ? parts[0].slice(-1) : ""
+    return `${first}**${last}`
+  }
+  if (parts.length === 2) {
+    return `${parts[0]} ${parts[1].slice(0, 1)}**`
+  }
+  const first = parts[0]
+  const last = parts[parts.length - 1].slice(0, 1)
+  const middle = `${parts[1].slice(0, 1)}**`
+  return `${first} ${middle} ${last}`
+}
+
+function maskMssv(mssv: string): string {
+  if (!mssv) return ""
+  if (mssv.length <= 4) return "*".repeat(mssv.length)
+  return mssv.slice(0, 4) + "*".repeat(mssv.length - 4)
+}
+
 export default function PublicCertificateVerify({
   onBack,
   initialCode = "CEH-2026-AI-7K9P2",
@@ -51,28 +74,30 @@ export default function PublicCertificateVerify({
       const res = await certificatesService.verify(trimmed).catch(() => null)
       if (res?.data) {
         const d = res.data
+        const isRevoked = d.da_thu_hoi || d.trang_thai === "DA_THU_HOI"
         setCertificate({
           id: 1,
           code: trimmed,
           eventTitle: d.ten_su_kien || "Sự kiện học thuật",
-          studentName: d.ho_ten_che_mo || "Sinh viên",
-          studentId: d.mssv_che_mo || "",
+          studentName: isRevoked ? "" : (d.ho_ten_che_mo || maskName(d.studentName || "Sinh viên")),
+          studentId: isRevoked ? "" : (d.mssv_che_mo || maskMssv(d.studentId || "")),
           issuedAt: d.ngay_cap || new Date().toISOString(),
           organizer: d.don_vi_to_chuc || "Đại học Công nghệ Thông tin",
-          status: d.da_thu_hoi ? "revoked" : (d.trang_thai?.toLowerCase() || "valid"),
+          status: isRevoked ? "revoked" : (d.trang_thai?.toLowerCase() || "valid"),
         })
       } else {
         const local = verifyCertificate(trimmed)
         if (local) {
+          const isRevoked = local.da_thu_hoi || local.status === "revoked"
           setCertificate({
             id: local.id,
             code: local.code,
-            eventTitle: local.eventTitle,
-            studentName: local.ho_ten_che_mo || local.recipientName || "Sinh viên",
-            studentId: local.mssv_che_mo || local.studentId || "",
-            issuedAt: local.issuedAt,
-            organizer: local.issuer || "Đại học Công nghệ Thông tin",
-            status: local.status,
+            eventTitle: local.eventTitle || local.ten_su_kien || "Sự kiện học thuật",
+            studentName: isRevoked ? "" : (local.ho_ten_che_mo || maskName(local.recipientName || "Sinh viên")),
+            studentId: isRevoked ? "" : (local.mssv_che_mo || maskMssv(local.studentId || "")),
+            issuedAt: local.issuedAt || local.ngay_cap || new Date().toISOString(),
+            organizer: local.issuer || local.don_vi_to_chuc || "Đại học Công nghệ Thông tin",
+            status: isRevoked ? "revoked" : local.status,
           })
         } else {
           setCertificate(undefined)
@@ -81,15 +106,16 @@ export default function PublicCertificateVerify({
     } catch {
       const local = verifyCertificate(trimmed)
       if (local) {
+        const isRevoked = local.da_thu_hoi || local.status === "revoked"
         setCertificate({
           id: local.id,
           code: local.code,
-          eventTitle: local.eventTitle,
-          studentName: local.ho_ten_che_mo || local.recipientName || "Sinh viên",
-          studentId: local.mssv_che_mo || local.studentId || "",
-          issuedAt: local.issuedAt,
-          organizer: local.issuer || "Đại học Công nghệ Thông tin",
-          status: local.status,
+          eventTitle: local.eventTitle || local.ten_su_kien || "Sự kiện học thuật",
+          studentName: isRevoked ? "" : (local.ho_ten_che_mo || maskName(local.recipientName || "Sinh viên")),
+          studentId: isRevoked ? "" : (local.mssv_che_mo || maskMssv(local.studentId || "")),
+          issuedAt: local.issuedAt || local.ngay_cap || new Date().toISOString(),
+          organizer: local.issuer || local.don_vi_to_chuc || "Đại học Công nghệ Thông tin",
+          status: isRevoked ? "revoked" : local.status,
         })
       } else {
         setCertificate(undefined)
@@ -296,8 +322,9 @@ export default function PublicCertificateVerify({
                         <span>Người thụ hưởng</span>
                       </p>
                       <p className="font-semibold text-slate-900">
-                        {certificate.studentName}
-                        {certificate.studentId ? ` (${certificate.studentId})` : ""}
+                        {certificate.status === "revoked"
+                          ? "Thông tin được bảo mật theo Nghị định 13/2023/NĐ-CP"
+                          : `${certificate.studentName}${certificate.studentId ? ` (${certificate.studentId})` : ""}`}
                       </p>
                     </div>
 

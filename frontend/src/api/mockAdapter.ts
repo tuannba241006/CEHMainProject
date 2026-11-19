@@ -835,6 +835,22 @@ export async function handleMockRequest<T>(
   }
 
   if (cleanPath.startsWith("/certificates/verify/")) {
+    const hash = cleanPath.replace("/certificates/verify/", "")
+    const isRevoked = hash.toUpperCase().includes("REVOKED")
+    if (isRevoked) {
+      return {
+        success: true,
+        data: {
+          trang_thai: "DA_THU_HOI",
+          da_thu_hoi: true,
+          ho_ten_che_mo: null,
+          mssv_che_mo: null,
+          ten_su_kien: null,
+          don_vi_to_chuc: null,
+          ngay_cap: null,
+        },
+      } as T
+    }
     return {
       success: true,
       data: {

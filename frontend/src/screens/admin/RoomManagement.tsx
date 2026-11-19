@@ -20,9 +20,11 @@ interface Props {
 
 function parseTimeToMinutes(str?: string): number {
   if (!str) return 420
-  if (str.includes("T")) {
-    const d = new Date(str)
-    return d.getHours() * 60 + d.getMinutes()
+  if (str.includes(" ") || str.includes("T")) {
+    const d = new Date(str.includes(" ") ? str.replace(" ", "T") : str)
+    if (!isNaN(d.getTime())) {
+      return d.getHours() * 60 + d.getMinutes()
+    }
   }
   const parts = str.split(":")
   return (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0)
@@ -75,8 +77,8 @@ export default function RoomManagement({
         }))
         return { data: mapped }
       } catch (err) {
-        console.warn("Failed to fetch rooms from backend, using seed fallback:", err)
-        return { data: ROOMS }
+        showToast(getApiErrorMessage(err), "error")
+        return { data: [] }
       }
     },
     create: (i) => roomsService.create(i),

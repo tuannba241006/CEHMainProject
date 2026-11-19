@@ -4,7 +4,7 @@ import { useApp, type LiveEvent } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
 import { eventsService } from "../../api/services/events.service"
-import { ROOMS, EVENTS, type Event } from "../../data/mock"
+import { ROOMS, type Event } from "../../data/mock"
 import type { DrlRule, EventStatus, OrganizationSummary, Topic } from "../../data/contract"
 import {
   FileText,
@@ -63,95 +63,6 @@ interface Props {
   onOpenReconciliation: (evt: AdminManageEvent) => void
 }
 
-const SEED_ADMIN_EVENTS: AdminManageEvent[] = [
-  {
-    id: "991",
-    ma_su_kien: 991,
-    title: "Ngày hội Khởi nghiệp & Đổi mới Sáng tạo UIT 2026",
-    ten_su_kien: "Ngày hội Khởi nghiệp & Đổi mới Sáng tạo UIT 2026",
-    organizer: "Phòng Công tác Sinh viên (P.CTSV)",
-    ten_don_vi_host: "Phòng Công tác Sinh viên (P.CTSV)",
-    topic: "Kỹ năng mềm & Công nghệ",
-    ten_chuyen_de: "Kỹ năng mềm & Công nghệ",
-    room: "Hội trường A",
-    ten_phong: "Hội trường A",
-    capacity: 350,
-    so_luong_toi_da: 350,
-    registered: 0,
-    so_luong_da_dang_ky: 0,
-    points: 5,
-    speaker: "Shark Nguyễn Thanh Hùng - Chủ tịch Quỹ Khởi nghiệp",
-    dien_gia: "Shark Nguyễn Thanh Hùng - Chủ tịch Quỹ Khởi nghiệp",
-    date: "25/11/2026",
-    time: "08:00 - 11:30",
-    status: "draft",
-    trang_thai: "DRAFT",
-    description: "Sự kiện cấp trường kết nối các dự án khởi nghiệp công nghệ sinh viên với các nhà đầu tư mạo hiểm.",
-    mo_ta: "Sự kiện cấp trường kết nối các dự án khởi nghiệp công nghệ sinh viên với các nhà đầu tư mạo hiểm.",
-    coHosts: ["CLB WebDev UIT", "Khoa Kỹ thuật Phần mềm"],
-    danh_sach_ten_dong_to_chuc: ["CLB WebDev UIT", "Khoa Kỹ thuật Phần mềm"],
-    banner: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop",
-  },
-  {
-    id: "992",
-    ma_su_kien: 992,
-    title: "Hội thảo An toàn Mạng & Kỹ thuật SOC Phòng thủ",
-    ten_su_kien: "Hội thảo An toàn Mạng & Kỹ thuật SOC Phòng thủ",
-    organizer: "Khoa Hệ thống Thông tin",
-    ten_don_vi_host: "Khoa Hệ thống Thông tin",
-    topic: "Học thuật & Trí tuệ nhân tạo",
-    ten_chuyen_de: "Học thuật & Trí tuệ nhân tạo",
-    room: "Phòng Hội thảo E",
-    ten_phong: "Phòng Hội thảo E",
-    capacity: 150,
-    so_luong_toi_da: 150,
-    registered: 0,
-    so_luong_da_dang_ky: 0,
-    points: 4,
-    speaker: "TS. Lê Hoàng Long - Chuyên gia An ninh mạng Viettel",
-    dien_gia: "TS. Lê Hoàng Long - Chuyên gia An ninh mạng Viettel",
-    date: "28/11/2026",
-    time: "13:30 - 16:30",
-    status: "draft",
-    trang_thai: "DRAFT",
-    description: "Nháp ủy quyền do Admin tạo hộ cho Khoa Hệ thống Thông tin để Khoa phân công diễn giả và cấu hình chi tiết.",
-    mo_ta: "Nháp ủy quyền do Admin tạo hộ cho Khoa Hệ thống Thông tin để Khoa phân công diễn giả và cấu hình chi tiết.",
-    coHosts: ["CLB WebDev UIT"],
-    danh_sach_ten_dong_to_chuc: ["CLB WebDev UIT"],
-    banner: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&h=400&fit=crop",
-  },
-  {
-    id: "993",
-    ma_su_kien: 993,
-    title: "Hội thảo Chuyển đổi số & Điện toán đám mây UIT",
-    ten_su_kien: "Hội thảo Chuyển đổi số & Điện toán đám mây UIT",
-    organizer: "CLB WebDev UIT",
-    ten_don_vi_host: "CLB WebDev UIT",
-    topic: "Kỹ năng mềm & Công nghệ",
-    ten_chuyen_de: "Kỹ năng mềm & Công nghệ",
-    room: "Hội trường B",
-    ten_phong: "Hội trường B",
-    capacity: 250,
-    so_luong_toi_da: 250,
-    registered: 0,
-    so_luong_da_dang_ky: 0,
-    points: 4,
-    speaker: "ThS. Hoàng Văn Nam - Solutions Architect AWS",
-    dien_gia: "ThS. Hoàng Văn Nam - Solutions Architect AWS",
-    date: "10/11/2026",
-    time: "14:00 - 17:00",
-    status: "rejected",
-    trang_thai: "REJECTED",
-    description: "Hội thảo thực chiến về kiến trúc Microservices và Serverless trên AWS dành cho sinh viên.",
-    mo_ta: "Hội thảo thực chiến về kiến trúc Microservices và Serverless trên AWS dành cho sinh viên.",
-    ly_do_tu_choi: "Trùng khung giờ với Lễ Khai giảng năm học mới tại Hội trường B và chưa có phương án an ninh đảm bảo.",
-    coHosts: [],
-    danh_sach_ten_dong_to_chuc: [],
-    banner: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&h=400&fit=crop",
-  },
-  ...EVENTS,
-]
-
 export default function AdminEventsManagement({
   initialMode = "list",
   orgs,
@@ -167,16 +78,7 @@ export default function AdminEventsManagement({
     initialMode === "create" ? "create" : initialMode === "edit" ? "edit" : "list",
   )
 
-  // Merged events list: include appEvents and ensure SEED_ADMIN_EVENTS (with cohosts & drafts) are prepended
-  const [localEvents, setLocalEvents] = useState<AdminManageEvent[]>(() => {
-    const list: AdminManageEvent[] = [...(appEvents && appEvents.length > 0 ? appEvents : EVENTS)]
-    for (const seed of SEED_ADMIN_EVENTS) {
-      if (!list.some((e) => e.id === seed.id || e.ma_su_kien === seed.ma_su_kien)) {
-        list.unshift(seed)
-      }
-    }
-    return list
-  })
+  const [localEvents, setLocalEvents] = useState<AdminManageEvent[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -187,32 +89,25 @@ export default function AdminEventsManagement({
         setLoading(true)
         setError(null)
         const res = await eventsService.getEvents()
-        if (!cancelled && res.data && Array.isArray(res.data) && res.data.length > 0) {
-          setLocalEvents((prev) => {
-            const apiItems: AdminManageEvent[] = res.data.map((item) => ({
-              ...item,
-              id: String(item.ma_su_kien),
-              title: item.ten_su_kien,
-              date: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(0, 10) : "",
-              time: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(11, 16) : "",
-              status: item.trang_thai,
-              registered:
-                item.so_luong_toi_da && item.so_ve_con_lai != null
-                  ? Math.max(0, item.so_luong_toi_da - item.so_ve_con_lai)
-                  : 0,
-              capacity: item.so_luong_toi_da || 100,
-            }))
-            const merged = [...apiItems]
-            for (const p of prev) {
-              if (!merged.some((m) => m.ma_su_kien === p.ma_su_kien || m.id === p.id)) {
-                merged.push(p)
-              }
-            }
-            return merged
-          })
+        if (!cancelled && res.data && Array.isArray(res.data)) {
+          const apiItems: AdminManageEvent[] = res.data.map((item) => ({
+            ...item,
+            id: String(item.ma_su_kien),
+            title: item.ten_su_kien,
+            date: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(0, 10) : "",
+            time: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(11, 16) : "",
+            status: item.trang_thai,
+            registered:
+              item.so_luong_toi_da && item.so_ve_con_lai != null
+                ? Math.max(0, item.so_luong_toi_da - item.so_ve_con_lai)
+                : 0,
+            capacity: item.so_luong_toi_da || 100,
+          }))
+          setLocalEvents(apiItems)
         }
       } catch (err) {
         console.warn("Admin events load note:", err)
+        setError(getApiErrorMessage(err))
       } finally {
         if (!cancelled) setLoading(false)
       }

@@ -267,11 +267,29 @@ export const SEED_CERTIFICATES: Certificate[] = [
     eventTitle: "Cuộc thi Lập trình ACM ICPC Qualifier",
     recipientName: "Cao Duy Anh",
     studentId: "22521001",
+    ho_ten_che_mo: "Cao D** A",
+    mssv_che_mo: "2252****",
     issuer: "Trường Đại học Công nghệ Thông tin",
     participantRole: "Thí sinh",
     eventTime: "15/09/2026",
     issuedAt: "18/09/2026",
     status: "issued",
+  },
+  {
+    id: "CERT-REVOKED",
+    code: "CEH-2026-REVOKED-01",
+    eventId: "EVT_PAST",
+    eventTitle: "Seminar An ninh mạng & Pháp chứng kỹ thuật số",
+    recipientName: "Trần Minh B",
+    studentId: "22520002",
+    ho_ten_che_mo: null,
+    mssv_che_mo: null,
+    issuer: "Khoa Mạng máy tính & Truyền thông",
+    participantRole: "Người tham dự",
+    eventTime: "10/09/2026",
+    issuedAt: "12/09/2026",
+    status: "revoked",
+    da_thu_hoi: true,
   },
 ]
 
@@ -325,48 +343,78 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
   async function refreshReviewQueue() {
     if (!authenticated || role === "student") return
     try {
-      const res = await eventsService.reviewQueue()
+      const isOrganizer = role === "organizer" || (role as string) === "ToChuc"
+      const res = isOrganizer
+        ? await eventsService.organizerList()
+        : await eventsService.reviewQueue()
       if (res.data && Array.isArray(res.data)) {
-        const apiCases: ApprovalCase[] = res.data.map((card) => {
-          const isPendingFaculty = card.trang_thai === "PENDING_FACULTY"
-          const existing = SEED_APPROVALS.find(
-            (s) =>
-              s.eventId === String(card.ma_su_kien) ||
-              s.id === `HS-${card.ma_su_kien}`,
-          )
-          return {
-            id: `HS-${card.ma_su_kien}`,
-            eventId: String(card.ma_su_kien),
-            title: card.ten_su_kien,
-            unit: card.ten_don_vi_host || existing?.unit || "Khoa Hệ thống Thông tin",
-            faculty: resolveFacultyFromUnit(
-              card.ten_don_vi_host,
-              existing?.faculty,
-            ),
-            submitter: card.dien_gia || existing?.submitter || "Ban tổ chức",
-            submittedAt: (card.thoi_gian_bat_dau || "").slice(0, 10),
-            eventDate: (card.thoi_gian_bat_dau || "").slice(0, 10),
-            status: isPendingFaculty ? "faculty_pending" : "affairs_pending",
-            lifecycle: "scheduled",
-            description: card.ten_su_kien,
-            plan: existing?.plan || "Kế hoạch tổ chức chi tiết được đính kèm.",
-            documents: existing?.documents || ["Ke_hoach_to_chuc.pdf"],
-            proposedPoints: card.diem_drl_du_kien ?? 5,
-            semester: "HK1 2026–2027",
-            criteriaCode:
-              card.dieu_khoan_drl === "Dieu4" ? "TC-04-HĐ" : "TC-03-HT",
-            maxPoints: card.diem_drl_du_kien ?? 5,
-            validMinutes: 120,
-            thresholds: [{ ratio: 80, points: card.diem_drl_du_kien ?? 5 }],
-            requiredSessions: ["Khai mạc"],
-            certificateCondition: "Tham dự tối thiểu 80% thời lượng",
-            ruleBasis: "Quy chế CTSV",
-            ruleVersion: "DK-2026.2",
-            history: existing?.history || [],
-          }
-        })
+        const apiCases: ApprovalCase[] = res.data
+          .filter((card) => {
+            if (!isOrganizer) return true
+            return [
+              "WAITING_COHOST_CONFIRM",
+              "PENDING_FACULTY",
+              "PENDING_ADMIN",
+              "COHOST_REJECTED",
+              "REJECTED",
+            ].includes(card.trang_thai)
+          })
+          .map((card) => {
+            const isPendingFaculty =
+              card.trang_thai === "PENDING_FACULTY" ||
+              card.trang_thai === "WAITING_COHOST_CONFIRM"
+            const isPendingAdmin = card.trang_thai === "PENDING_ADMIN"
+            const isRejected =
+              card.trang_thai === "REJECTED" ||
+              card.trang_thai === "COHOST_REJECTED"
+            const caseStatus: ApprovalStatus = isPendingFaculty
+              ? "faculty_pending"
+              : isPendingAdmin
+              ? "affairs_pending"
+              : isRejected
+              ? "faculty_rejected"
+              : "draft"
 
-        setApprovalCases(apiCases)
+            const existing = SEED_APPROVALS.find(
+              (s) =>
+                s.eventId === String(card.ma_su_kien) ||
+                s.id === `HS-${card.ma_su_kien}`,
+            )
+            return {
+              id: `HS-${card.ma_su_kien}`,
+              eventId: String(card.ma_su_kien),
+              title: card.ten_su_kien,
+              unit: card.ten_don_vi_host || existing?.unit || "CLB WebDev UIT",
+              faculty: resolveFacultyFromUnit(
+                card.ten_don_vi_host,
+                existing?.faculty,
+              ),
+              submitter: card.dien_gia || existing?.submitter || "Ban tổ chức",
+              submittedAt: (card.thoi_gian_bat_dau || "").slice(0, 10),
+              eventDate: (card.thoi_gian_bat_dau || "").slice(0, 10),
+              status: caseStatus,
+              lifecycle: "scheduled",
+              description: card.ten_su_kien,
+              plan: existing?.plan || "Kế hoạch tổ chức chi tiết được đính kèm.",
+              documents: existing?.documents || ["Ke_hoach_to_chuc.pdf"],
+              proposedPoints: card.diem_drl_du_kien ?? 5,
+              semester: "HK1 2026–2027",
+              criteriaCode:
+                card.dieu_khoan_drl === "Dieu4" ? "TC-04-HĐ" : "TC-03-HT",
+              maxPoints: card.diem_drl_du_kien ?? 5,
+              validMinutes: 120,
+              thresholds: [{ ratio: 80, points: card.diem_drl_du_kien ?? 5 }],
+              requiredSessions: ["Khai mạc"],
+              certificateCondition: "Tham dự tối thiểu 80% thời lượng",
+              ruleBasis: "Quy chế CTSV",
+              ruleVersion: "DK-2026.2",
+              history: existing?.history || [],
+            }
+          })
+
+        if (apiCases.length > 0) {
+          setApprovalCases(apiCases)
+        }
       }
     } catch {
       // Keep static

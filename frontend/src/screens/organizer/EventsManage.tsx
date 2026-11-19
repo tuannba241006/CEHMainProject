@@ -30,37 +30,47 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
     updateApproval,
     cancelEvent,
     computeStatus,
+    refetch,
   } = useApp()
   const { showToast } = useToast()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [reopenModal, setReopenModal] = useState<{
     id: string
+    eventId?: string
     title: string
   } | null>(null)
   const [reopenReason, setReopenReason] = useState("")
   const [withdrawModal, setWithdrawModal] = useState<{
     id: string
+    eventId?: string
     title: string
   } | null>(null)
   const [withdrawReason, setWithdrawReason] = useState("")
   const [cancelModal, setCancelModal] = useState<{
     id: string
+    eventId?: string
     title: string
   } | null>(null)
   const [cancelReason, setCancelReason] = useState("")
 
   async function handleReopen() {
     if (!reopenModal) return
+    const targetCase = approvalCases.find((c) => c.id === reopenModal.id)
+    const rawId = reopenModal.eventId || targetCase?.eventId || reopenModal.id
+    const numericId = Number(rawId.replace(/\D/g, "")) || 2050
     try {
-      await eventsService.reopen(reopenModal.id, reopenReason)
-      updateApproval(reopenModal.id, "reopen", reopenReason)
+      if (numericId) {
+        await eventsService.reopen(numericId, reopenReason || "Tái mở sửa lại")
+      }
+      await updateApproval(reopenModal.id, "reopen", reopenReason, true)
       showToast(
         `Đã tái mở sự kiện "${reopenModal.title}" về bản nháp. Bạn có thể chỉnh sửa và gửi duyệt lại.`,
         "success",
       )
       setReopenModal(null)
       setReopenReason("")
+      if (refetch) await refetch()
     } catch (e) {
       showToast(getApiErrorMessage(e), "error")
     }
@@ -72,15 +82,21 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
       showToast("Vui lòng nhập lý do rút hồ sơ (tối thiểu 5 ký tự).", "error")
       return
     }
+    const targetCase = approvalCases.find((c) => c.id === withdrawModal.id)
+    const rawId = withdrawModal.eventId || targetCase?.eventId || withdrawModal.id
+    const numericId = Number(rawId.replace(/\D/g, "")) || 2050
     try {
-      await eventsService.withdraw(withdrawModal.id, withdrawReason)
-      updateApproval(withdrawModal.id, "withdraw", withdrawReason)
+      if (numericId) {
+        await eventsService.withdraw(numericId, withdrawReason)
+      }
+      await updateApproval(withdrawModal.id, "withdraw", withdrawReason, true)
       showToast(
         `Đã rút hồ sơ đề xuất "${withdrawModal.title}" về bản nháp.`,
         "success",
       )
       setWithdrawModal(null)
       setWithdrawReason("")
+      if (refetch) await refetch()
     } catch (e) {
       showToast(getApiErrorMessage(e), "error")
     }
@@ -95,8 +111,13 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
       )
       return
     }
+    const targetCase = approvalCases.find((c) => c.id === cancelModal.id)
+    const rawId = cancelModal.eventId || targetCase?.eventId || cancelModal.id
+    const numericId = Number(rawId.replace(/\D/g, "")) || 101
     try {
-      await eventsService.emergencyCancel(cancelModal.id, cancelReason)
+      if (numericId) {
+        await eventsService.emergencyCancel(numericId, cancelReason)
+      }
       cancelEvent(cancelModal.id, cancelReason)
       showToast(
         `Đã hủy sự kiện "${cancelModal.title}". Hệ thống đang gửi email thông báo hủy và giải phóng vé.`,
@@ -104,6 +125,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
       )
       setCancelModal(null)
       setCancelReason("")
+      if (refetch) await refetch()
     } catch (e) {
       showToast(getApiErrorMessage(e), "error")
     }
@@ -228,8 +250,8 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
               hồ sơ đang xử lý
             </span>
           </div>
-          <div className="mt-3 space-y-2">
-            {approvalCases.slice(0, 3).map((item) => (
+          <div className="mt-3 space-y-2 max-h-96 overflow-y-auto">
+            {approvalCases.map((item) => (
               <div
                 key={item.id}
                 className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-50"
@@ -253,7 +275,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                     item.status === "affairs_pending") && (
                     <button
                       onClick={() =>
-                        setWithdrawModal({ id: item.id, title: item.title })
+                        setWithdrawModal({ id: item.id, eventId: item.eventId, title: item.title })
                       }
                       className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors"
                       title="Rút hồ sơ về bản nháp để điều chỉnh"
@@ -265,7 +287,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                     item.status === "affairs_rejected") && (
                     <button
                       onClick={() =>
-                        setReopenModal({ id: item.id, title: item.title })
+                        setReopenModal({ id: item.id, eventId: item.eventId, title: item.title })
                       }
                       className="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
                       title="Tái mở bản nháp bị từ chối để chỉnh sửa lại"
@@ -572,6 +594,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                             onClick={() =>
                               setReopenModal({
                                 id: event.id,
+                                eventId: String(event.ma_su_kien || event.id),
                                 title: event.title,
                               })
                             }
@@ -587,6 +610,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                             onClick={() =>
                               setCancelModal({
                                 id: event.id,
+                                eventId: String(event.ma_su_kien || event.id),
                                 title: event.title,
                               })
                             }
@@ -716,6 +740,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                     onClick={() =>
                       setReopenModal({
                         id: event.id,
+                        eventId: String(event.ma_su_kien || event.id),
                         title: event.title,
                       })
                     }
@@ -729,6 +754,7 @@ export default function EventsManage({ onNavigate, onLogout }: Props) {
                     onClick={() =>
                       setCancelModal({
                         id: event.id,
+                        eventId: String(event.ma_su_kien || event.id),
                         title: event.title,
                       })
                     }

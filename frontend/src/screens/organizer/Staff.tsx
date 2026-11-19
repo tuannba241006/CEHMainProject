@@ -107,15 +107,24 @@ export default function Staff({ onNavigate, onLogout }: Props) {
     const targetEvent = Number(selectedEventId) || 101
     setSubmittingStaff(true)
     try {
-      await attendanceService.assignStaff(targetEvent, [newStaffMssv.trim()])
+      const res = await attendanceService.assignStaff(targetEvent, [newStaffMssv.trim()])
+      const data = res.data as any
+      if (data?.loi && Array.isArray(data.loi) && data.loi.length > 0) {
+        showToast(
+          data.loi[0].ly_do || "MSSV không tồn tại hoặc không thuộc vai trò SinhVien",
+          "error",
+        )
+        return
+      }
       showToast(
         `Đã phân công quyền Staff thành công cho MSSV ${newStaffMssv.trim()}!`,
         "success",
       )
+      const assignedItem = data?.da_phan_cong?.[0]
       setStaffItems((prev) => [
         {
-          id: `STF-${Date.now()}`,
-          name: newStaffName.trim() || `Sinh viên ${newStaffMssv.trim()}`,
+          id: `STF-${assignedItem?.id || Date.now()}`,
+          name: assignedItem?.ho_ten || newStaffName.trim() || `Sinh viên ${newStaffMssv.trim()}`,
           email: `${newStaffMssv.trim()}@gm.uit.edu.vn`,
           assignedEvent:
             apiEvents.find((e) => e.ma_su_kien === targetEvent)?.ten_su_kien ||
@@ -123,7 +132,7 @@ export default function Staff({ onNavigate, onLogout }: Props) {
           permission: "Điểm danh (Kiosk/Staff Scanner)",
           accountStatus: "active" as const,
           lastActive: "Vừa xong",
-          userId: Number(newStaffMssv.trim()) || Date.now(),
+          userId: assignedItem?.ma_tai_khoan || Number(newStaffMssv.trim()),
         },
         ...prev,
       ])
