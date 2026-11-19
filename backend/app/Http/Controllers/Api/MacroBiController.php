@@ -54,8 +54,28 @@ class MacroBiController extends Controller
 
     public function exportMacro(Request $request): Response
     {
+        if ($request->has('hoc_ky') && (! $request->has('tu_ngay') || ! $request->has('den_ngay'))) {
+            $hocKy = $request->input('hoc_ky');
+            $year = now()->year;
+            $dates = match ($hocKy) {
+                'HK1' => ['tu_ngay' => "{$year}-08-01", 'den_ngay' => now()->toDateString()],
+                'HK2' => ['tu_ngay' => "{$year}-01-01", 'den_ngay' => "{$year}-06-30"],
+                '30DAYS' => ['tu_ngay' => now()->subDays(30)->toDateString(), 'den_ngay' => now()->toDateString()],
+                '90DAYS' => ['tu_ngay' => now()->subDays(90)->toDateString(), 'den_ngay' => now()->toDateString()],
+                'ALL' => ['tu_ngay' => '2020-01-01', 'den_ngay' => now()->toDateString()],
+                default => null,
+            };
+            if ($dates) {
+                $request->merge([
+                    'tu_ngay' => $request->input('tu_ngay', $dates['tu_ngay']),
+                    'den_ngay' => $request->input('den_ngay', $dates['den_ngay']),
+                ]);
+            }
+        }
+
         $filters = $request->validate([
-            'dinh_dang' => ['required', Rule::in(['xlsx', 'pdf'])],
+            'dinh_dang' => ['sometimes', Rule::in(['xlsx', 'pdf'])],
+            'hoc_ky' => ['sometimes', 'string', 'in:HK1,HK2,30DAYS,90DAYS,ALL'],
             'tu_ngay' => ['sometimes', 'date'],
             'den_ngay' => ['sometimes', 'date', 'after_or_equal:tu_ngay'],
         ]);
@@ -63,7 +83,7 @@ class MacroBiController extends Controller
             $filters['tu_ngay'] ?? null,
             $filters['den_ngay'] ?? null
         );
-        $format = $filters['dinh_dang'];
+        $format = $filters['dinh_dang'] ?? 'xlsx';
         $filename = 'macro-report-'.$report['tu_ngay'].'-'.$report['den_ngay'].'.'.$format;
         $rows = [
             ['Campus Event Hub - Macro BI Report'],

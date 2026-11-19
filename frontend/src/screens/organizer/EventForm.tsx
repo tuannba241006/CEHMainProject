@@ -3,8 +3,8 @@ import { useParams } from "react-router"
 import { OrgLayout } from "./OrgLayout"
 import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
-import { CONTRACT_TOPICS, ROOMS, ORGANIZATIONS } from "../../data/mock"
-import type { RoomPublic, Topic } from "../../data/contract"
+import { useUser } from "../../context/UserContext"
+import type { RoomPublic, Topic, OrganizationSummary } from "../../data/contract"
 import { formatCalendarDate } from "../../utils/date"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage } from "../../api/errors"
@@ -22,31 +22,37 @@ interface Props {
 export default function EventForm({ onNavigate, onLogout }: Props) {
   const { id } = useParams<{ id?: string }>()
   const isEditMode = Boolean(id)
+  const { user } = useUser()
   const { saveApprovalDraft } = useApp()
   const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [orgList, setOrgList] = useState(ORGANIZATIONS)
-  const [roomList, setRoomList] = useState<RoomPublic[]>(ROOMS)
-  const [topicList, setTopicList] = useState<Topic[]>(CONTRACT_TOPICS)
+  const [orgList, setOrgList] = useState<OrganizationSummary[]>([])
+  const [roomList, setRoomList] = useState<RoomPublic[]>([])
+  const [topicList, setTopicList] = useState<Topic[]>([])
 
   useEffect(() => {
     let cancelled = false
     organizationsService
       .publicList()
       .then((res) => {
-        if (!cancelled && res.data && res.data.length > 0) {
-          setOrgList(res.data)
+        if (!cancelled && res.data) {
+          const raw = res.data as Array<OrganizationSummary & { ma_don_vi_to_chuc?: number }>
+          const mapped: OrganizationSummary[] = raw.map((o) => ({
+            ...o,
+            ma_don_vi: Number(o.ma_don_vi ?? o.ma_don_vi_to_chuc),
+          }))
+          setOrgList(mapped)
         }
       })
-      .catch(() => {
-        // Fallback to default ORGANIZATIONS
+      .catch((err) => {
+        console.warn("Failed to fetch organizations:", err)
       })
 
     roomsService
       .list()
       .then((res) => {
-        if (!cancelled && res.data && res.data.length > 0) {
+        if (!cancelled && res.data) {
           const rawList = res.data as Array<Partial<RoomPublic> & { suc_chua_toi_da?: number; trang_thiet_bi?: { may_chieu?: boolean; am_thanh?: boolean; wifi?: boolean } }>
           const mapped: RoomPublic[] = rawList.map((r) => ({
             ma_phong: Number(r.ma_phong),
@@ -71,19 +77,19 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
           setRoomList(mapped)
         }
       })
-      .catch(() => {
-        // Fallback to default ROOMS
+      .catch((err) => {
+        console.warn("Failed to fetch rooms:", err)
       })
 
     api
       .get<{ data: Topic[] }>("/topics")
       .then((res) => {
-        if (!cancelled && res.data && Array.isArray(res.data) && res.data.length > 0) {
+        if (!cancelled && res.data && Array.isArray(res.data)) {
           setTopicList(res.data)
         }
       })
-      .catch(() => {
-        // Fallback to default CONTRACT_TOPICS
+      .catch((err) => {
+        console.warn("Failed to fetch topics:", err)
       })
 
     return () => {
@@ -109,10 +115,19 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
         const startTimeStr = start ? start.toTimeString().slice(0, 5) : ""
         const endTimeStr = end ? end.toTimeString().slice(0, 5) : ""
 
+        const topicId = ev.chuyen_de?.ma_chuyen_de ?? ev.ma_chuyen_de
+        const roomId = ev.phong?.ma_phong ?? ev.ma_phong
+        const cohostList = Array.isArray(ev.danh_sach_dong_to_chuc)
+          ? ev.danh_sach_dong_to_chuc
+              .map((c: any) => c.don_vi_dong_to_chuc?.ma_don_vi_to_chuc ?? c.don_vi?.ma_don_vi_to_chuc ?? c.ma_don_vi_to_chuc ?? c.ma_don_vi)
+              .filter(Boolean)
+              .join(",")
+          : ""
+
         setForm((prev) => ({
           ...prev,
           title: ev.ten_su_kien || ev.title || prev.title,
-          topic: ev.ma_chuyen_de ? String(ev.ma_chuyen_de) : prev.topic,
+          topic: topicId ? String(topicId) : prev.topic,
           description: ev.mo_ta || prev.description,
           regStart: ev.ngay_cong_bo
             ? String(ev.ngay_cong_bo).slice(0, 16)
@@ -123,7 +138,8 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
           eventDate: dateStr || prev.eventDate,
           startTime: startTimeStr || prev.startTime,
           endTime: endTimeStr || prev.endTime,
-          room: ev.ma_phong ? String(ev.ma_phong) : prev.room,
+          room: roomId ? String(roomId) : prev.room,
+          cohostIds: cohostList || prev.cohostIds,
           location: ev.dia_diem || ev.ten_phong || prev.location,
           capacity: ev.so_luong_toi_da
             ? String(ev.so_luong_toi_da)
@@ -245,7 +261,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
     setErrors((e) => ({ ...e, [k]: "" }))
   }
 
-  function validate() {
+  function validate(submitForApproval: boolean) {
     const e: Record<string, string> = {}
     if (!form.title.trim()) e.title = "Vui lòng nhập tên sự kiện."
     if (!form.topic) e.topic = "Vui lòng chọn chủ đề."
@@ -263,24 +279,58 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       form.unlimited === "false" &&
       Number(form.capacity) > room.suc_chua
     )
-      e.capacity = `Vượt sức chứa tối đa của phòng (${room.suc_chua}).`
-    if (!form.startTime || !form.endTime || form.startTime >= form.endTime)
+      e.capacity = `Vượt sức chứa tối đa của phòng (${room.suc_chua} chỗ).`
+
+    // UC-EVT-01.EX.2: Co-host cannot be host unit
+    const hostUnitId = user?.ma_don_vi_to_chuc ?? user?.don_vi?.ma_don_vi
+    const hostUnitName = user?.don_vi?.ten_don_vi?.toLowerCase().trim()
+    if (form.cohostIds) {
+      const selectedCohostIds = form.cohostIds.split(",").map((s) => s.trim())
+      const isSelectingOwnUnit = orgList.some((org) => {
+        if (!selectedCohostIds.includes(String(org.ma_don_vi))) return false
+        if (hostUnitId && (org.ma_don_vi === hostUnitId || org.ma_don_vi === Number(hostUnitId))) return true
+        if (hostUnitName && org.ten_don_vi.toLowerCase().trim() === hostUnitName) return true
+        return false
+      })
+      if (isSelectingOwnUnit) {
+        e.cohost = "Đơn vị đồng tổ chức không được trùng với đơn vị chủ trì."
+      }
+    }
+
+    if (!form.eventDate) {
+      if (submitForApproval) e.eventDate = "Vui lòng chọn ngày tổ chức."
+    } else {
+      const today = new Date().toISOString().slice(0, 10)
+      if (form.eventDate < today) {
+        e.eventDate = "Thời gian tổ chức không được nằm trong quá khứ."
+      }
+    }
+
+    if (!form.startTime || !form.endTime) {
+      if (submitForApproval) e.endTime = "Vui lòng chọn giờ bắt đầu và kết thúc."
+    } else if (form.startTime >= form.endTime) {
       e.endTime = "Thời gian kết thúc phải sau thời gian bắt đầu."
+    }
+
     if (form.regEnd && form.eventDate && form.regEnd > form.eventDate)
       e.regEnd = "Thời gian đóng đăng ký không được sau ngày diễn ra sự kiện."
+    if (form.regStart && form.eventDate && form.regStart > form.eventDate)
+      e.regStart = "Ngày công bố phải trước hoặc bằng ngày diễn ra sự kiện."
     return e
   }
 
   async function handleSubmit(submitForApproval: boolean) {
     if (saving) return
-    const errors = submitForApproval ? validate() : {}
+    const errors = validate(submitForApproval)
     if (Object.keys(errors).length) {
       setErrors(errors)
+      showToast(Object.values(errors)[0], "error")
       return
     }
     setSaving(true)
     try {
       const title = form.title.trim() || "Bản nháp chưa đặt tên"
+      let eventTargetId = id ? Number(id) : undefined
       if (
         form.eventDate &&
         form.startTime &&
@@ -311,7 +361,6 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
               }
             : {}),
         }
-        let eventTargetId = id ? Number(id) : undefined
         if (id) {
           const updated = await eventsService.updateDraft(id, payload)
           if (!updated.success)
@@ -333,6 +382,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       }
       saveApprovalDraft(
         {
+          eventId: eventTargetId ? String(eventTargetId) : undefined,
           title,
           eventDate: form.eventDate,
           description: form.description,
@@ -536,6 +586,9 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                   )
                 })}
               </div>
+              {errors.cohost && (
+                <p className="text-xs text-rose-600 mt-2 font-medium">{errors.cohost}</p>
+              )}
             </Section>
 
             {/* Section 2 */}

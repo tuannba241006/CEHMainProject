@@ -604,6 +604,14 @@ export const router = createBrowserRouter([
         element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
       },
       {
+        path: "verify-certificate",
+        element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
+      },
+      {
+        path: "verify-certificate/:hash",
+        element: <SuspenseWrap><VerifyRoute /></SuspenseWrap>,
+      },
+      {
         element: <ProtectedRoute roles={["student"]} />,
         errorElement: <RouteErrorBoundary />,
         children: [

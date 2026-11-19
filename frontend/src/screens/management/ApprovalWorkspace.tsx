@@ -11,7 +11,6 @@ import { useUser } from "../../context/UserContext"
 import { formatCalendarDate, inDateRange } from "../../utils/date"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage, isAuthError } from "../../api/errors"
-import { ROOMS } from "../../data/mock"
 import { AlertTriangle, Zap, RotateCcw, RefreshCw, Building2, Check } from "lucide-react"
 
 interface Props {
@@ -479,6 +478,7 @@ function ApprovalDetail({
       | "emergency_cancel"
       | "withdraw"
       | "reopen"
+      | "faculty_approve_by_admin"
       | null
     >(null)
   const [reason, setReason] = useState("")
@@ -600,7 +600,7 @@ function ApprovalDetail({
         <div className="flex flex-wrap items-center gap-2">
           {canAdminOverrideFaculty && (
             <button
-              onClick={() => act("faculty_approve_by_admin")}
+              onClick={() => setDialog("faculty_approve_by_admin")}
               disabled={busy}
               className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
               title="Admin/CTSV can thiệp duyệt thay cấp Khoa khi Khoa chậm trễ hoặc gặp sự cố (APPROVE_FACULTY_BY_ADMIN)"
@@ -877,7 +877,9 @@ function ApprovalDetail({
                       ? "Hủy sự kiện khẩn cấp"
                       : dialog === "withdraw"
                         ? "Rút đề xuất cưỡng chế (Về DRAFT)"
-                        : "Tái mở bản nháp để chỉnh sửa"}
+                        : dialog === "faculty_approve_by_admin"
+                          ? "Duyệt thay cấp Khoa (Admin Override)"
+                          : "Tái mở bản nháp để chỉnh sửa"}
             </h2>
             <p className="text-sm text-slate-500 mt-1 mb-4">
               {dialog === "emergency_room"
@@ -888,7 +890,9 @@ function ApprovalDetail({
                     ? "Admin can thiệp rút hồ sơ đang thẩm định về DRAFT. Phòng hội trường đang giữ chỗ sẽ được tự động giải phóng. Yêu cầu nhập lý do kiểm toán (tối thiểu 10 ký tự):"
                     : dialog === "reopen"
                       ? "Khôi phục hồ sơ đã bị từ chối quay về DRAFT để Ban tổ chức có thể hoàn thiện lại. Yêu cầu nhập lý do kiểm toán (tối thiểu 10 ký tự):"
-                      : "Lý do là bắt buộc (tối thiểu 10 ký tự) và sẽ được lưu trong lịch sử kiểm toán."}
+                      : dialog === "faculty_approve_by_admin"
+                        ? "Admin can thiệp phê duyệt thay cấp Khoa khi Khoa chậm trễ hoặc gặp sự cố kỹ thuật. Yêu cầu nhập lý do kiểm toán (tối thiểu 5 ký tự):"
+                        : "Lý do là bắt buộc (tối thiểu 10 ký tự) và sẽ được lưu trong lịch sử kiểm toán."}
             </p>
 
             {dialog === "emergency_room" && (
@@ -926,7 +930,9 @@ function ApprovalDetail({
                     ? "Lý do rút đề xuất cưỡng chế (tối thiểu 10 ký tự)..."
                     : dialog === "reopen"
                       ? "Lý do tái mở bản nháp để Ban tổ chức chỉnh sửa (tối thiểu 10 ký tự)..."
-                      : "Nhập lý do cụ thể (tối thiểu 10 ký tự)..."
+                      : dialog === "faculty_approve_by_admin"
+                        ? "Lý do Admin duyệt thay cấp Khoa (tối thiểu 5 ký tự)..."
+                        : "Nhập lý do cụ thể (tối thiểu 10 ký tự)..."
               }
               className="w-full p-3 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo"
             />
@@ -950,6 +956,8 @@ function ApprovalDetail({
                     act("withdraw")
                   } else if (dialog === "reopen") {
                     act("reopen")
+                  } else if (dialog === "faculty_approve_by_admin") {
+                    act("faculty_approve_by_admin")
                   } else {
                     act(dialog === "revision" ? "request_revision" : "reject")
                   }
@@ -960,6 +968,8 @@ function ApprovalDetail({
                     dialog === "withdraw" ||
                     dialog === "reopen") &&
                     reason.trim().length < 10) ||
+                  (dialog === "faculty_approve_by_admin" &&
+                    reason.trim().length < 5) ||
                   (dialog === "emergency_room" && !newRoomId)
                 }
                 className={`flex-1 py-2.5 rounded-xl text-white text-sm font-semibold cursor-pointer disabled:opacity-50 ${

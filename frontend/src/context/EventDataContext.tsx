@@ -157,7 +157,7 @@ export function mapContractEventToLiveEvent(
   const existingInitial = INITIAL_LIVE_EVENTS.find(
     (e) => e.ma_su_kien === card.ma_su_kien,
   )
-  const id = existingInitial ? existingInitial.id : String(card.ma_su_kien)
+  const id = String(card.ma_su_kien)
 
   const isClosed =
     card.trang_thai === "CANCELLED" || card.trang_thai === "COMPLETED"
@@ -261,17 +261,39 @@ export interface EventDataContextType {
 const EventDataContext = createContext<EventDataContextType | null>(null)
 
 export function EventDataProvider({ children }: { children: ReactNode }) {
-  const [events, setEvents] = useState<LiveEvent[]>(INITIAL_LIVE_EVENTS)
-  const [loading, setLoading] = useState(false)
+  const [events, setEvents] = useState<LiveEvent[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   async function refetch() {
     setLoading(true)
     setError(null)
     try {
-      const res = await eventsService.listPublic()
-      if (res.data && Array.isArray(res.data)) {
-        setEvents(res.data.map(mapContractEventToLiveEvent))
+      const [pubRes, compRes] = await Promise.allSettled([
+        eventsService.listPublic({ limit: 50 }),
+        eventsService.listPublic({ limit: 50, trang_thai: "COMPLETED" }),
+      ])
+      const combinedCards: EventCard[] = []
+      const seenIds = new Set<number>()
+      if (pubRes.status === "fulfilled" && Array.isArray(pubRes.value.data)) {
+        for (const card of pubRes.value.data) {
+          if (!seenIds.has(card.ma_su_kien)) {
+            seenIds.add(card.ma_su_kien)
+            combinedCards.push(card)
+          }
+        }
+      }
+      if (compRes.status === "fulfilled" && Array.isArray(compRes.value.data)) {
+        for (const card of compRes.value.data) {
+          if (!seenIds.has(card.ma_su_kien)) {
+            seenIds.add(card.ma_su_kien)
+            combinedCards.push(card)
+          }
+        }
+      }
+      console.log("refetch called in EventDataProvider", pubRes, compRes)
+      if (combinedCards.length > 0) {
+        setEvents(combinedCards.map(mapContractEventToLiveEvent))
       }
     } catch (err) {
       if (!isAuthError(err)) setError(getApiErrorMessage(err))

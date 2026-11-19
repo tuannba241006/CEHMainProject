@@ -4,6 +4,9 @@ import { handleMockRequest } from "./mockAdapter"
 
 type QueryValue = string | number | boolean | null | undefined
 
+/** Returns true when VITE_STRICT_API=true — disables mock fallback so real network errors surface */
+const isStrictApiMode = () => import.meta.env.VITE_STRICT_API === "true"
+
 export interface RequestOptions extends Omit<RequestInit, "body"> {
   query?: Record<string, QueryValue>
   body?: unknown
@@ -206,7 +209,8 @@ export async function request<T>(
       throw new ApiError(503, { message: "Yêu cầu quá thời gian chờ." })
     }
     // Fallback to mock adapter if server/mock container is offline or unreachable
-    if (error instanceof TypeError && error.message.toLowerCase().includes("fetch")) {
+    // Only fallback when NOT in strict API mode (VITE_STRICT_API=true disables mock fallback)
+    if (!isStrictApiMode() && error instanceof TypeError && error.message.toLowerCase().includes("fetch")) {
       const mockResponse = await handleMockRequest<T>(path, options)
       if (mockResponse !== undefined) {
         return mockResponse
@@ -215,6 +219,7 @@ export async function request<T>(
     // For read-only GET requests that encounter 404 (endpoint not yet created in backend),
     // gracefully fall back to contract mock data if available to prevent UI breakdown
     if (
+      !isStrictApiMode() &&
       method === "GET" &&
       isApiError(error) &&
       error.status === 404

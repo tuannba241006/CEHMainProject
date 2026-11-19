@@ -11,3 +11,10 @@ coverage/
 frontend/coverage/
 .playwright-mcp/
 /backup_ceh_*.sql
+graphify-out/
+make_payload.py
+*.png
+frontend/.env
+*.env
+!*.env.example
+

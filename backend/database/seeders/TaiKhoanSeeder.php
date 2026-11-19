@@ -141,7 +141,7 @@ class TaiKhoanSeeder extends Seeder
 
         foreach ($taiKhoanList as $tk) {
             DB::table('tai_khoan')->updateOrInsert(
-                ['email' => $tk['email']],
+                ['ma_tai_khoan' => $tk['ma_tai_khoan']],
                 $tk
             );
         }

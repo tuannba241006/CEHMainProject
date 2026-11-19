@@ -70,7 +70,7 @@ export default function EventList({
   } = useApp()
   const [search, setSearch] = useState("")
   const [topic, setTopic] = useState<Topic | "all">("all")
-  const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all")
+  const [statusFilter, setStatusFilter] = useState<EventStatus | "all" | "unlimited">("all")
   const [dateFilter, setDateFilter] = useState("")
   const [locationFilter, setLocationFilter] = useState("")
 
@@ -80,7 +80,11 @@ export default function EventList({
       e.title.toLowerCase().includes(search.toLowerCase()) ||
       e.speaker.toLowerCase().includes(search.toLowerCase())
     const matchTopic = topic === "all" || e.topic === topic
-    const matchStatus = statusFilter === "all" || status === statusFilter
+    const matchStatus =
+      statusFilter === "all" ||
+      (statusFilter === "unlimited"
+        ? Boolean(e.khong_gioi_han_slot)
+        : status === statusFilter)
     const matchDate = !dateFilter || e.date === dateFilter
     const matchLocation =
       !locationFilter ||
@@ -225,12 +229,13 @@ export default function EventList({
                 <select
                   value={statusFilter}
                   onChange={(e) =>
-                    setStatusFilter(e.target.value as EventStatus | "all")
+                    setStatusFilter(e.target.value as EventStatus | "all" | "unlimited")
                   }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
                 >
                   <option value="all">Tất cả trạng thái</option>
-                  <option value="open">Đang mở</option>
+                  <option value="open">Đang mở (Còn chỗ)</option>
+                  <option value="unlimited">Mở tự do</option>
                   <option value="nearly_full">Sắp hết chỗ</option>
                   <option value="full">Đã hết chỗ</option>
                 </select>
@@ -439,12 +444,19 @@ function EventCard({
 
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
-          <span
-            className="px-2.5 py-0.8 rounded-full text-xs font-semibold text-white shadow-xs backdrop-blur-xs"
-            style={{ background: TOPIC_COLORS[event.topic] || "#4f46e5" }}
-          >
-            {TOPIC_LABELS[event.topic]}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className="px-2.5 py-0.8 rounded-full text-xs font-semibold text-white shadow-xs backdrop-blur-xs"
+              style={{ background: TOPIC_COLORS[event.topic] || "#4f46e5" }}
+            >
+              {TOPIC_LABELS[event.topic]}
+            </span>
+            {event.khong_gioi_han_slot && (
+              <span className="px-2.5 py-0.8 rounded-full text-xs font-bold bg-sky-500 text-white shadow-xs">
+                Mở tự do
+              </span>
+            )}
+          </div>
           <span
             className={`px-2.5 py-0.8 rounded-full text-xs font-semibold shadow-xs ${
               status === "full" && !isRegistered
@@ -559,42 +571,51 @@ function EventCard({
 
         {/* Capacity Meter */}
         <div className="pt-3 border-t border-slate-100">
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-400 font-mono text-[11px]">
-                {event.registered}/{event.capacity} chỗ ({pct}%)
+          {event.khong_gioi_han_slot ? (
+            <div className="flex justify-between items-center text-xs py-1">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                Mở tự do
               </span>
-              <span
-                className={`font-semibold text-xs ${
-                  pct >= 100
-                    ? "text-amber-700"
-                    : pct >= 90
-                      ? "text-rose-600"
-                      : pct >= 70
-                        ? "text-amber-600"
-                        : "text-emerald-600"
-                }`}
-              >
-                {event.capacity - event.registered > 0
-                  ? "Còn " + (event.capacity - event.registered) + " chỗ"
-                  : "Hết vé · Có hàng chờ FIFO"}
-              </span>
+              <span className="text-slate-500 text-xs font-medium">Không giới hạn slot</span>
             </div>
-            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  pct >= 100
-                    ? "bg-amber-500"
-                    : pct >= 90
-                      ? "bg-rose-500"
-                      : pct >= 70
-                        ? "bg-amber-500"
-                        : "bg-indigo-600"
-                }`}
-                style={{ width: `${Math.min(pct, 100)}%` }}
-              />
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400 font-mono text-[11px]">
+                  {event.registered}/{event.capacity} chỗ ({pct}%)
+                </span>
+                <span
+                  className={`font-semibold text-xs ${
+                    pct >= 100
+                      ? "text-amber-700"
+                      : pct >= 90
+                        ? "text-rose-600"
+                        : pct >= 70
+                          ? "text-amber-600"
+                          : "text-emerald-600"
+                  }`}
+                >
+                  {event.capacity - event.registered > 0
+                    ? "Còn " + (event.capacity - event.registered) + " chỗ"
+                    : "Hết vé · Có hàng chờ FIFO"}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    pct >= 100
+                      ? "bg-amber-500"
+                      : pct >= 90
+                        ? "bg-rose-500"
+                        : pct >= 70
+                          ? "bg-amber-500"
+                          : "bg-indigo-600"
+                  }`}
+                  style={{ width: `${Math.min(pct, 100)}%` }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Button CTA preview */}
           <div

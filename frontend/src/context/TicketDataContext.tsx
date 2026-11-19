@@ -222,7 +222,9 @@ export function mapContractTicketToUiTicket(
     ct.ma_su_kien,
   )
 
-  const existingTicket = TICKETS.find((t) => t.ma_dang_ky === ct.ma_dang_ky)
+  const existingTicket = TICKETS.find(
+    (t) => t.ma_dang_ky === ct.ma_dang_ky,
+  )
 
   return {
     ...ct,
@@ -273,23 +275,41 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
 
   const refreshTickets = useCallback(
     async (currentUser?: Partial<UserData> | null) => {
+      console.log("REFRESH TICKETS CALLED - authenticated:", authenticated, "role:", role)
       if (!authenticated || role !== "student") return
       setTicketsLoading(true)
       setTicketsError(null)
       try {
-        const res = await ticketsService.mine()
-        if (res.data && Array.isArray(res.data)) {
-          const mapped = res.data.map((t) =>
-            mapContractTicketToUiTicket(t, currentUser || user),
-          )
-          setTickets(mapped)
+        const [upRes, histRes] = await Promise.allSettled([
+          ticketsService.mine({ tab: "upcoming" }),
+          ticketsService.mine({ tab: "history" }),
+        ])
+        const allData: ContractTicket[] = []
+        if (upRes.status === "fulfilled" && upRes.value?.data && Array.isArray(upRes.value.data)) {
+          allData.push(...upRes.value.data)
         }
+        if (histRes.status === "fulfilled" && histRes.value?.data && Array.isArray(histRes.value.data)) {
+          allData.push(...histRes.value.data)
+        }
+        const mapped = allData.map((t) =>
+          mapContractTicketToUiTicket(t, currentUser || user),
+        )
+        setTickets(mapped)
         try {
           const wlRes = await waitlistService.mine()
+          console.log("REFRESH TICKETS - waitlist result:", wlRes)
           if (wlRes.data && Array.isArray(wlRes.data)) {
-            setWaitlistEntries(wlRes.data)
+            const mappedWl = wlRes.data.map((w: any) => ({
+              ...w,
+              studentId: w.studentId || currentUser?.studentId || user.studentId,
+              ho_ten: w.ho_ten || currentUser?.name || user.name,
+              ma_tai_khoan: w.ma_tai_khoan || currentUser?.ma_tai_khoan || user.ma_tai_khoan,
+            }))
+            console.log("REFRESH TICKETS - mapped waitlist:", mappedWl)
+            setWaitlistEntries(mappedWl)
           }
-        } catch {
+        } catch (wlErr) {
+          console.error("REFRESH TICKETS - waitlist error:", wlErr)
           // Fallback for waitlist
         }
       } catch (err) {
@@ -314,12 +334,17 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     }
   }, [authenticated, role, refreshTickets])
 
-  function getUserActiveTicket(eventId: string, studentId: string) {
+  function getUserActiveTicket(eventId: string, studentId?: string) {
+    const numId = Number(eventId.replace(/\D/g, ""))
+    const targetStudentId = studentId || user?.studentId
     return tickets.find(
       (t) =>
-        t.eventId === eventId &&
-        t.studentId === studentId &&
-        t.status !== "cancelled",
+        (!targetStudentId || !t.studentId || t.studentId === targetStudentId) &&
+        (t.eventId === eventId ||
+          (numId > 0 && t.ma_su_kien === numId) ||
+          (t.ma_su_kien && String(t.ma_su_kien) === eventId)) &&
+        t.status !== "cancelled" &&
+        t.trang_thai !== "DaHuy",
     )
   }
 
@@ -332,7 +357,7 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
   }
 
   function getStudentWaitlistEntries(studentId: string) {
-    return waitlistEntries.filter((w) => w.studentId === studentId)
+    return waitlistEntries.filter((w) => !w.studentId || w.studentId === studentId)
   }
 
   async function registerEvent(event: LiveEvent, user: UserData): Promise<RegisterResult> {

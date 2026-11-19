@@ -194,28 +194,21 @@ export default function QRScanner({
           : "HỢP LỆ — điểm danh thành công.",
       }
     } catch (error) {
-      // Fallback to local checkin for demo/backward compatibility
-      res =
-        scanMode === "checkin"
-          ? checkIn(input, selectedEventId)
-          : checkOut(input, selectedEventId)
-      if (!res.success) {
-        const message = getApiErrorMessage(error) || res.message
-        const failed: CheckInResult = {
-          success: false,
-          type: "not_found",
-          message,
-        }
-        setResult(failed)
-        setHistory((prev) => [
-          { name: "—", studentId: input, time: new Date().toLocaleTimeString("vi-VN"), status: "failed", message },
-          ...prev,
-        ])
-        setManualCode("")
-        scanPendingRef.current = false
-        setScanPending(false)
-        return
+      const message = getApiErrorMessage(error)
+      const failed: CheckInResult = {
+        success: false,
+        type: "not_found",
+        message,
       }
+      setResult(failed)
+      setHistory((prev) => [
+        { name: "—", studentId: input, time: new Date().toLocaleTimeString("vi-VN"), status: "failed", message },
+        ...prev,
+      ])
+      setManualCode("")
+      scanPendingRef.current = false
+      setScanPending(false)
+      return
     }
     setResult(res)
 

@@ -136,7 +136,8 @@ export default function EventDetail({
   }
 
   const activeTicket = !isGuest
-    ? getUserActiveTicket(event.id, user.studentId)
+    ? (getUserActiveTicket(event.id, user.studentId) ||
+       getUserActiveTicket(String(event.ma_su_kien), user.studentId))
     : undefined
   const status = computeEventStatus(event)
   const pct = Math.round((event.registered / event.capacity) * 100)
@@ -156,7 +157,18 @@ export default function EventDetail({
   let ctaEnabled = true
   let ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
 
-  if (backendBtn) {
+  if (!isGuest && activeTicket) {
+    if (activeTicket.status === "DaCheckOut" || activeTicket.trang_thai === "DaCheckOut") {
+      ctaLabel = "Làm khảo sát & Nhận chứng nhận"
+      ctaClass = "bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm"
+    } else if (activeTicket.status === "DaCheckIn" || activeTicket.trang_thai === "DaCheckIn") {
+      ctaLabel = "Đã Check-in · Xem vé / Điểm danh ra"
+      ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+    } else {
+      ctaLabel = "Bạn đã có vé · Xem vé & Điểm danh"
+      ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+    }
+  } else if (backendBtn) {
     ctaLabel = backendBtn.thong_diep_nut
     ctaEnabled = backendBtn.cho_phep_bam
     switch (backendBtn.trang_thai_nut) {
@@ -368,6 +380,11 @@ export default function EventDetail({
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
                 {event.organizer}
               </span>
+              {event.khong_gioi_han_slot && (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                  Mở tự do
+                </span>
+              )}
               <span
                 className={`px-3 py-1 rounded-full text-xs font-semibold ${status === "open"
                   ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
@@ -644,32 +661,40 @@ export default function EventDetail({
               >
                 {EVENT_STATUS_LABELS[status]}
               </span>
-              <span className="text-xs font-semibold text-slate-500 font-mono">
-                {event.registered}/{event.capacity} chỗ
-              </span>
+              {event.khong_gioi_han_slot ? (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                  Mở tự do
+                </span>
+              ) : (
+                <span className="text-xs font-semibold text-slate-500 font-mono">
+                  {event.registered}/{event.capacity} chỗ
+                </span>
+              )}
             </div>
 
             {/* Capacity meter */}
-            <div className="space-y-1 mb-5">
-              <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${pct >= 90
-                    ? "bg-rose-500"
-                    : pct >= 70
-                      ? "bg-amber-500"
-                      : "bg-indigo-600"
-                    }`}
-                  style={{ width: `${Math.min(pct, 100)}%` }}
-                />
+            {!event.khong_gioi_han_slot && (
+              <div className="space-y-1 mb-5">
+                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${pct >= 90
+                      ? "bg-rose-500"
+                      : pct >= 70
+                        ? "bg-amber-500"
+                        : "bg-indigo-600"
+                      }`}
+                    style={{ width: `${Math.min(pct, 100)}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-right text-slate-400">
+                  {event.capacity - event.registered > 0
+                    ? "Còn " +
+                    (event.capacity - event.registered) +
+                    " suất đăng ký"
+                    : "Đã hết chỗ"}
+                </p>
               </div>
-              <p className="text-[11px] text-right text-slate-400">
-                {event.capacity - event.registered > 0
-                  ? "Còn " +
-                  (event.capacity - event.registered) +
-                  " suất đăng ký"
-                  : "Đã hết chỗ"}
-              </p>
-            </div>
+            )}
 
             {/* Key Event Facts */}
             <div className="space-y-3.5 mb-6 text-xs border-y border-slate-100 py-4">

@@ -240,7 +240,12 @@ export default function AdminPortal({ section }: { section: Section }) {
       list: async () => {
         try {
           const res = await adminService.users()
-          const rawUsers = (res.data || []) as Array<Partial<User> & { ma_nguoi_dung?: number; bi_khoa?: boolean; ma_don_vi?: number | null }>
+          const rawData = res.data as unknown
+          const rawUsers = (Array.isArray(rawData)
+            ? rawData
+            : rawData && typeof rawData === "object" && "data" in (rawData as Record<string, unknown>) && Array.isArray((rawData as Record<string, unknown>).data)
+              ? ((rawData as Record<string, unknown>).data as unknown[])
+              : []) as Array<Partial<User> & { ma_nguoi_dung?: number; bi_khoa?: boolean; ma_don_vi?: number | null }>
           const mapped: AdminUser[] = rawUsers.map((u) => ({
             ma_nguoi_dung: Number(u.ma_tai_khoan ?? u.ma_nguoi_dung),
             ho_ten: u.ho_ten || "",
@@ -275,7 +280,12 @@ export default function AdminPortal({ section }: { section: Section }) {
       list: async () => {
         try {
           const res = await adminService.organizations()
-          const rows = ((res.data || []) as unknown) as Array<Record<string, unknown>>
+          const rawData = res.data as unknown
+          const rows = (Array.isArray(rawData)
+            ? rawData
+            : rawData && typeof rawData === "object" && "data" in (rawData as Record<string, unknown>) && Array.isArray((rawData as Record<string, unknown>).data)
+              ? ((rawData as Record<string, unknown>).data as unknown[])
+              : []) as Array<Record<string, unknown>>
           const mapped: OrganizationSummary[] = rows.map((r) => {
             const rawType = String(r.loai_don_vi || "")
             const loai_don_vi: OrganizationSummary["loai_don_vi"] =
@@ -520,6 +530,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                   try {
                     const data = await reportsService.exportMacro({
                       hoc_ky: dateFilter,
+                      dinh_dang: "xlsx",
                     })
                     triggerFileDownload(
                       data,
