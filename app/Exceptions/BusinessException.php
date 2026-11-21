@@ -4,6 +4,7 @@ namespace App\Exceptions;
 
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class BusinessException extends HttpResponseException
 {
@@ -20,10 +21,18 @@ class BusinessException extends HttpResponseException
         $this->errorCode = $errorCode;
         $this->statusCode = $statusCode;
 
+        $traceId = null;
+        try {
+            $traceId = request()?->header('X-Request-Id');
+        } catch (\Throwable) {
+            $traceId = null;
+        }
+
         $payload = [
             'success' => false,
             'error' => $errorCode,
             'message' => $message,
+            'trace_id' => $traceId ?: (string) Str::uuid(),
         ];
 
         if ($details !== null) {
