@@ -94,7 +94,7 @@ export function ManagementLayout({
           icon: icons.inbox,
         },
         {
-          id: "org-events",
+          id: "faculty-events",
           label: "Sự kiện trực thuộc Khoa",
           icon: icons.event,
         },

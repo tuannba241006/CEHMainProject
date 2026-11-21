@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { tokenStore } from "../api/config"
 import {
   EVENTS,
   type Topic,
@@ -9,7 +10,7 @@ import type { OrganizationSummary, EventCard, EventPublicDetail, SmartActionButt
 import { eventsService } from "../api/services/events.service"
 import { getApiErrorMessage, isAuthError } from "../api/errors"
 
-export type EventStatus = "open" | "nearly_full" | "full" | "draft" | "closed" | "ended"
+export type EventStatus = "open" | "nearly_full" | "full" | "draft" | "closed" | "ended" | "happening"
 
 export interface LiveEvent {
   ma_su_kien: number
@@ -84,6 +85,7 @@ export const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
   full: "Hết chỗ",
   draft: "Bản nháp",
   closed: "Đã đóng",
+  happening: "Đang diễn ra",
   ended: "Đã kết thúc",
 }
 
@@ -141,9 +143,22 @@ export function mapContractEventToLiveEvent(
   const endTime = endDateStr.includes("T")
     ? endDateStr.split("T")[1].slice(0, 5)
     : "11:30"
-  const capacity = card.so_luong_toi_da ?? 100
-  const remaining = card.so_ve_con_lai ?? capacity
-  const registered = Math.max(0, capacity - remaining)
+  const rawCard = card as any
+  const isKhongGioiHanSlot = Boolean(card.khong_gioi_han_slot)
+  const capacity = isKhongGioiHanSlot
+    ? 0
+    : card.so_luong_toi_da != null
+      ? card.so_luong_toi_da
+      : 100
+  const remaining = card.so_ve_con_lai ?? (isKhongGioiHanSlot ? null : capacity)
+  const registered =
+    rawCard.so_luong_da_dang_ky != null
+      ? Number(rawCard.so_luong_da_dang_ky)
+      : rawCard.so_ve_da_dat != null
+        ? Number(rawCard.so_ve_da_dat)
+        : !isKhongGioiHanSlot && card.so_luong_toi_da != null && card.so_ve_con_lai != null
+          ? Math.max(0, card.so_luong_toi_da - card.so_ve_con_lai)
+          : 0
 
   const detail = card as Partial<EventPublicDetail>
   const description = detail.mo_ta || card.ten_su_kien
@@ -161,15 +176,24 @@ export function mapContractEventToLiveEvent(
 
   const isClosed =
     card.trang_thai === "CANCELLED" || card.trang_thai === "COMPLETED"
-  const isFull = remaining <= 0
-  const isNearlyFull = remaining > 0 && remaining <= capacity * 0.2
-  const legacyStatus = isClosed
-    ? "closed"
-    : isFull
-      ? "full"
-      : isNearlyFull
-        ? "nearly_full"
-        : "open"
+  const isFull = !isKhongGioiHanSlot && remaining !== null && remaining <= 0
+  const isNearlyFull =
+    !isKhongGioiHanSlot &&
+    remaining !== null &&
+    remaining > 0 &&
+    remaining <= capacity * 0.2
+  const legacyStatus: EventStatus =
+    card.trang_thai === "DRAFT"
+      ? "draft"
+      : card.trang_thai === "HAPPENING"
+        ? "happening"
+        : isClosed
+          ? "closed"
+          : isFull
+            ? "full"
+            : isNearlyFull
+              ? "nearly_full"
+              : "open"
 
   return {
     ma_su_kien: card.ma_su_kien,
@@ -215,10 +239,10 @@ export function mapContractEventToLiveEvent(
     capacity,
     registered,
     registrationOpen:
-      card.trang_thai === "PUBLISHED" &&
-      (!card.thoi_gian_bat_dau ||
-        new Date(card.thoi_gian_bat_dau).getTime() - Date.now() >
-          2 * 3600 * 1000),
+      rawCard.registrationOpen !== undefined
+        ? Boolean(rawCard.registrationOpen)
+        : card.trang_thai === "PUBLISHED" &&
+          (isKhongGioiHanSlot || remaining === null || remaining > 0),
     isCancelled: card.trang_thai === "CANCELLED",
     banner:
       card.anh_bia ||
@@ -269,12 +293,35 @@ export function EventDataProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setError(null)
     try {
+      const hasAuth =
+        typeof window !== "undefined" &&
+        (Boolean(sessionStorage.getItem("ceh_demo_role")) ||
+          Boolean(sessionStorage.getItem("ceh_demo_email")) ||
+          Boolean(tokenStore.get()))
+
+      const combinedCards: EventCard[] = []
+      const seenIds = new Set<number>()
+
+      if (hasAuth) {
+        try {
+          const orgRes = await eventsService.organizerList({ limit: 100 })
+          if (orgRes && Array.isArray(orgRes.data)) {
+            for (const card of orgRes.data) {
+              if (!seenIds.has(card.ma_su_kien)) {
+                seenIds.add(card.ma_su_kien)
+                combinedCards.push(card)
+              }
+            }
+          }
+        } catch {
+          // If unauthorized or fails, proceed to public events
+        }
+      }
+
       const [pubRes, compRes] = await Promise.allSettled([
         eventsService.listPublic({ limit: 50 }),
         eventsService.listPublic({ limit: 50, trang_thai: "COMPLETED" }),
       ])
-      const combinedCards: EventCard[] = []
-      const seenIds = new Set<number>()
       if (pubRes.status === "fulfilled" && Array.isArray(pubRes.value.data)) {
         for (const card of pubRes.value.data) {
           if (!seenIds.has(card.ma_su_kien)) {
@@ -291,7 +338,6 @@ export function EventDataProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      console.log("refetch called in EventDataProvider", pubRes, compRes)
       if (combinedCards.length > 0) {
         setEvents(combinedCards.map(mapContractEventToLiveEvent))
       }

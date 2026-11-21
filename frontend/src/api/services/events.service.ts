@@ -27,10 +27,10 @@ export const eventsService = {
     api.post<ApiEnvelope<EventPublicDetail>>("/events", payload),
   updateDraft: (id: number | string, payload: EventUpdateDraftPayload) =>
     api.put<ApiEnvelope<EventPublicDetail>>(`/events/${id}`, payload),
-  cohostInvitations: () =>
-    api.get<ApiEnvelope<CohostInvitationStatus[]>>("/organizer/cohost-invitations"),
-  getCohostInvitations: () =>
-    api.get<ApiEnvelope<CohostInvitationStatus[]>>("/organizer/cohost-invitations"),
+  cohostInvitations: (query?: Record<string, string | number | undefined>) =>
+    api.get<ApiEnvelope<CohostInvitationStatus[]>>("/organizer/cohost-invitations", { query }),
+  getCohostInvitations: (query?: Record<string, string | number | undefined>) =>
+    api.get<ApiEnvelope<CohostInvitationStatus[]>>("/organizer/cohost-invitations", { query }),
   reviewQueue: (query?: Record<string, string | number | undefined>) =>
     api.get<ApiEnvelope<EventCard[]>>("/events/review-queue", { query }),
   reopen: (id: number | string, ly_do: string) =>
