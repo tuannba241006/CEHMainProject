@@ -300,34 +300,13 @@ export default function MyTickets({
                   </>
                 ) : (
                   <div className="mt-4 space-y-3">
-                    <p className="p-3 rounded-xl bg-slate-50 text-xs text-slate-600 leading-relaxed">
+                    <p className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/60 text-xs text-amber-900 leading-relaxed">
                       Trạng thái:{" "}
                       <b>
                         Đang chờ slot trống (Thứ tự FIFO #{entry.so_thu_tu})
                       </b>
-                      . Hệ thống tự động kiểm tra trùng lịch và gửi thông báo
-                      khi có người hủy vé. Hàng đợi đóng tại mốc T-2h.
+                      . Khi có sinh viên hủy vé, hệ thống tự động kiểm tra trùng lịch và gửi suất nhận vé (Offer) ưu tiên cho bạn. Hàng đợi tự động đóng tại mốc T-2h.
                     </p>
-                    <button
-                      onClick={async () => {
-                        if (
-                          !confirm(
-                            "Bạn có chắc chắn muốn rút khỏi hàng chờ cho sự kiện này?",
-                          )
-                        )
-                          return
-                        const result = await declineWaitlistOffer(entry.id)
-                        showToast(
-                          result.success
-                            ? "Đã rút khỏi hàng chờ."
-                            : result.error || "Không thể hủy.",
-                          result.success ? "info" : "error",
-                        )
-                      }}
-                      className="w-full py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      Rút khỏi hàng chờ
-                    </button>
                   </div>
                 )}
               </article>

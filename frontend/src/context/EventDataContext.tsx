@@ -147,14 +147,44 @@ export function mapContractEventToLiveEvent(
   const remaining = card.so_ve_con_lai ?? capacity
   const registered = Math.max(0, capacity - remaining)
 
-  const detail = card as Partial<EventPublicDetail>
+  const detail = card as any
   const description = detail.mo_ta || card.ten_su_kien
-  const agenda = detail.lo_trinh || []
+  const rawAgenda = Array.isArray(detail.lo_trinh)
+    ? detail.lo_trinh
+    : typeof detail.lo_trinh === "string"
+      ? (() => {
+          try {
+            return JSON.parse(detail.lo_trinh)
+          } catch {
+            return []
+          }
+        })()
+      : []
 
-  const mappedSchedule = agenda.map((item) => ({
-    time: `${item.thoi_gian_bat_dau} - ${item.thoi_gian_ket_thuc}`,
-    title: item.tieu_de + (item.dien_gia ? ` (${item.dien_gia})` : ""),
-  }))
+  const mappedSchedule = rawAgenda.map((item: any) => {
+    const itemTime =
+      item.time ||
+      (item.thoi_gian_bat_dau
+        ? `${item.thoi_gian_bat_dau} - ${item.thoi_gian_ket_thuc || ""}`
+        : "")
+    const itemTitle = item.title || item.tieu_de || ""
+    const itemSpeaker = item.dien_gia ? ` (${item.dien_gia})` : ""
+    return {
+      time: itemTime,
+      title: itemTitle + itemSpeaker,
+    }
+  })
+
+  const topicName = detail.chuyen_de?.ten_chuyen_de || card.ten_chuyen_de || "Chung"
+  const hostOrgName =
+    detail.don_vi_host?.ten_don_vi || card.ten_don_vi_host || "Trường ĐH CNTT"
+  const coHostNames = Array.isArray(detail.danh_sach_dong_to_chuc)
+    ? detail.danh_sach_dong_to_chuc
+        .map((u: any) => (typeof u === "string" ? u : u.ten_don_vi))
+        .filter(Boolean)
+    : card.danh_sach_ten_dong_to_chuc || []
+  const roomName = detail.phong?.ten_phong || card.ten_phong || "Hội trường"
+  const campus = detail.phong?.co_so || card.co_so || "CoSo1"
 
   const existingInitial = INITIAL_LIVE_EVENTS.find(
     (e) => e.ma_su_kien === card.ma_su_kien,
@@ -194,11 +224,11 @@ export function mapContractEventToLiveEvent(
       existingInitial?.anh_bia ||
       "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=800&h=400&fit=crop&auto=format",
     dien_gia: card.dien_gia || existingInitial?.dien_gia || "Ban tổ chức",
-    ten_chuyen_de: card.ten_chuyen_de || "Chung",
-    ten_don_vi_host: card.ten_don_vi_host || "Trường ĐH CNTT",
-    danh_sach_ten_dong_to_chuc: card.danh_sach_ten_dong_to_chuc || [],
-    ten_phong: card.ten_phong || "Hội trường",
-    co_so: card.co_so || "CoSo1",
+    ten_chuyen_de: topicName,
+    ten_don_vi_host: hostOrgName,
+    danh_sach_ten_dong_to_chuc: coHostNames,
+    ten_phong: roomName,
+    co_so: campus,
     thoi_gian_bat_dau: card.thoi_gian_bat_dau,
     thoi_gian_ket_thuc: card.thoi_gian_ket_thuc,
     khong_gioi_han_slot: Boolean(card.khong_gioi_han_slot),
@@ -213,20 +243,20 @@ export function mapContractEventToLiveEvent(
     gio_tinh_nguyen:
       (card as unknown as { gio_tinh_nguyen?: number }).gio_tinh_nguyen ?? 0,
     mo_ta: description,
-    lo_trinh: agenda,
+    lo_trinh: rawAgenda,
     doi_tuong_tham_gia: detail.doi_tuong_tham_gia || "Sinh viên toàn trường",
     da_chot_drl: false,
 
     id,
     title: card.ten_su_kien,
     speaker: card.dien_gia || existingInitial?.speaker || "Ban tổ chức",
-    topic: card.ten_chuyen_de || "Công nghệ Thông tin",
+    topic: topicName,
     description,
     date,
-    time: `${time} - ${endTime}`,
+    time: time,
     endTime,
-    location: `${card.ten_phong}, ${card.co_so === "CoSo2" ? "Cơ sở 2" : "Cơ sở 1"}`,
-    room: card.ten_phong,
+    location: `${roomName}, ${campus === "CoSo2" ? "Cơ sở 2" : "Cơ sở 1"}`,
+    room: roomName,
     capacity,
     registered,
     registrationOpen: isRegistrationOpen,
@@ -235,9 +265,9 @@ export function mapContractEventToLiveEvent(
       card.anh_bia ||
       existingInitial?.banner ||
       "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=800&h=400&fit=crop&auto=format",
-    organizer: card.ten_don_vi_host,
+    organizer: hostOrgName,
     benefits: [
-      `Cộng ${card.diem_drl_du_kien ?? 5} điểm ĐRL (${card.dieu_khoan_drl === "Dieu4" ? "Điều 4" : "Điều 3"})`,
+      `Cộng ${card.diem_drl_du_kien ?? 5} điểm ĐRL (${card.dieu_khoan_drl === "Dieu4" ? "Điều 4" : card.dieu_khoan_drl === "KhongCo" ? "Không có" : "Điều 3"})`,
       "Chứng nhận tham gia hội thảo / hoạt động chính quy",
       "Cơ hội mở rộng kiến thức và giao lưu chuyên gia",
     ],
@@ -250,7 +280,7 @@ export function mapContractEventToLiveEvent(
             { time: endTime, title: "Bế mạc & Hoàn tất DRL" },
           ],
     points: card.diem_drl_du_kien,
-    coHosts: card.danh_sach_ten_dong_to_chuc,
+    coHosts: coHostNames,
     status: legacyStatus,
     so_luong_da_dang_ky: registered,
     ly_do_tu_choi: null,

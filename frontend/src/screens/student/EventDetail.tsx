@@ -76,12 +76,12 @@ export default function EventDetail({
   const [detailError, setDetailError] = useState<string | null>(null)
 
   const cachedEvent = getEvent(eventId)
-  const event = cachedEvent || fetchedEvent
+  const event = fetchedEvent || cachedEvent
 
   useEffect(() => {
-    if (!cachedEvent && eventId) {
+    if (eventId) {
       let cancelled = false
-      setLoadingDetail(true)
+      setLoadingDetail(!cachedEvent)
       setDetailError(null)
       const numId = Number(eventId.replace(/\D/g, "")) || eventId
       eventsService
@@ -105,7 +105,7 @@ export default function EventDetail({
         cancelled = true
       }
     }
-  }, [cachedEvent, eventId])
+  }, [eventId])
 
   if (loadingDetail) {
     return (
@@ -722,10 +722,14 @@ export default function EventDetail({
                 <Award className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-slate-800">
-                    +5 Điểm rèn luyện
+                    {event.dieu_khoan_drl === "KhongCo"
+                      ? "Không cộng ĐRL"
+                      : `+${event.diem_drl_du_kien ?? 5} Điểm rèn luyện (${event.dieu_khoan_drl === "Dieu4" ? "Điều 4" : "Điều 3"})`}
                   </p>
                   <p className="text-slate-500 mt-0.5">
-                    Kèm Chứng nhận số sau sự kiện
+                    {event.gio_tinh_nguyen
+                      ? `Cộng ${event.gio_tinh_nguyen} giờ tình nguyện xã hội`
+                      : "Kèm Chứng nhận số sau sự kiện"}
                   </p>
                 </div>
               </div>
@@ -830,30 +834,8 @@ export default function EventDetail({
                         </div>
                         <p className="text-[11px] text-amber-700">
                           Hệ thống sẽ gửi email và thông báo đẩy khi có người
-                          hủy vé. Hàng đợi đóng tại mốc T-2h.
+                          hủy vé. Hàng đợi tự động đóng tại mốc T-2h.
                         </p>
-                        <button
-                          onClick={async () => {
-                            if (
-                              !confirm(
-                                "Bạn có chắc chắn muốn rút khỏi hàng chờ cho sự kiện này?",
-                              )
-                            )
-                              return
-                            const result = await declineWaitlistOffer(
-                              waitlistEntry.id,
-                            )
-                            showToast(
-                              result.success
-                                ? "Đã rút khỏi hàng chờ."
-                                : result.error || "Không thể hủy.",
-                              result.success ? "info" : "error",
-                            )
-                          }}
-                          className="w-full py-1.5 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] font-medium"
-                        >
-                          Rút khỏi hàng chờ
-                        </button>
                       </div>
                     )}
                   </div>
