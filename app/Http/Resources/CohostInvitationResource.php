@@ -60,6 +60,13 @@ class CohostInvitationResource extends JsonResource
             'thoi_gian_phan_hoi' => $this->thoi_gian_phan_hoi?->toIso8601String(),
             'ghi_chu_tu_choi' => $this->ghi_chu_tu_choi,
             'thoi_gian_tao' => $this->thoi_gian_tao ? Carbon::parse($this->thoi_gian_tao)->toIso8601String() : null,
+            'ten_phong' => $event?->phong?->ten_phong ?? $event?->ten_phong,
+            'mo_ta' => $event?->mo_ta,
+            'dien_gia' => $event?->dien_gia,
+            'lo_trinh' => $event?->lo_trinh,
+            'doi_tuong_tham_gia' => $event?->doi_tuong_tham_gia,
+            'diem_drl_du_kien' => $event?->diem_drl_du_kien,
+            'dieu_khoan_drl' => $event?->dieu_khoan_drl,
         ];
     }
 }
