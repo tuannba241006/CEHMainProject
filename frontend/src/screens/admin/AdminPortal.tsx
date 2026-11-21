@@ -7,7 +7,7 @@ import {
   ORGANIZATIONS,
   type Ticket,
 } from "../../data/mock"
-import type { OrganizationSummary, Topic, User, AdminMacroDashboard } from "../../data/contract"
+import type { Organization, OrganizationSummary, Topic, User, AdminMacroDashboard } from "../../data/contract"
 import { adminService } from "../../api/services/admin.service"
 import { feedbackService } from "../../api/services/feedback.service"
 import { useCollection } from "../../hooks/useCollection"
@@ -45,6 +45,11 @@ import {
   Award,
   Zap,
   Building2,
+  CornerDownRight,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Layers,
   Sparkles,
   RefreshCw,
   BarChart3,
@@ -123,6 +128,7 @@ interface AdminUser {
   loai_tai_khoan: "SinhVien" | "ToChuc" | "Admin"
   ma_don_vi: number | null
   bi_khoa: boolean
+  mat_khau?: string
 }
 
 const SEED_USERS: AdminUser[] = [
@@ -264,6 +270,7 @@ export default function AdminPortal({ section }: { section: Section }) {
         adminService.createInternalUser({
           ...i,
           ma_don_vi_to_chuc: i.ma_don_vi ? Number(i.ma_don_vi) : undefined,
+          mat_khau: i.mat_khau || "TempPass123!",
         }),
       update: (id, i) =>
         adminService.updateUserStatus(Number(id), {
@@ -299,6 +306,7 @@ export default function AdminPortal({ section }: { section: Section }) {
             return {
               ma_don_vi: Number(r.ma_don_vi ?? r.ma_don_vi_to_chuc),
               ten_don_vi: String(r.ten_don_vi || ""),
+              ma_dinh_danh: r.ma_dinh_danh ? String(r.ma_dinh_danh) : undefined,
               loai_don_vi,
               ma_don_vi_cha: r.ma_don_vi_cha ? Number(r.ma_don_vi_cha) : null,
             }
@@ -310,10 +318,10 @@ export default function AdminPortal({ section }: { section: Section }) {
         }
       },
       create: (i) => {
-        const payload = {
+        const payload: Partial<Organization> = {
           ...i,
           ma_dinh_danh:
-            (i as Record<string, unknown>).ma_dinh_danh ||
+            i.ma_dinh_danh ||
             i.ten_don_vi
               .split(" ")
               .map((w) => w[0])
@@ -377,14 +385,88 @@ export default function AdminPortal({ section }: { section: Section }) {
     Math.min(page, pages) * PAGE_SIZE,
   )
   const orgOptions = [
-    { value: "", label: "Không có" },
-    ...orgCol.items.map((o) => ({
-      value: String(o.ma_don_vi),
-      label: o.ten_don_vi,
-    })),
+    {
+      value: "",
+      label: "Cấp trường (Trực thuộc Ban Giám hiệu - Không có cấp trên)",
+    },
+    ...orgCol.items
+      .filter((o) => !o.ma_don_vi_cha)
+      .map((o) => ({
+        value: String(o.ma_don_vi),
+        label: `${o.ten_don_vi} (${o.loai_don_vi})`,
+      })),
   ]
   const orgName = (id: number | null | undefined) =>
     orgCol.items.find((o) => o.ma_don_vi === id)?.ten_don_vi ?? "—"
+
+  const [expandedOrgs, setExpandedOrgs] = useState<Record<number, boolean>>({})
+
+  const toggleOrg = (id: number) => {
+    setExpandedOrgs((prev) => ({
+      ...prev,
+      [id]: prev[id] === undefined ? false : !prev[id],
+    }))
+  }
+
+  const groupedTreeOrgs = useMemo(() => {
+    const roots = orgCol.items.filter((o) => !o.ma_don_vi_cha)
+    const childrenMap = new Map<number, OrganizationSummary[]>()
+
+    orgCol.items.forEach((o) => {
+      if (o.ma_don_vi_cha) {
+        const list = childrenMap.get(o.ma_don_vi_cha) || []
+        list.push(o)
+        childrenMap.set(o.ma_don_vi_cha, list)
+      }
+    })
+
+    const typePriority: Record<string, number> = {
+      Khoa: 1,
+      PhongBan: 2,
+      DoanHoi: 3,
+      CLB: 4,
+    }
+
+    const sortedRoots = [...roots].sort((a, b) => {
+      const pA = typePriority[a.loai_don_vi] ?? 99
+      const pB = typePriority[b.loai_don_vi] ?? 99
+      if (pA !== pB) return pA - pB
+      return a.ten_don_vi.localeCompare(b.ten_don_vi, "vi")
+    })
+
+    const rootList = sortedRoots.map((root) => {
+      const children = (childrenMap.get(root.ma_don_vi) || []).sort((a, b) =>
+        a.ten_don_vi.localeCompare(b.ten_don_vi, "vi"),
+      )
+      return {
+        root,
+        children,
+      }
+    })
+
+    const totalClb = orgCol.items.filter(
+      (o) => o.loai_don_vi === "CLB" || o.ma_don_vi_cha,
+    ).length
+    const totalKhoa = orgCol.items.filter((o) => o.loai_don_vi === "Khoa").length
+    const totalPhongBan = orgCol.items.filter(
+      (o) => o.loai_don_vi === "PhongBan" || o.loai_don_vi === "DoanHoi",
+    ).length
+
+    return {
+      roots: rootList,
+      totalClb,
+      totalKhoa,
+      totalPhongBan,
+    }
+  }, [orgCol.items])
+
+  const setAllExpanded = (expanded: boolean) => {
+    const next: Record<number, boolean> = {}
+    groupedTreeOrgs.roots.forEach(({ root }) => {
+      next[root.ma_don_vi] = expanded
+    })
+    setExpandedOrgs(next)
+  }
   const state = (c: {
     loading: boolean
     error: string | null
@@ -1140,33 +1222,162 @@ export default function AdminPortal({ section }: { section: Section }) {
             </div>
           </>
         ) : section === "organizations" ? (
-          <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
-            {state(orgCol)}
-            {!orgCol.loading && !orgCol.error && orgCol.items.length === 0 && (
-              <p className="p-6 text-sm text-slate-500">Chưa có đơn vị nào.</p>
-            )}
-            {orgCol.items.map((org) => (
-              <div
-                key={org.ma_don_vi}
-                className="p-4 flex items-center justify-between"
-              >
-                <div style={{ paddingLeft: org.ma_don_vi_cha ? 28 : 0 }}>
-                  <p className="font-semibold text-sm text-navy">
-                    {org.ten_don_vi}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {org.loai_don_vi} · Cấp trên:{" "}
-                    {org.ma_don_vi_cha ? orgName(org.ma_don_vi_cha) : "Gốc"}
-                  </p>
-                </div>
+          <div className="space-y-4">
+            {/* Quick summary & expand/collapse actions bar */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-slate-600 flex-wrap">
+                <span className="flex items-center gap-1.5 font-semibold text-navy">
+                  <Layers className="w-4 h-4 text-indigo-600" /> Cấu trúc phân cấp UIT:
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium text-xs">
+                  {groupedTreeOrgs.totalKhoa} Khoa
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium text-xs">
+                  {groupedTreeOrgs.totalPhongBan} Phòng ban & Đoàn thể
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium text-xs">
+                  {groupedTreeOrgs.totalClb} CLB trực thuộc
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
                 <button
-                  onClick={() => setDialog({ kind: "org", item: org })}
-                  className="text-sm font-semibold text-indigo"
+                  type="button"
+                  onClick={() => setAllExpanded(true)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer transition-colors flex items-center gap-1"
                 >
-                  Cập nhật
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-500" /> Mở rộng tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllExpanded(false)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium cursor-pointer transition-colors flex items-center gap-1"
+                >
+                  <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> Thu gọn tất cả
                 </button>
               </div>
-            ))}
+            </div>
+
+            {/* Tree listing */}
+            <div className="space-y-3">
+              {state(orgCol)}
+              {!orgCol.loading && !orgCol.error && groupedTreeOrgs.roots.length === 0 && (
+                <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500 text-sm">
+                  Chưa có đơn vị nào trong hệ thống.
+                </div>
+              )}
+              {groupedTreeOrgs.roots.map(({ root, children }) => {
+                const isExpanded = expandedOrgs[root.ma_don_vi] ?? true
+                const hasChildren = children.length > 0
+                return (
+                  <div
+                    key={root.ma_don_vi}
+                    className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs transition-all"
+                  >
+                    {/* Root Node Header */}
+                    <div className="p-4 flex items-center justify-between bg-white hover:bg-slate-50/70 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {hasChildren ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleOrg(root.ma_don_vi)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer shrink-0"
+                            title={isExpanded ? "Bấm để thu gọn" : "Bấm để mở rộng"}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="w-4 h-4 text-indigo-600" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-slate-400" />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="w-7 h-7 flex items-center justify-center text-slate-300 shrink-0">
+                            <Building2 className="w-4 h-4" />
+                          </span>
+                        )}
+                        <div
+                          className={`min-w-0 ${hasChildren ? "cursor-pointer" : ""}`}
+                          onClick={() => hasChildren && toggleOrg(root.ma_don_vi)}
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-navy">
+                              {root.ten_don_vi}
+                            </span>
+                            {root.ma_dinh_danh && (
+                              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
+                                {root.ma_dinh_danh}
+                              </span>
+                            )}
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-700">
+                              {root.loai_don_vi}
+                            </span>
+                            {hasChildren && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                {children.length} CLB trực thuộc
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {hasChildren
+                              ? `Bấm để ${isExpanded ? "thu gọn" : "mở xem"} ${children.length} CLB trực thuộc`
+                              : "Đơn vị cấp Trường (Trực thuộc Ban Giám hiệu)"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setDialog({ kind: "org", item: root })}
+                          className="text-xs sm:text-sm font-semibold text-indigo hover:text-indigo-800 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                        >
+                          Cập nhật
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Children List (Nested directly inside Parent Card) */}
+                    {hasChildren && isExpanded && (
+                      <div className="divide-y divide-slate-100 bg-indigo-50/20 border-t border-slate-100">
+                        {children.map((child) => (
+                          <div
+                            key={child.ma_don_vi}
+                            className="p-3.5 pl-10 sm:pl-14 flex items-center justify-between hover:bg-indigo-50/40 transition-colors"
+                          >
+                            <div className="flex items-start gap-2.5 min-w-0">
+                              <CornerDownRight className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-medium text-slate-800">
+                                    {child.ten_don_vi}
+                                  </span>
+                                  {child.ma_dinh_danh && (
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-600 border border-slate-200">
+                                      {child.ma_dinh_danh}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                    CLB trực thuộc
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                  Trực thuộc: <b className="text-slate-600 font-medium">{root.ten_don_vi}</b>
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDialog({ kind: "org", item: child })}
+                              className="text-xs font-semibold text-indigo hover:text-indigo-800 cursor-pointer px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors shrink-0"
+                            >
+                              Cập nhật
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         ) : section === "topics" ? (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
@@ -1517,6 +1728,10 @@ export default function AdminPortal({ section }: { section: Section }) {
               { name: "ho_ten", label: "Họ tên", required: true },
               { name: "email", label: "Email", type: "email", required: true },
               {
+                name: "mat_khau",
+                label: "Mật khẩu tạm thời (Mặc định: TempPass123!)",
+              },
+              {
                 name: "loai_tai_khoan",
                 label: "Loại tài khoản",
                 type: "select",
@@ -1532,12 +1747,6 @@ export default function AdminPortal({ section }: { section: Section }) {
                 type: "select",
                 options: orgOptions,
               },
-              {
-                name: "cap_mat_khau_tam",
-                label:
-                  "Cấp mật khẩu tạm (UIT@2026!Temp) & Bắt buộc đổi MK lần đầu",
-                type: "checkbox",
-              },
             ] satisfies FieldSpec[]
           }
           initial={
@@ -1547,16 +1756,17 @@ export default function AdminPortal({ section }: { section: Section }) {
                   email: dialog.item.email,
                   loai_tai_khoan: dialog.item.loai_tai_khoan,
                   ma_don_vi: dialog.item.ma_don_vi ?? "",
-                  cap_mat_khau_tam: false,
+                  mat_khau: "",
                 }
               : {
                   loai_tai_khoan: "ToChuc",
                   ma_don_vi: "",
-                  cap_mat_khau_tam: true,
+                  mat_khau: "TempPass123!",
                 }
           }
           onClose={() => setDialog(null)}
           onSubmit={async (v) => {
+            const pass = v.mat_khau ? String(v.mat_khau).trim() : "TempPass123!"
             await run(
               () =>
                 usersCol.save(
@@ -1567,12 +1777,13 @@ export default function AdminPortal({ section }: { section: Section }) {
                     loai_tai_khoan:
                       v.loai_tai_khoan as AdminUser["loai_tai_khoan"],
                     ma_don_vi: v.ma_don_vi ? Number(v.ma_don_vi) : null,
+                    mat_khau: pass,
                   },
                   !dialog.item,
                 ),
               dialog.item
                 ? "Đã cập nhật tài khoản."
-                : "Đã tạo tài khoản và kích hoạt cờ cấp mật khẩu tạm thành công.",
+                : `Đã tạo tài khoản thành công với mật khẩu tạm: ${pass}`,
             )
           }}
         />
@@ -1584,6 +1795,10 @@ export default function AdminPortal({ section }: { section: Section }) {
           title={dialog.item ? "Cập nhật đơn vị" : "Tạo đơn vị"}
           fields={[
             { name: "ten_don_vi", label: "Tên đơn vị", required: true },
+            {
+              name: "ma_dinh_danh",
+              label: "Mã định danh / viết tắt (VD: KTPM, CLB_DEV) - Tự động tạo nếu để trống",
+            },
             {
               name: "loai_don_vi",
               label: "Loại đơn vị",
@@ -1608,10 +1823,11 @@ export default function AdminPortal({ section }: { section: Section }) {
             dialog.item
               ? {
                   ten_don_vi: dialog.item.ten_don_vi,
+                  ma_dinh_danh: dialog.item.ma_dinh_danh ?? "",
                   loai_don_vi: dialog.item.loai_don_vi,
                   ma_don_vi_cha: dialog.item.ma_don_vi_cha ?? "",
                 }
-              : { loai_don_vi: "CLB", ma_don_vi_cha: "" }
+              : { loai_don_vi: "CLB", ma_don_vi_cha: "", ma_dinh_danh: "" }
           }
           onClose={() => setDialog(null)}
           onSubmit={async (v) => {
@@ -1621,6 +1837,9 @@ export default function AdminPortal({ section }: { section: Section }) {
                   {
                     ...(dialog.item ?? { ma_don_vi: 0 }),
                     ten_don_vi: String(v.ten_don_vi),
+                    ma_dinh_danh: v.ma_dinh_danh
+                      ? String(v.ma_dinh_danh).trim()
+                      : undefined,
                     loai_don_vi:
                       v.loai_don_vi as OrganizationSummary["loai_don_vi"],
                     ma_don_vi_cha: v.ma_don_vi_cha
