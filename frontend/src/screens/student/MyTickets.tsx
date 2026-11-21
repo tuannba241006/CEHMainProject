@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react"
+import { useLocation } from "react-router"
+import { QRCodeSVG } from "qrcode.react"
 import type { Ticket } from "../../data/mock"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
@@ -59,6 +61,9 @@ export default function MyTickets({
   } = useApp()
   const { user } = useUser()
   const { showToast } = useToast()
+  const location = useLocation()
+  const newlyBookedTicket =
+    (location.state as { newTicket?: Ticket } | null)?.newTicket || null
 
   const userIdentifier = user?.studentId || user?.email || user?.ma_tai_khoan
   useEffect(() => {
@@ -137,6 +142,36 @@ export default function MyTickets({
         <span>/</span>
         <span className="text-slate-900 font-semibold">Vé của tôi</span>
       </nav>
+
+      {/* Newly booked ticket confirmation banner (UC-BOOK-01 Bước 6) */}
+      {newlyBookedTicket && (
+        <div className="mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-display font-bold text-sm text-emerald-950">
+                Đặt vé thành công: {newlyBookedTicket.eventTitle}
+              </h2>
+              <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
+                Vé điện tử kèm mã QR HMAC-SHA256 đã được lưu vào Ví vé và đưa vào
+                hàng đợi gửi tới email của bạn. Mã vé:{" "}
+                <span className="font-mono font-bold">
+                  {newlyBookedTicket.ma_ve_uuid || newlyBookedTicket.id}
+                </span>
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowQR(newlyBookedTicket)}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shrink-0 cursor-pointer transition-colors"
+          >
+            Mở mã QR check-in
+          </button>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs mb-8">
@@ -543,8 +578,19 @@ export default function MyTickets({
             <p className="text-xs text-slate-500 mb-6">{showQR.eventTitle}</p>
 
             <div className="flex justify-center mb-6">
-              <div className="p-4 bg-slate-50 border-2 border-slate-200 rounded-3xl shadow-inner">
-                <MiniQR seed={hashCode(showQR.id)} />
+              <div className="p-4 bg-white border-2 border-slate-200 rounded-3xl shadow-inner">
+                <QRCodeSVG
+                  value={
+                    showQR.payload_qr ||
+                    showQR.qrCode ||
+                    showQR.ma_ve_uuid ||
+                    showQR.id
+                  }
+                  size={180}
+                  level="M"
+                  includeMargin
+                  aria-label="Mã QR vé điện tử"
+                />
               </div>
             </div>
 
@@ -1103,64 +1149,5 @@ function Rating({
         ))}
       </div>
     </div>
-  )
-}
-
-function hashCode(str: string) {
-  let h = 0
-  for (let i = 0; i < str.length; i++)
-    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-
-function MiniQR({ seed }: { seed: number }) {
-  return (
-    <svg width={180} height={180} viewBox="0 0 180 180">
-      {[
-        [0, 0],
-        [126, 0],
-        [0, 126],
-      ].map(([x, y], i) => (
-        <g key={i}>
-          <rect
-            x={x + 2}
-            y={y + 2}
-            width={52}
-            height={52}
-            fill="none"
-            stroke="#1a1a2e"
-            strokeWidth={6}
-            rx={4}
-          />
-          <rect
-            x={x + 16}
-            y={y + 16}
-            width={24}
-            height={24}
-            fill="#1a1a2e"
-            rx={2}
-          />
-        </g>
-      ))}
-      {Array.from({ length: 200 }, (_, i) => {
-        const v = Math.sin(seed + i * 7.3 + 1)
-        if (v * 0.5 + 0.5 < 0.45) return null
-        const col = (i % 16) * 10 + 20
-        const row = Math.floor(i / 16) * 10 + 20
-        if (col < 70 && (row < 70 || row > 110)) return null
-        if (col > 110 && row < 70) return null
-        return (
-          <rect
-            key={i}
-            x={col}
-            y={row}
-            width={8}
-            height={8}
-            fill="#1a1a2e"
-            rx={1}
-          />
-        )
-      })}
-    </svg>
   )
 }

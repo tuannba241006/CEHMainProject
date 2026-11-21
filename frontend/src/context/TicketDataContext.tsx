@@ -216,26 +216,31 @@ export function mapContractTicketToUiTicket(
   else if (ct.trang_thai === "DaCheckOut") legacyStatus = "attended"
   else if (ct.trang_thai === "DaHuy") legacyStatus = "cancelled"
 
-  const qr = buildQrPayload(
-    ct.ma_ve_uuid,
-    user?.ma_tai_khoan || 1,
-    ct.ma_su_kien,
-  )
-
   const existingTicket = TICKETS.find(
     (t) => t.ma_dang_ky === ct.ma_dang_ky,
   )
 
+  const resolvedHmac =
+    (ct as unknown as { chu_ky_hmac?: string }).chu_ky_hmac ||
+    existingTicket?.chu_ky_hmac ||
+    "a8f5f167f44f4964e6c998dee827110c849f8a12c3e4b5a6c7d8e9f012345678"
+
+  const qr = buildQrPayload(
+    ct.ma_ve_uuid,
+    user?.ma_tai_khoan || 1,
+    ct.ma_su_kien,
+    resolvedHmac,
+  )
+
+  const resolvedPayloadQr =
+    (ct as unknown as { payload_qr?: string }).payload_qr ||
+    existingTicket?.payload_qr ||
+    qr
+
   return {
     ...ct,
-    chu_ky_hmac:
-      (ct as unknown as { chu_ky_hmac?: string }).chu_ky_hmac ||
-      existingTicket?.chu_ky_hmac ||
-      "a8f5f167f44f4964e6c998dee827110c849f8a12c3e4b5a6c7d8e9f012345678",
-    payload_qr:
-      (ct as unknown as { payload_qr?: string }).payload_qr ||
-      existingTicket?.payload_qr ||
-      qr,
+    chu_ky_hmac: resolvedHmac,
+    payload_qr: resolvedPayloadQr,
     yeu_cau_wake_lock: true,
 
     id: existingTicket?.id || `TKT-${ct.ma_dang_ky}`,
@@ -250,7 +255,7 @@ export function mapContractTicketToUiTicket(
     status: legacyStatus,
     checkinTime: ct.thoi_gian_check_in || existingTicket?.checkinTime,
     checkoutTime: ct.thoi_gian_check_out || existingTicket?.checkoutTime,
-    qrCode: existingTicket?.qrCode || qr,
+    qrCode: resolvedPayloadQr || existingTicket?.qrCode || qr,
     registeredAt:
       ct.thoi_gian_dang_ky ||
       existingTicket?.registeredAt ||
@@ -372,43 +377,46 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
       return { success: false, error: getApiErrorMessage(err) }
     }
 
-    const serverTicket = (bookingResult as any)?.data as
-      | { ma_dang_ky?: number; ma_ve_uuid?: string }
-      | undefined
-    const assignedId = serverTicket?.ma_dang_ky || Date.now()
-    const finalUuid = serverTicket?.ma_ve_uuid || uuid
-    const baseTicket = TICKETS[0] || ({} as Ticket)
-    const qr = buildQrPayload(
-      finalUuid,
-      user.ma_tai_khoan || 1,
-      event.ma_su_kien,
-    )
-    const newTicket: Ticket = {
-      ...baseTicket,
-      id: `TKT-${assignedId}`,
-      ma_dang_ky: assignedId,
-      ma_ve_uuid: finalUuid,
-      ma_su_kien: event.ma_su_kien,
-      ten_su_kien: event.ten_su_kien,
-      eventId: event.id,
-      eventTitle: event.title,
-      eventDate: event.date,
-      eventTime: event.time,
-      eventLocation: event.location,
-      studentId: user.studentId,
-      studentName: user.name,
-      faculty: user.faculty || "Công nghệ Thông tin",
-      status: "pending",
-      trang_thai: "DaDangKy",
-      qrCode: qr,
-      payload_qr: qr,
-      registeredAt: new Date().toLocaleString("vi-VN"),
+    const serverTicket = (bookingResult as any)?.data as ContractTicket | undefined
+    let newTicket: Ticket
+
+    if (serverTicket && serverTicket.ma_dang_ky) {
+      newTicket = mapContractTicketToUiTicket(serverTicket, user)
+    } else {
+      const assignedId = Date.now()
+      const baseTicket = TICKETS[0] || ({} as Ticket)
+      const qr = buildQrPayload(
+        uuid,
+        user.ma_tai_khoan || 1,
+        event.ma_su_kien,
+      )
+      newTicket = {
+        ...baseTicket,
+        id: `TKT-${assignedId}`,
+        ma_dang_ky: assignedId,
+        ma_ve_uuid: uuid,
+        ma_su_kien: event.ma_su_kien,
+        ten_su_kien: event.ten_su_kien,
+        eventId: event.id,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventTime: `${event.time} - ${event.endTime}`,
+        eventLocation: event.location,
+        studentId: user.studentId,
+        studentName: user.name,
+        faculty: user.faculty || "Công nghệ Thông tin",
+        status: "pending",
+        trang_thai: "DaDangKy",
+        qrCode: qr,
+        payload_qr: qr,
+        registeredAt: new Date().toLocaleString("vi-VN"),
+      }
     }
 
     setTickets((prev) => [newTicket, ...prev])
     setEvents((prev) =>
       prev.map((e) =>
-        e.id === event.id
+        e.id === event.id && !e.khong_gioi_han_slot
           ? {
               ...e,
               registered: e.registered + 1,
@@ -417,6 +425,7 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
           : e,
       ),
     )
+    void refreshTickets(user)
     return { success: true, ticket: newTicket }
   }
 

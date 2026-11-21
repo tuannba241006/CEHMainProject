@@ -10,6 +10,10 @@ import { mapContractEventToLiveEvent } from "../../context/EventDataContext"
 import { useUser } from "../../context/UserContext"
 import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
+import {
+  bookingsService,
+  type BookingPrecheckData,
+} from "../../api/services/bookings.service"
 import { getApiErrorMessage } from "../../api/errors"
 import {
   Calendar,
@@ -19,6 +23,8 @@ import {
   Clock,
   Share2,
   CheckCircle2,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react"
 
 const TOPIC_COLORS: Record<string, string> = {
@@ -92,7 +98,10 @@ export default function EventDetail({
   const { showToast } = useToast()
   const [tab, setTab] = useState<typeof TABS[number]>("Giới thiệu")
   const [registering, setRegistering] = useState(false)
+  const [prechecking, setPrechecking] = useState(false)
   const [showWaitlistRules, setShowWaitlistRules] = useState(false)
+  const [showBookingModal, setShowBookingModal] = useState(false)
+  const [precheckData, setPrecheckData] = useState<BookingPrecheckData | null>(null)
   const [fetchedEvent, setFetchedEvent] = useState<LiveEvent | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(true)
   const [detailError, setDetailError] = useState<string | null>(null)
@@ -109,6 +118,8 @@ export default function EventDetail({
   useEffect(() => {
     setTab("Giới thiệu")
     setShowWaitlistRules(false)
+    setShowBookingModal(false)
+    setPrecheckData(null)
     setFetchedEvent(null)
     setOfferSecondsLeft(null)
   }, [eventId])
@@ -357,8 +368,61 @@ export default function EventDetail({
     }
   }
 
+  function buildLocalPrecheckFallback(targetEvent: LiveEvent): BookingPrecheckData {
+    const newStart = new Date(targetEvent.thoi_gian_bat_dau).getTime()
+    const newEnd = new Date(targetEvent.thoi_gian_ket_thuc).getTime()
+
+    const overlaps = tickets
+      .filter((t) => {
+        if (
+          t.studentId !== user.studentId ||
+          t.status === "cancelled" ||
+          t.trang_thai === "DaHuy" ||
+          String(t.ma_su_kien) === String(targetEvent.ma_su_kien)
+        ) {
+          return false
+        }
+        const exStart = t.thoi_gian_bat_dau
+          ? new Date(t.thoi_gian_bat_dau).getTime()
+          : NaN
+        const exEnd = t.thoi_gian_ket_thuc
+          ? new Date(t.thoi_gian_ket_thuc).getTime()
+          : NaN
+        if (!Number.isFinite(newStart) || !Number.isFinite(newEnd) || !Number.isFinite(exStart) || !Number.isFinite(exEnd)) {
+          return false
+        }
+        return newStart < exEnd && newEnd > exStart
+      })
+      .map((t) => {
+        const matchedEvent = getEvent(String(t.ma_su_kien))
+        return {
+          ma_su_kien: t.ma_su_kien || Number(t.eventId) || 0,
+          ten_su_kien: t.ten_su_kien || t.eventTitle,
+          thoi_gian_bat_dau: t.thoi_gian_bat_dau || "",
+          thoi_gian_ket_thuc: t.thoi_gian_ket_thuc || "",
+          khong_gioi_han_slot: Boolean(matchedEvent?.khong_gioi_han_slot),
+          ten_phong: t.ten_phong,
+        }
+      })
+
+    const hasHardConflict =
+      !targetEvent.khong_gioi_han_slot &&
+      overlaps.some((o) => !o.khong_gioi_han_slot)
+
+    return {
+      co_the_dat: !hasHardConflict,
+      khong_gioi_han_slot: Boolean(targetEvent.khong_gioi_han_slot),
+      ly_do_chan: hasHardConflict ? "SCHEDULE_CONFLICT_HARD" : null,
+      canh_bao_trung_lich_mem:
+        !hasHardConflict && overlaps.length > 0
+          ? "Lưu ý: Sự kiện này trùng khung giờ với sự kiện bạn đã đăng ký. Bạn vẫn có thể đăng ký nhưng vui lòng tự cân nhắc sắp xếp thời gian."
+          : null,
+      su_kien_trung: overlaps,
+    }
+  }
+
   async function handleCTA() {
-    if (!ctaEnabled || registering) return
+    if (!ctaEnabled || registering || prechecking || !event) return
 
     if (
       (backendBtn && backendBtn.trang_thai_nut === "CHUA_DANG_NHAP") ||
@@ -395,30 +459,60 @@ export default function EventDetail({
       return
     }
 
-    // UC-BOOK-01: Check for potential schedule conflict with existing active tickets
-    const conflictingTicket = tickets.find(
-      (t) =>
-        t.studentId === user.studentId &&
-        t.status !== "cancelled" &&
-        t.status !== "DaHuy" &&
-        t.eventId !== event.id &&
-        t.eventDate === event.date,
-    )
-    if (conflictingTicket) {
-      showToast(
-        `Cảnh báo: Bạn đã giữ vé sự kiện "${conflictingTicket.eventTitle}" trong cùng ngày ${event.date}.`,
-        "warning",
-      )
+    // UC-BOOK-01 Bước 2: Gọi API precheck kiểm tra điều kiện & trùng lịch trước khi mở Modal xác nhận
+    setPrechecking(true)
+    let check: BookingPrecheckData
+    try {
+      const res = await bookingsService.precheck(event.ma_su_kien)
+      const data = res?.data
+      if (data && (typeof data.co_the_dat === "boolean" || typeof data.du_dieu_kien === "boolean")) {
+        check = data
+      } else {
+        check = buildLocalPrecheckFallback(event)
+      }
+    } catch {
+      check = buildLocalPrecheckFallback(event)
+    } finally {
+      setPrechecking(false)
     }
 
+    if (check.ly_do_chan === "SLOT_SOLD_OUT") {
+      showToast(
+        "Sự kiện vừa hết vé! Hệ thống đã cập nhật sang danh sách chờ.",
+        "warning",
+      )
+      reloadDetail()
+      return
+    }
+    if (check.ly_do_chan === "REGISTRATION_CLOSED") {
+      showToast("Đã đóng đăng ký cho sự kiện này.", "warning")
+      reloadDetail()
+      return
+    }
+    if (check.ly_do_chan === "ALREADY_REGISTERED") {
+      showToast("Bạn đã đăng ký vé sự kiện này trước đó.", "info")
+      reloadDetail()
+      return
+    }
+
+    setPrecheckData(check)
+    setShowBookingModal(true)
+  }
+
+  async function confirmBookTicket() {
+    if (!event || registering) return
     setRegistering(true)
-    const result = await registerEvent(event!, user)
+    const result = await registerEvent(event, user)
     setRegistering(false)
+    setShowBookingModal(false)
+
     if (result.success && result.ticket) {
       reloadDetail()
       onRegister(result.ticket)
     } else {
       showToast(result.error ?? "Đăng ký thất bại", "error")
+      // Đồng bộ lại ngay Smart Action Button trên màn hình (vd EX.2 hết vé -> Tham gia danh sách chờ)
+      reloadDetail()
     }
   }
 
@@ -1020,14 +1114,18 @@ export default function EventDetail({
             {/* Big CTA Action Button */}
             <button
               onClick={handleCTA}
-              disabled={!ctaEnabled || registering}
+              disabled={!ctaEnabled || registering || prechecking}
               className={`w-full py-3.5 rounded-2xl font-display font-bold text-sm transition-all ${
-                !ctaEnabled || registering
+                !ctaEnabled || registering || prechecking
                   ? "cursor-not-allowed"
                   : "cursor-pointer"
               } ${ctaClass}`}
             >
-              {registering ? "Đang xử lý đăng ký..." : ctaLabel}
+              {prechecking
+                ? "Đang kiểm tra điều kiện..."
+                : registering
+                  ? "Đang xử lý đăng ký..."
+                  : ctaLabel}
             </button>
 
             {/* SRS UC-DISC-02: Link "Vé của tôi" đi kèm nút Disabled "Bạn đã đăng ký vé" */}
@@ -1168,6 +1266,153 @@ export default function EventDetail({
               >
                 Xác nhận lấy số thứ tự FIFO
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UC-BOOK-01 Bước 2–3: Modal Xem lại thông tin & Xác nhận đặt vé */}
+      {showBookingModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => !registering && setShowBookingModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 mb-1.5">
+                  Xác nhận đăng ký tham dự
+                </span>
+                <h2 className="font-display font-bold text-lg text-slate-900 leading-snug">
+                  {event.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => !registering && setShowBookingModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer shrink-0"
+                title="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2 text-xs mb-4">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Thời gian:</span>
+                <span className="font-semibold text-slate-800 text-right">
+                  {dateFormatted} · {event.time} - {event.endTime}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Địa điểm:</span>
+                <span className="font-semibold text-slate-800 text-right">
+                  {event.room} ({event.location})
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Loại vé:</span>
+                <span className="font-semibold text-slate-800 text-right">
+                  {event.khong_gioi_han_slot
+                    ? "Sự kiện mở tự do (Không giới hạn slot)"
+                    : "Sự kiện giới hạn slot (Vé điện tử HMAC-SHA256)"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Sinh viên:</span>
+                <span className="font-semibold text-slate-800 text-right">
+                  {user.name} ({user.studentId})
+                </span>
+              </div>
+            </div>
+
+            {/* Hard Block khi trùng 2 sự kiện giới hạn slot (UC-BOOK-01.EX.1) */}
+            {precheckData?.ly_do_chan === "SCHEDULE_CONFLICT_HARD" && (
+              <div className="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-rose-800">
+                  <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Không thể đăng ký do trùng lịch giới hạn slot!</span>
+                </div>
+                <p className="leading-relaxed">
+                  Bạn đang giữ vé của sự kiện giới hạn slot{" "}
+                  <b>
+                    '{precheckData.su_kien_trung?.[0]?.ten_su_kien || "khác"}'
+                  </b>{" "}
+                  diễn ra trùng khung giờ. Để tránh chiếm chỗ ảo, vui lòng hủy vé
+                  sự kiện cũ (trước mốc T-4h) nếu muốn tham gia sự kiện này.
+                </p>
+              </div>
+            )}
+
+            {/* Soft Warning màu vàng khi 1 trong 2 sự kiện là mở tự do (UC-BOOK-01 Bước 2) */}
+            {precheckData?.ly_do_chan !== "SCHEDULE_CONFLICT_HARD" &&
+              precheckData?.canh_bao_trung_lich_mem && (
+                <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-900 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-amber-800">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Cảnh báo trùng khung giờ (Cảnh báo mềm)</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    {precheckData.canh_bao_trung_lich_mem}
+                  </p>
+                  {precheckData.su_kien_trung &&
+                    precheckData.su_kien_trung.length > 0 && (
+                      <ul className="list-disc pl-4 pt-1 text-[11px] text-amber-800 space-y-0.5">
+                        {precheckData.su_kien_trung.map((ev) => (
+                          <li key={ev.ma_su_kien}>
+                            <b>{ev.ten_su_kien}</b> (
+                            {new Date(ev.thoi_gian_bat_dau).toLocaleTimeString(
+                              "vi-VN",
+                              { hour: "2-digit", minute: "2-digit" },
+                            )}{" "}
+                            –{" "}
+                            {new Date(ev.thoi_gian_ket_thuc).toLocaleTimeString(
+                              "vi-VN",
+                              { hour: "2-digit", minute: "2-digit" },
+                            )}
+                            )
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                </div>
+              )}
+
+            <div className="flex gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowBookingModal(false)}
+                disabled={registering}
+                className="flex-1 py-3 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                {precheckData?.ly_do_chan === "SCHEDULE_CONFLICT_HARD"
+                  ? "Đóng"
+                  : "Hủy bỏ"}
+              </button>
+              {precheckData?.ly_do_chan === "SCHEDULE_CONFLICT_HARD" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBookingModal(false)
+                    onViewTicket()
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                >
+                  Mở Vé của tôi
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={confirmBookTicket}
+                  disabled={registering}
+                  className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                >
+                  {registering ? "Đang giữ vé..." : "Xác nhận đặt vé"}
+                </button>
+              )}
             </div>
           </div>
         </div>
