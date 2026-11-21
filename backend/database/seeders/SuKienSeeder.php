@@ -31,8 +31,8 @@ class SuKienSeeder extends Seeder
                 ]),
                 'doi_tuong_tham_gia' => 'Sinh viên toàn trường UIT',
                 'ngay_cong_bo' => $now->copy()->subDays(5),
-                'thoi_gian_bat_dau' => '2026-11-20 08:30:00',
-                'thoi_gian_ket_thuc' => '2026-11-20 11:30:00',
+                'thoi_gian_bat_dau' => $now->copy()->addDays(4)->setTime(1, 30, 0)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc' => $now->copy()->addDays(4)->setTime(4, 30, 0)->format('Y-m-d H:i:s'),
                 'thoi_gian_ket_thuc_thuc_te' => null,
                 'khong_gioi_han_slot' => 0,
                 'so_luong_toi_da' => 200,
@@ -166,8 +166,8 @@ class SuKienSeeder extends Seeder
                 ]),
                 'doi_tuong_tham_gia' => 'Sinh viên CNTT',
                 'ngay_cong_bo' => $now->copy()->subDays(2),
-                'thoi_gian_bat_dau' => '2026-11-20 09:00:00', // Trùng giờ với Event 101 (08:30 - 11:30)
-                'thoi_gian_ket_thuc' => '2026-11-20 11:00:00',
+                'thoi_gian_bat_dau' => $now->copy()->addDays(4)->setTime(2, 0, 0)->format('Y-m-d H:i:s'), // Trùng giờ với Event 101
+                'thoi_gian_ket_thuc' => $now->copy()->addDays(4)->setTime(4, 0, 0)->format('Y-m-d H:i:s'),
                 'thoi_gian_ket_thuc_thuc_te' => null,
                 'khong_gioi_han_slot' => 0,
                 'so_luong_toi_da' => 50,
@@ -199,8 +199,8 @@ class SuKienSeeder extends Seeder
                 ]),
                 'doi_tuong_tham_gia' => 'Toàn thể sinh viên UIT',
                 'ngay_cong_bo' => $now->copy()->subDays(4),
-                'thoi_gian_bat_dau' => '2026-11-20 09:30:00', // Trùng giờ với Event 101, nhưng là sự kiện mở tự do
-                'thoi_gian_ket_thuc' => '2026-11-20 11:00:00',
+                'thoi_gian_bat_dau' => $now->copy()->addDays(4)->setTime(2, 30, 0)->format('Y-m-d H:i:s'), // Trùng giờ với Event 101, nhưng là sự kiện mở tự do
+                'thoi_gian_ket_thuc' => $now->copy()->addDays(4)->setTime(4, 0, 0)->format('Y-m-d H:i:s'),
                 'thoi_gian_ket_thuc_thuc_te' => null,
                 'khong_gioi_han_slot' => 1,
                 'so_luong_toi_da' => null,

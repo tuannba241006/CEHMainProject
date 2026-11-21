@@ -855,9 +855,9 @@ class Tester4FixtureSeeder extends Seeder
                 ]),
                 'doi_tuong_tham_gia' => 'Sinh viên toàn trường',
                 'ngay_cong_bo' => $now->copy()->subDays(10),
-                'thoi_gian_bat_dau' => $now->copy()->subDays(1)->format('Y-m-d 08:00:00'),
-                'thoi_gian_ket_thuc' => $now->copy()->subDays(1)->format('Y-m-d 11:30:00'),
-                'thoi_gian_ket_thuc_thuc_te' => $now->copy()->subDays(1)->format('Y-m-d 11:45:00'),
+                'thoi_gian_bat_dau' => $now->copy()->subHours(14)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc' => $now->copy()->subHours(10)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc_thuc_te' => $now->copy()->subHours(10)->format('Y-m-d H:i:s'),
                 'khong_gioi_han_slot' => 0,
                 'so_luong_toi_da' => 200,
                 'so_ve_con_lai' => 0,
@@ -988,6 +988,160 @@ class Tester4FixtureSeeder extends Seeder
                 'gio_tinh_nguyen' => 0.0,
                 'trang_thai' => 'PUBLISHED',
                 'cong_check_in_mo' => 1,
+                'cong_check_out_mo' => 0,
+                'da_chot_drl' => 0,
+            ],
+
+            // ─────────────────────────────────────────────────────────────────
+            // NHÓM I: BỘ DỮ LIỆU ĐỐI SOÁT 12 LỖI ĐÃ SỬA (BUG-PKG04-06 -> 17)
+            // ─────────────────────────────────────────────────────────────────
+            [
+                'ma_su_kien' => 226,
+                'ma_don_vi_to_chuc' => 1, // Khoa HTTT
+                'ma_chuyen_de' => 1, // Công nghệ
+                'ma_phong' => 2, // Hội trường A
+                'ten_su_kien' => '[TEST BUG-06] Sự kiện đã quá giờ kết thúc nhưng DB vẫn PUBLISHED (Chưa chạy Cron)',
+                'anh_bia' => 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800&h=400&fit=crop',
+                'dien_gia' => 'Ban Kỹ thuật Hệ thống',
+                'mo_ta' => 'Dùng kiểm chứng BUG-PKG04-06: trạng thái DB là PUBLISHED nhưng thời gian kết thúc đã qua từ hôm qua. Phải bị ẩn ở bộ lọc Mặc định & Sắp diễn ra, chỉ xuất hiện khi chọn Đã kết thúc (COMPLETED), và nút chi tiết phải Disabled "Sự kiện đã kết thúc".',
+                'lo_trinh' => json_encode([
+                    ['time' => '08:00 - 11:00', 'title' => 'Hội thảo đã kết thúc'],
+                ]),
+                'doi_tuong_tham_gia' => 'Sinh viên toàn trường',
+                'ngay_cong_bo' => $now->copy()->subDays(5),
+                'thoi_gian_bat_dau' => $now->copy()->subHours(28)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc' => $now->copy()->subHours(24)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc_thuc_te' => null,
+                'khong_gioi_han_slot' => 0,
+                'so_luong_toi_da' => 100,
+                'so_ve_con_lai' => 25,
+                'so_slot_dong_bang' => 0,
+                'thoi_diem_het_ve' => null,
+                'dieu_khoan_drl' => 'Dieu3',
+                'diem_drl_du_kien' => 5,
+                'gio_tinh_nguyen' => 0.0,
+                'trang_thai' => 'PUBLISHED', // Cố tình giữ PUBLISHED dù đã qua giờ kết thúc
+                'cong_check_in_mo' => 0,
+                'cong_check_out_mo' => 0,
+                'da_chot_drl' => 0,
+            ],
+            [
+                'ma_su_kien' => 227,
+                'ma_don_vi_to_chuc' => 2, // Khoa KHMT
+                'ma_chuyen_de' => 1, // Công nghệ
+                'ma_phong' => 1, // Hội trường E
+                'ten_su_kien' => '[TEST BUG-07] Hội thảo Đêm Khuya 01:00 ngày 29/11 giờ VN (Test lệch múi giờ UTC)',
+                'anh_bia' => 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&h=400&fit=crop',
+                'dien_gia' => 'Đội ngũ Core Backend UIT',
+                'mo_ta' => 'Dùng kiểm chứng BUG-PKG04-07: lưu trong DB là 2026-11-28 18:00:00 UTC (= 2026-11-29 01:00:00 giờ Việt Nam +07:00). Khi lọc Từ ngày 29/11/2026 đến 29/11/2026 bắt buộc phải trả về sự kiện này!',
+                'lo_trinh' => json_encode([
+                    ['time' => '01:00 - 03:00', 'title' => 'Coding xuyên đêm & Giải đáp Timezone'],
+                ]),
+                'doi_tuong_tham_gia' => 'Sinh viên CNTT',
+                'ngay_cong_bo' => $now->copy()->subDays(2),
+                'thoi_gian_bat_dau' => Carbon::create(2026, 11, 29, 1, 0, 0, 'Asia/Ho_Chi_Minh')->utc()->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc' => Carbon::create(2026, 11, 29, 3, 0, 0, 'Asia/Ho_Chi_Minh')->utc()->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc_thuc_te' => null,
+                'khong_gioi_han_slot' => 0,
+                'so_luong_toi_da' => 80,
+                'so_ve_con_lai' => 45,
+                'so_slot_dong_bang' => 0,
+                'thoi_diem_het_ve' => null,
+                'dieu_khoan_drl' => 'Dieu3',
+                'diem_drl_du_kien' => 4,
+                'gio_tinh_nguyen' => 0.0,
+                'trang_thai' => 'PUBLISHED',
+                'cong_check_in_mo' => 1,
+                'cong_check_out_mo' => 0,
+                'da_chot_drl' => 0,
+            ],
+            [
+                'ma_su_kien' => 228,
+                'ma_don_vi_to_chuc' => 7, // P.CTSV
+                'ma_chuyen_de' => 3, // Kỹ năng mềm
+                'ma_phong' => 2, // Hội trường A
+                'ten_su_kien' => '[TEST BUG-09] Ngày hội Giao lưu Mở tự do Đang diễn ra (HAPPENING - Không giới hạn slot)',
+                'anh_bia' => 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=400&fit=crop',
+                'dien_gia' => 'Phòng CTSV & Các CLB UIT',
+                'mo_ta' => 'Sự kiện đang diễn ra (HAPPENING) nhưng thuộc loại Mở tự do (khong_gioi_han_slot = 1). Khách thấy "Đăng nhập để đặt vé", Sinh viên chưa có vé thấy "Đăng ký tham gia ngay" (cho phép đăng ký muộn đến trước giờ kết thúc).',
+                'lo_trinh' => json_encode([
+                    ['time' => 'Hiện tại', 'title' => 'Hoạt động giao lưu tự do đang diễn ra'],
+                ]),
+                'doi_tuong_tham_gia' => 'Sinh viên toàn trường',
+                'ngay_cong_bo' => $now->copy()->subDays(2),
+                'thoi_gian_bat_dau' => $now->copy()->subMinutes(20)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc' => $now->copy()->addMinutes(120)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc_thuc_te' => null,
+                'khong_gioi_han_slot' => 1,
+                'so_luong_toi_da' => null,
+                'so_ve_con_lai' => null,
+                'so_slot_dong_bang' => 0,
+                'thoi_diem_het_ve' => null,
+                'dieu_khoan_drl' => 'Dieu4',
+                'diem_drl_du_kien' => 3,
+                'gio_tinh_nguyen' => 0.0,
+                'trang_thai' => 'HAPPENING',
+                'cong_check_in_mo' => 1,
+                'cong_check_out_mo' => 0,
+                'da_chot_drl' => 0,
+            ],
+            [
+                'ma_su_kien' => 229,
+                'ma_don_vi_to_chuc' => 5, // Khoa KTPM
+                'ma_chuyen_de' => 1, // Công nghệ
+                'ma_phong' => 4, // Phòng B114
+                'ten_su_kien' => '[TEST BUG-09] Workshop System Design (SV1 đang có Offer Waitlist đếm ngược MM:SS)',
+                'anh_bia' => 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=800&h=400&fit=crop',
+                'dien_gia' => 'Staff Software Engineer VNG',
+                'mo_ta' => 'Sự kiện hết vé. SV1 đang được cấp OFFER với hạn xác nhận còn 40 phút -> nút bấm hiển thị "Bạn có 1 slot đang chờ nhận - Còn MM:SS" đếm ngược trực tiếp. SV2 đang chờ ở vị trí #2 -> nút bấm hiển thị "Bạn đang ở vị trí số 2 trong danh sách chờ".',
+                'lo_trinh' => json_encode([
+                    ['time' => '14:00 - 17:00', 'title' => 'High Availability Architecture'],
+                ]),
+                'doi_tuong_tham_gia' => 'Sinh viên KTPM & CNTT',
+                'ngay_cong_bo' => $now->copy()->subDays(3),
+                'thoi_gian_bat_dau' => $now->copy()->addDays(6)->setTime(7, 0, 0)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc' => $now->copy()->addDays(6)->setTime(10, 0, 0)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc_thuc_te' => null,
+                'khong_gioi_han_slot' => 0,
+                'so_luong_toi_da' => 40,
+                'so_ve_con_lai' => 0,
+                'so_slot_dong_bang' => 0,
+                'thoi_diem_het_ve' => $now->copy()->subHours(12),
+                'dieu_khoan_drl' => 'Dieu3',
+                'diem_drl_du_kien' => 5,
+                'gio_tinh_nguyen' => 0.0,
+                'trang_thai' => 'PUBLISHED',
+                'cong_check_in_mo' => 1,
+                'cong_check_out_mo' => 0,
+                'da_chot_drl' => 0,
+            ],
+            [
+                'ma_su_kien' => 230,
+                'ma_don_vi_to_chuc' => 4, // Khoa MMT&TT
+                'ma_chuyen_de' => 4, // Khởi nghiệp
+                'ma_phong' => 3, // Phòng C109
+                'ten_su_kien' => '[TEST BUG-09] Talkshow Khởi nghiệp (Hết vé & Dưới mốc T-2h -> Đóng Waitlist)',
+                'anh_bia' => 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=400&fit=crop',
+                'dien_gia' => 'Founder Startup Hub',
+                'mo_ta' => 'Sự kiện giới hạn slot, đã hết vé (so_ve_con_lai = 0) và sắp bắt đầu trong 70 phút (đã qua mốc T-2h). Nút bấm bắt buộc hiển thị "Hết vé (Đã đóng danh sách chờ)" (Disabled) và không hiển thị box Waitlist.',
+                'lo_trinh' => json_encode([
+                    ['time' => 'Sắp bắt đầu', 'title' => 'Chia sẻ hành trình khởi nghiệp'],
+                ]),
+                'doi_tuong_tham_gia' => 'Sinh viên toàn trường',
+                'ngay_cong_bo' => $now->copy()->subDays(2),
+                'thoi_gian_bat_dau' => $now->copy()->addMinutes(70)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc' => $now->copy()->addMinutes(190)->format('Y-m-d H:i:s'),
+                'thoi_gian_ket_thuc_thuc_te' => null,
+                'khong_gioi_han_slot' => 0,
+                'so_luong_toi_da' => 50,
+                'so_ve_con_lai' => 0,
+                'so_slot_dong_bang' => 0,
+                'thoi_diem_het_ve' => $now->copy()->subHours(5),
+                'dieu_khoan_drl' => 'Dieu4',
+                'diem_drl_du_kien' => 3,
+                'gio_tinh_nguyen' => 0.0,
+                'trang_thai' => 'PUBLISHED',
+                'cong_check_in_mo' => 0,
                 'cong_check_out_mo' => 0,
                 'da_chot_drl' => 0,
             ],
@@ -1234,6 +1388,118 @@ class Tester4FixtureSeeder extends Seeder
                     'so_thu_tu' => 1,
                     'trang_thai' => 'WAITING',
                     'thoi_gian_dang_ky' => $now->copy()->subMinutes(25),
+                    'han_chot_xac_nhan' => null,
+                    'thoi_gian_phan_hoi' => null,
+                ]
+            );
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Kịch bản 5 (TEST BUG-PKG04-08): Event 209 (COMPLETED, kết thúc 10h trước)
+        // - SV1: Có vé nhưng KHÔNG điểm danh (No-show) -> Nút phải Disabled "Sự kiện đã kết thúc"
+        // - SV2: Đã Check-in & Check-out đầy đủ (ti_le_drl = 1.00, chưa feedback) -> "Làm khảo sát Feedback / Xem chứng nhận"
+        // ─────────────────────────────────────────────────────────────────────
+        if ($sv1) {
+            $uuid209Sv1 = (string) Str::uuid();
+            DB::table('dang_ky')->updateOrInsert(
+                ['ma_su_kien' => 209, 'ma_tai_khoan' => $sv1->ma_tai_khoan],
+                [
+                    'ma_ve_uuid' => $uuid209Sv1,
+                    'chu_ky_hmac' => $cryptoService->signTicket($uuid209Sv1, (int) $sv1->ma_tai_khoan, 209),
+                    'trang_thai' => 'DaDangKy',
+                    'thoi_gian_dang_ky' => $now->copy()->subDays(3),
+                    'da_check_in' => 0,
+                    'da_check_out' => 0,
+                    'nghi_van_gian_lan' => 0,
+                    'tham_gia_tron_ven' => 0,
+                    'tham_gia_mot_phan' => 0,
+                    'ti_le_drl' => 0,
+                    'da_feedback' => 0,
+                    'du_dieu_kien_drl' => 0,
+                    'vi_pham_no_show' => 1,
+                    'da_gui_nhac_nho' => 1,
+                ]
+            );
+        }
+
+        if ($sv2) {
+            $uuid209Sv2 = (string) Str::uuid();
+            DB::table('dang_ky')->updateOrInsert(
+                ['ma_su_kien' => 209, 'ma_tai_khoan' => $sv2->ma_tai_khoan],
+                [
+                    'ma_ve_uuid' => $uuid209Sv2,
+                    'chu_ky_hmac' => $cryptoService->signTicket($uuid209Sv2, (int) $sv2->ma_tai_khoan, 209),
+                    'trang_thai' => 'DaCheckOut',
+                    'thoi_gian_dang_ky' => $now->copy()->subDays(3),
+                    'da_check_in' => 1,
+                    'thoi_gian_check_in' => $now->copy()->subHours(14),
+                    'da_check_out' => 1,
+                    'thoi_gian_check_out' => $now->copy()->subHours(10),
+                    'nghi_van_gian_lan' => 0,
+                    'tham_gia_tron_ven' => 1,
+                    'tham_gia_mot_phan' => 0,
+                    'ti_le_drl' => 1.00,
+                    'da_feedback' => 0,
+                    'du_dieu_kien_drl' => 0,
+                    'vi_pham_no_show' => 0,
+                    'da_gui_nhac_nho' => 1,
+                ]
+            );
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Kịch bản 6 (TEST BUG-PKG04-09 & 11): Event 208 (HAPPENING, giới hạn slot)
+        // - SV1: Đã có vé hợp lệ (DaDangKy) -> Nút "Vào điểm danh / Xem vé" (Enabled)
+        // - Guest / SV2 (chưa có vé): Nút "Sự kiện đang diễn ra (Đã đóng đăng ký)" (Disabled)
+        // ─────────────────────────────────────────────────────────────────────
+        if ($sv1) {
+            $uuid208Sv1 = (string) Str::uuid();
+            DB::table('dang_ky')->updateOrInsert(
+                ['ma_su_kien' => 208, 'ma_tai_khoan' => $sv1->ma_tai_khoan],
+                [
+                    'ma_ve_uuid' => $uuid208Sv1,
+                    'chu_ky_hmac' => $cryptoService->signTicket($uuid208Sv1, (int) $sv1->ma_tai_khoan, 208),
+                    'trang_thai' => 'DaDangKy',
+                    'thoi_gian_dang_ky' => $now->copy()->subDays(2),
+                    'da_check_in' => 0,
+                    'da_check_out' => 0,
+                    'nghi_van_gian_lan' => 0,
+                    'tham_gia_tron_ven' => 0,
+                    'tham_gia_mot_phan' => 0,
+                    'ti_le_drl' => 0,
+                    'da_feedback' => 0,
+                    'du_dieu_kien_drl' => 0,
+                    'vi_pham_no_show' => 0,
+                    'da_gui_nhac_nho' => 1,
+                ]
+            );
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Kịch bản 7 (TEST BUG-PKG04-09 CO_OFFER_WAITLIST): Event 229
+        // - SV1: Đang được OFFER với hạn chót còn 40 phút -> nút đếm ngược MM:SS
+        // - SV2: Đang ở hàng chờ WAITING #2 -> "Bạn đang ở vị trí số 2 trong danh sách chờ"
+        // ─────────────────────────────────────────────────────────────────────
+        if ($sv1) {
+            DB::table('hang_doi_waitlist')->updateOrInsert(
+                ['ma_su_kien' => 229, 'ma_tai_khoan' => $sv1->ma_tai_khoan],
+                [
+                    'so_thu_tu' => 1,
+                    'trang_thai' => 'OFFERED',
+                    'thoi_gian_dang_ky' => $now->copy()->subHours(5),
+                    'han_chot_xac_nhan' => $now->copy()->addMinutes(40),
+                    'thoi_gian_phan_hoi' => null,
+                ]
+            );
+        }
+
+        if ($sv2) {
+            DB::table('hang_doi_waitlist')->updateOrInsert(
+                ['ma_su_kien' => 229, 'ma_tai_khoan' => $sv2->ma_tai_khoan],
+                [
+                    'so_thu_tu' => 2,
+                    'trang_thai' => 'WAITING',
+                    'thoi_gian_dang_ky' => $now->copy()->subHours(4),
                     'han_chot_xac_nhan' => null,
                     'thoi_gian_phan_hoi' => null,
                 ]
