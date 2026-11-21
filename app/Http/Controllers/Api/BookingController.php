@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TicketResource;
 use App\Models\DangKy;
-use App\Models\SuKien;
 use App\Services\BookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class BookingController extends Controller
 {
@@ -25,10 +26,44 @@ class BookingController extends Controller
      */
     public function bookTicket(Request $request, int $id): JsonResponse
     {
-        $ticket = $this->bookingService->bookTicket(
-            (int) $request->user()->ma_tai_khoan,
-            $id
-        );
+        $userId = (int) $request->user()->ma_tai_khoan;
+        $idempotencyKey = trim((string) $request->header('Idempotency-Key', ''));
+        $cacheKey = $idempotencyKey !== '' ? "booking:idempotency:{$userId}:{$idempotencyKey}" : null;
+
+        if ($cacheKey !== null) {
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached)) {
+                if ((int) ($cached['ma_su_kien'] ?? 0) !== $id) {
+                    throw new BusinessException(
+                        'IDEMPOTENCY_CONFLICT',
+                        'Idempotency-Key đã được sử dụng cho một sự kiện khác.',
+                        null,
+                        409
+                    );
+                }
+
+                $existingTicket = DangKy::with(['suKien.phongHoiTruong', 'chungNhan'])
+                    ->find($cached['ma_dang_ky'] ?? 0);
+
+                if ($existingTicket && $existingTicket->trang_thai !== 'DaHuy') {
+                    return $this->successResponse(
+                        data: new TicketResource($existingTicket),
+                        message: 'Đăng ký vé tham dự thành công',
+                        code: 201
+                    );
+                }
+            }
+        }
+
+        $ticket = $this->bookingService->bookTicket($userId, $id);
+
+        if ($cacheKey !== null) {
+            Cache::put(
+                $cacheKey,
+                ['ma_su_kien' => $id, 'ma_dang_ky' => (int) $ticket->ma_dang_ky],
+                now()->addMinutes(15)
+            );
+        }
 
         return $this->successResponse(
             data: new TicketResource($ticket),
@@ -40,34 +75,12 @@ class BookingController extends Controller
     /**
      * GET /api/v1/events/{id}/booking-check
      *
-     * Kiểm tra điều kiện đặt vé của user cho sự kiện (UC-BOOK-01).
+     * Kiểm tra trước điều kiện đặt vé & Cảnh báo trùng lịch cá nhân (UC-BOOK-01 Bước 2).
      */
     public function precheck(Request $request, int $id): JsonResponse
     {
-        $user  = $request->user();
-        $event = SuKien::findOrFail($id);
+        $result = $this->bookingService->precheckBooking($request->user(), $id);
 
-        // Đã đặt vé chưa?
-        $existingBooking = DangKy::where('ma_su_kien', $id)
-            ->where('ma_tai_khoan', $user->ma_tai_khoan)
-            ->whereNotIn('trang_thai', ['DaHuy'])
-            ->first();
-
-        if ($existingBooking) {
-            return $this->successResponse(['du_dieu_kien' => false, 'ly_do' => 'Bạn đã đặt vé cho sự kiện này.']);
-        }
-
-        // Còn slot không?
-        if (! $event->khong_gioi_han_slot) {
-            $bookedCount = DangKy::where('ma_su_kien', $id)
-                ->whereNotIn('trang_thai', ['DaHuy'])
-                ->count();
-
-            if ($bookedCount >= $event->so_luong_toi_da) {
-                return $this->successResponse(['du_dieu_kien' => false, 'ly_do' => 'Sự kiện đã hết chỗ.']);
-            }
-        }
-
-        return $this->successResponse(['du_dieu_kien' => true]);
+        return $this->successResponse($result);
     }
 }
