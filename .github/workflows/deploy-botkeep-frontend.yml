@@ -39,7 +39,7 @@ jobs:
         working-directory: frontend
         env:
           VITE_APP_MODE: api
-          VITE_API_URL: https://av2x93.bot-keep.xyz
+          VITE_API_URL: https://api-ceh-das.bot-keep.xyz
         run: npm run build
 
       - name: Publish dist to botkeep-static branch
