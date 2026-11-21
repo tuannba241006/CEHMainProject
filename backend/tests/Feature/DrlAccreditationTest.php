@@ -42,6 +42,15 @@ class DrlAccreditationTest extends TestCase
 
     protected CryptoService $cryptoService;
 
+    protected function uniqueStudentMssv(): string
+    {
+        do {
+            $mssv = '2252'.str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT);
+        } while (User::where('mssv', $mssv)->exists());
+
+        return $mssv;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -113,7 +122,7 @@ class DrlAccreditationTest extends TestCase
         ]);
 
         $this->studentA = User::create([
-            'mssv' => '2252'.str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT),
+            'mssv' => $this->uniqueStudentMssv(),
             'email' => 'student_a_'.Str::random(6).'@gm.uit.edu.vn',
             'mat_khau' => Hash::make('StudentPass@123'),
             'ho_ten' => 'Nguyễn Văn An',
@@ -126,7 +135,7 @@ class DrlAccreditationTest extends TestCase
         ]);
 
         $this->studentB = User::create([
-            'mssv' => '2252'.str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT),
+            'mssv' => $this->uniqueStudentMssv(),
             'email' => 'student_b_'.Str::random(6).'@gm.uit.edu.vn',
             'mat_khau' => Hash::make('StudentPass@123'),
             'ho_ten' => 'Trần Thị Bình',
