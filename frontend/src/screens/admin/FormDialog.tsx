@@ -9,6 +9,7 @@ export interface FieldSpec {
   options?: { value: string; label: string }[]
   required?: boolean
   min?: number
+  max?: number
 }
 
 type Values = Record<string, string | number | boolean | null | undefined>
@@ -54,7 +55,9 @@ export default function FormDialog({
       else if (f.type === "email" && v && !/^\S+@\S+\.\S+$/.test(String(v)))
         next[f.name] = "Email không hợp lệ"
       else if (f.type === "number" && f.min !== undefined && Number(v) < f.min)
-        next[f.name] = `Giá trị tối thiểu ${f.min}`
+        next[f.name] = `Giá trị tối thiểu là ${f.min}`
+      else if (f.type === "number" && f.max !== undefined && Number(v) > f.max)
+        next[f.name] = `Giá trị tối đa là ${f.max}`
     })
     setErrors(next)
     if (Object.keys(next).length) return
@@ -113,13 +116,26 @@ export default function FormDialog({
                 className={inputCls}
                 type={f.type ?? "text"}
                 disabled={busy}
+                min={f.min}
+                max={f.max}
+                onKeyDown={(e) => {
+                  if (
+                    f.type === "number" &&
+                    (f.min ?? 0) >= 0 &&
+                    (e.key === "-" || e.key === "e")
+                  ) {
+                    e.preventDefault()
+                  }
+                }}
                 value={String(values[f.name] ?? "")}
                 onChange={(e) =>
                   setValues({
                     ...values,
                     [f.name]:
                       f.type === "number"
-                        ? Number(e.target.value)
+                        ? e.target.value === ""
+                          ? ""
+                          : Number(e.target.value)
                         : e.target.value,
                   })
                 }

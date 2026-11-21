@@ -59,6 +59,14 @@ const ACCOUNTS: DemoAccount[] = [
     desc: "Ban Tổ chức cấp Khoa · Thẩm định bước 1 sự kiện CLB & tổ chức cấp Khoa",
     initials: "HT",
   },
+  {
+    role: "organizer",
+    label: "Cán bộ KTPM mới cấp (canbo.ktpm@uit.edu.vn)",
+    email: "canbo.ktpm@uit.edu.vn",
+    password: "TempPass123!",
+    desc: "Cán bộ Ban Tổ chức vừa cấp · Yêu cầu đổi mật khẩu lần đầu",
+    initials: "CB",
+  },
 
   // --- QUẢN TRỊ VIÊN ---
   {

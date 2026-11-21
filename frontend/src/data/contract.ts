@@ -112,6 +112,7 @@ export interface Topic {
 export interface OrganizationSummary {
   ma_don_vi: number
   ten_don_vi: string
+  ma_dinh_danh?: string
   loai_don_vi: OrganizationType
   ma_don_vi_cha?: number | null
 }
@@ -217,8 +218,9 @@ export interface RoomScheduleEntry {
   ten_don_vi_host?: string
   thoi_gian_bat_dau: string
   thoi_gian_ket_thuc: string
-  trang_thai: string
+  trang_thai?: string
   loai?: "CONFIRMED" | "PENDING_HOLD" | "BAO_TRI" | string
+  loai_khoang?: "CONFIRMED" | "PENDING_HOLD" | "BAO_TRI" | string
 }
 
 /** Kết quả kiểm tra tình trạng trống của phòng */
