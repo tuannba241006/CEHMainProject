@@ -67,12 +67,14 @@ export function computeEventStatus(e: LiveEvent): EventStatus {
   if (e.isCancelled || e.trang_thai === "CANCELLED") return "closed"
   if (e.trang_thai === "COMPLETED") return "ended"
   if (
-    e.registered >= e.capacity ||
-    (typeof e.so_ve_con_lai === "number" && e.so_ve_con_lai <= 0)
+    !e.khong_gioi_han_slot &&
+    (e.registered >= e.capacity ||
+      (typeof e.so_ve_con_lai === "number" && e.so_ve_con_lai <= 0))
   ) {
     return "full"
   }
   if (!e.registrationOpen) return "closed"
+  if (e.khong_gioi_han_slot) return "open"
   const ratio = (e.capacity - e.registered) / e.capacity
   if (ratio <= 0.2) return "nearly_full"
   return "open"
@@ -161,8 +163,9 @@ export function mapContractEventToLiveEvent(
 
   const isClosed =
     card.trang_thai === "CANCELLED" || card.trang_thai === "COMPLETED"
-  const isFull = remaining <= 0
-  const isNearlyFull = remaining > 0 && remaining <= capacity * 0.2
+  const isFull = !card.khong_gioi_han_slot && remaining <= 0
+  const isNearlyFull =
+    !card.khong_gioi_han_slot && remaining > 0 && remaining <= capacity * 0.2
   const legacyStatus = isClosed
     ? "closed"
     : isFull
@@ -170,6 +173,18 @@ export function mapContractEventToLiveEvent(
       : isNearlyFull
         ? "nearly_full"
         : "open"
+  const nowMs = Date.now()
+  const startMs = card.thoi_gian_bat_dau
+    ? new Date(card.thoi_gian_bat_dau).getTime()
+    : 0
+  const endMs = card.thoi_gian_ket_thuc
+    ? new Date(card.thoi_gian_ket_thuc).getTime()
+    : 0
+  const isRegistrationOpen = card.khong_gioi_han_slot
+    ? (card.trang_thai === "PUBLISHED" || card.trang_thai === "HAPPENING") &&
+      (!endMs || endMs > nowMs)
+    : card.trang_thai === "PUBLISHED" &&
+      (!startMs || startMs - nowMs > 2 * 3600 * 1000)
 
   return {
     ma_su_kien: card.ma_su_kien,
@@ -214,11 +229,7 @@ export function mapContractEventToLiveEvent(
     room: card.ten_phong,
     capacity,
     registered,
-    registrationOpen:
-      card.trang_thai === "PUBLISHED" &&
-      (!card.thoi_gian_bat_dau ||
-        new Date(card.thoi_gian_bat_dau).getTime() - Date.now() >
-          2 * 3600 * 1000),
+    registrationOpen: isRegistrationOpen,
     isCancelled: card.trang_thai === "CANCELLED",
     banner:
       card.anh_bia ||
@@ -269,32 +280,9 @@ export function EventDataProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setError(null)
     try {
-      const [pubRes, compRes] = await Promise.allSettled([
-        eventsService.listPublic({ limit: 50 }),
-        eventsService.listPublic({ limit: 50, trang_thai: "COMPLETED" }),
-      ])
-      const combinedCards: EventCard[] = []
-      const seenIds = new Set<number>()
-      if (pubRes.status === "fulfilled" && Array.isArray(pubRes.value.data)) {
-        for (const card of pubRes.value.data) {
-          if (!seenIds.has(card.ma_su_kien)) {
-            seenIds.add(card.ma_su_kien)
-            combinedCards.push(card)
-          }
-        }
-      }
-      if (compRes.status === "fulfilled" && Array.isArray(compRes.value.data)) {
-        for (const card of compRes.value.data) {
-          if (!seenIds.has(card.ma_su_kien)) {
-            seenIds.add(card.ma_su_kien)
-            combinedCards.push(card)
-          }
-        }
-      }
-      console.log("refetch called in EventDataProvider", pubRes, compRes)
-      if (combinedCards.length > 0) {
-        setEvents(combinedCards.map(mapContractEventToLiveEvent))
-      }
+      const pubRes = await eventsService.listPublic({ limit: 50 })
+      const cards = Array.isArray(pubRes.data) ? pubRes.data : []
+      setEvents(cards.map(mapContractEventToLiveEvent))
     } catch (err) {
       if (!isAuthError(err)) setError(getApiErrorMessage(err))
     } finally {
