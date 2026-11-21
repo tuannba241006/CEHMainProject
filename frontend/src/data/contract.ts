@@ -616,18 +616,26 @@ export interface WaitlistEntry {
   ma_su_kien: number
   ten_su_kien: string
   thoi_gian_bat_dau: string
-  thoi_gian_ket_thuc: string
+  thoi_gian_ket_thuc?: string | null
   ten_phong: string
-  co_so: "CoSo1" | "CoSo2"
+  co_so?: "CoSo1" | "CoSo2"
   so_thu_tu: number
-  trang_thai: "WAITING" | "OFFERED" | "ACCEPTED" | "EXPIRED" | "CANCELLED" | "DECLINED"
+  trang_thai:
+    | "WAITING"
+    | "OFFERED"
+    | "ACCEPTED"
+    | "DECLINED"
+    | "EXPIRED"
+    | "SKIPPED_CONFLICT"
+    | "CLOSED_WAITLIST"
+    | "CANCELLED"
   thoi_gian_dang_ky: string
   thoi_gian_het_han_giu_cho?: string | null
   han_chot_xac_nhan?: string | null
   thoi_gian_phan_hoi?: string | null
-  so_giay_con_lai?: number
-  ma_tai_khoan: number
+  so_giay_con_lai?: number | null
+  ma_tai_khoan?: number
   mssv?: string
-  ho_ten: string
-  studentId: string
+  ho_ten?: string
+  studentId?: string
 }

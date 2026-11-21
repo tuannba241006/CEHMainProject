@@ -11,7 +11,7 @@ export const waitlistService = {
         idempotencyKey,
       },
     ),
-  mine: (query?: { tab?: "active" | "history"; trang_thai?: string }) =>
+  mine: (query?: { tab?: "active" | "history"; trang_thai?: string; page?: number; limit?: number }) =>
     api.get<ApiEnvelope<WaitlistEntry[]>>("/waitlist/my-entries", { query }),
   claim: (id: number, idempotencyKey: string) =>
     api.post<ApiEnvelope<TicketDetail>>(`/waitlist/${id}/claim`, undefined, {

@@ -14,6 +14,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   SCHEDULE_CONFLICT_HARD:
     "Bạn đang giữ vé của một sự kiện giới hạn chỗ bị trùng lịch.",
   ALREADY_REGISTERED: "Bạn đã có vé hợp lệ cho sự kiện này.",
+  ALREADY_IN_WAITLIST: "Bạn đã có tên trong danh sách chờ của sự kiện này.",
   REGISTRATION_CLOSED: "Đăng ký sự kiện đã đóng.",
   WAITLIST_CLOSED: "Hàng đợi đã đóng vì còn dưới 2 giờ trước sự kiện.",
   TICKETS_AVAILABLE: "Sự kiện vừa có vé trống. Vui lòng đặt vé trực tiếp.",

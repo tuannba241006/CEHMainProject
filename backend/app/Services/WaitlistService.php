@@ -33,7 +33,21 @@ class WaitlistService
                 ->first();
 
             if (! $lockedStudent) {
-                throw new ModelNotFoundException('Không tìm thấy tài khoản sinh viên.');
+                throw new BusinessException(
+                    'NOT_FOUND',
+                    'Không tìm thấy tài khoản sinh viên.',
+                    null,
+                    404
+                );
+            }
+
+            if (! $lockedStudent->isSinhVien()) {
+                throw new BusinessException(
+                    'FORBIDDEN',
+                    'Chỉ tài khoản sinh viên mới được quyền tham gia danh sách chờ.',
+                    null,
+                    403
+                );
             }
 
             $event = SuKien::query()
@@ -41,24 +55,66 @@ class WaitlistService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $event) {
-                throw new ModelNotFoundException('Không tìm thấy sự kiện.');
+            if (! $event || ! in_array($event->trang_thai, ['PUBLISHED', 'HAPPENING', 'COMPLETED', 'CANCELLED'], true)) {
+                throw new BusinessException(
+                    'NOT_FOUND',
+                    'Không tìm thấy sự kiện.',
+                    null,
+                    404
+                );
             }
 
-            if ($event->khong_gioi_han_slot || $event->so_ve_con_lai > 0) {
+            $now = now();
+            if ($event->ngay_cong_bo && $now->lt($event->ngay_cong_bo)) {
+                throw new BusinessException(
+                    'WAITLIST_CLOSED',
+                    'Chưa đến thời gian mở đăng ký sự kiện.',
+                    null,
+                    409
+                );
+            }
+
+            if ($event->trang_thai === 'CANCELLED') {
+                throw new BusinessException(
+                    'WAITLIST_CLOSED',
+                    'Sự kiện đã bị hủy, hàng đợi danh sách chờ đã đóng.',
+                    null,
+                    409
+                );
+            }
+
+            if ($event->trang_thai === 'COMPLETED' || ($event->thoi_gian_ket_thuc && $now->gte($event->thoi_gian_ket_thuc))) {
+                throw new BusinessException(
+                    'WAITLIST_CLOSED',
+                    'Sự kiện đã kết thúc, hàng đợi danh sách chờ đã đóng.',
+                    null,
+                    409
+                );
+            }
+
+            if ($event->khong_gioi_han_slot) {
                 throw new BusinessException(
                     'TICKETS_AVAILABLE',
-                    'Sự kiện còn suất tham dự. Vui lòng đặt vé trực tiếp.',
+                    'Sự kiện mở tự do không sử dụng danh sách chờ. Vui lòng đặt vé trực tiếp.',
                     null,
                     409
                 );
             }
 
             $cutoff = $event->thoi_gian_bat_dau->copy()->subHours(2);
-            if ($event->trang_thai !== 'PUBLISHED' || now()->gte($cutoff)) {
+            if ($event->trang_thai !== 'PUBLISHED' || $now->gte($cutoff)) {
                 throw new BusinessException(
                     'WAITLIST_CLOSED',
                     'Hàng đợi danh sách chờ đã đóng (dưới 2 giờ trước khi sự kiện diễn ra).',
+                    null,
+                    409
+                );
+            }
+
+            if ((int) $event->so_ve_con_lai > 0) {
+                throw new BusinessException(
+                    'TICKETS_AVAILABLE',
+                    'Sự kiện vừa có vé trống! Vui lòng đặt vé ngay.',
                     null,
                     409
                 );

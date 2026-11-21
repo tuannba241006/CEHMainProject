@@ -74,13 +74,20 @@ export default function EventList({
   onOpenLogin,
   onOpenRegister,
 }: Props) {
-  const { user } = useUser()
+  const { user, role } = useUser()
   const {
     events,
     getUserActiveTicket,
     computeStatus,
     getStudentWaitlistEntries,
+    refreshTickets,
   } = useApp()
+
+  useEffect(() => {
+    if (!isGuest && role === "student" && refreshTickets) {
+      void refreshTickets(user)
+    }
+  }, [isGuest, role, user.studentId, refreshTickets])
 
   const [topics, setTopics] = useState<ContractTopic[]>([])
   const [organizations, setOrganizations] = useState<OrgOption[]>([])
@@ -635,10 +642,11 @@ export default function EventList({
                     key={event.id}
                     event={event}
                     isRegistered={
-                      !isGuest && !!getUserActiveTicket(event.id, user.studentId)
+                      !isGuest && role === "student" && !!getUserActiveTicket(event.id, user.studentId)
                     }
-                    waitlistEntry={activeWaitlist}
+                    waitlistEntry={role === "student" ? activeWaitlist : undefined}
                     isGuest={isGuest}
+                    canJoinWaitlistView={isGuest || role === "student"}
                     onSelect={() => onSelectEvent(event.id)}
                   />
                 )
@@ -697,19 +705,22 @@ function EventCard({
   isRegistered,
   waitlistEntry,
   isGuest,
+  canJoinWaitlistView = true,
   onSelect,
 }: {
   event: LiveEvent
   isRegistered: boolean
   waitlistEntry?: WaitlistEntry
   isGuest: boolean
+  canJoinWaitlistView?: boolean
   onSelect: () => void
   key?: React.Key
 }) {
   const { computeStatus } = useApp()
   const status = computeStatus(event)
   const isHappening = event.trang_thai === "HAPPENING" && status !== "ended"
-  const isWaitlistOpen = status === "full" && event.trang_thai === "PUBLISHED"
+  const isWaitlistOpen =
+    canJoinWaitlistView && status === "full" && event.trang_thai === "PUBLISHED"
   const sc = isHappening
     ? { bg: "#e0e7ff", text: "#4338ca" }
     : STATUS_COLORS[status]
@@ -780,7 +791,7 @@ function EventCard({
           >
             {isWaitlistOpen && !isRegistered
               ? waitlistEntry?.trang_thai === "OFFERED"
-                ? "Có suất nhận vé (Hạn 15p)"
+                ? "Có suất nhận vé ưu tiên"
                 : waitlistEntry
                   ? `Hàng chờ FIFO #${waitlistEntry.so_thu_tu}`
                   : "Hết vé · Hàng chờ FIFO mở"

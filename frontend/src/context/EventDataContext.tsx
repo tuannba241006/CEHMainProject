@@ -214,12 +214,16 @@ export function mapContractEventToLiveEvent(
   const endMs = card.thoi_gian_ket_thuc
     ? new Date(card.thoi_gian_ket_thuc).getTime()
     : 0
-  const isRegistrationOpen = card.khong_gioi_han_slot
+  const publishMs = detail.ngay_cong_bo
+    ? new Date(detail.ngay_cong_bo).getTime()
+    : 0
+  const isPublishedNow = !publishMs || publishMs <= nowMs
+  const isRegistrationOpen = isPublishedNow && (card.khong_gioi_han_slot
     ? (card.trang_thai === "PUBLISHED" || card.trang_thai === "HAPPENING") &&
       (!endMs || endMs > nowMs)
     : card.trang_thai === "PUBLISHED" &&
       (!startMs || startMs - nowMs > 2 * 3600 * 1000) &&
-      (!endMs || endMs > nowMs)
+      (!endMs || endMs > nowMs))
 
   const drlRule = (card.dieu_khoan_drl || "Dieu3") as
     | "KhongCo"

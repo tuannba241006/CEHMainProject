@@ -94,10 +94,11 @@ export default function EventDetail({
     declineWaitlistOffer,
     tickets,
   } = useApp()
-  const { user } = useUser()
+  const { user, role } = useUser()
   const { showToast } = useToast()
   const [tab, setTab] = useState<typeof TABS[number]>("Giới thiệu")
   const [registering, setRegistering] = useState(false)
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false)
   const [prechecking, setPrechecking] = useState(false)
   const [showWaitlistRules, setShowWaitlistRules] = useState(false)
   const [showBookingModal, setShowBookingModal] = useState(false)
@@ -117,6 +118,7 @@ export default function EventDetail({
 
   useEffect(() => {
     setTab("Giới thiệu")
+    setJoiningWaitlist(false)
     setShowWaitlistRules(false)
     setShowBookingModal(false)
     setPrecheckData(null)
@@ -335,6 +337,10 @@ export default function EventDetail({
       ctaLabel = "Sự kiện đang diễn ra (Đã đóng đăng ký)"
       ctaEnabled = false
       ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
+    } else if (!isGuest && role !== "student") {
+      ctaLabel = "Chỉ tài khoản sinh viên được đăng ký"
+      ctaEnabled = false
+      ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
     } else if (!isGuest && activeTicket) {
       if (isHappening) {
         ctaLabel = "Vào điểm danh / Xem vé"
@@ -347,7 +353,15 @@ export default function EventDetail({
         showMyTicketsLink = true
       }
     } else if (status === "closed") {
-      ctaLabel = "Đã đóng đăng ký"
+      const isSoldOutLimited =
+        !event.khong_gioi_han_slot &&
+        (typeof event.so_ve_con_lai === "number"
+          ? event.so_ve_con_lai <= 0
+          : event.registered >= event.capacity)
+      ctaLabel =
+        isSoldOutLimited && event.trang_thai === "PUBLISHED"
+          ? "Hết vé (Đã đóng danh sách chờ)"
+          : "Đã đóng đăng ký"
       ctaEnabled = false
       ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
     } else if (status === "full") {
@@ -445,15 +459,17 @@ export default function EventDetail({
       return
     }
     if (
-      (backendBtn && backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST") ||
-      waitlistEntry?.trang_thai === "OFFERED"
+      backendBtn
+        ? backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST"
+        : waitlistEntry?.trang_thai === "OFFERED"
     ) {
       onViewTicket()
       return
     }
     if (
-      (backendBtn && backendBtn.trang_thai_nut === "VAO_WAITLIST") ||
-      (!backendBtn && status === "full" && !waitlistEntry)
+      backendBtn
+        ? backendBtn.trang_thai_nut === "VAO_WAITLIST"
+        : status === "full" && !waitlistEntry
     ) {
       setShowWaitlistRules(true)
       return
@@ -995,12 +1011,20 @@ export default function EventDetail({
                     "DANG_O_WAITLIST",
                     "CO_OFFER_WAITLIST",
                   ].includes(backendBtn.trang_thai_nut))) && (() => {
-                const isOffered =
-                  backendBtn?.trang_thai_nut === "CO_OFFER_WAITLIST" ||
-                  waitlistEntry?.trang_thai === "OFFERED"
-                const isWaiting =
-                  backendBtn?.trang_thai_nut === "DANG_O_WAITLIST" ||
-                  waitlistEntry?.trang_thai === "WAITING"
+                const isOffered = backendBtn
+                  ? backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST"
+                  : waitlistEntry?.trang_thai === "OFFERED"
+                const isWaiting = backendBtn
+                  ? backendBtn.trang_thai_nut === "DANG_O_WAITLIST"
+                  : waitlistEntry?.trang_thai === "WAITING"
+                const canJoinWaitlist = backendBtn
+                  ? backendBtn.trang_thai_nut === "VAO_WAITLIST"
+                  : !isGuest && role === "student" && !activeTicket && status === "full"
+
+                if (!isOffered && !isWaiting && !canJoinWaitlist) {
+                  return null
+                }
+
                 const effectiveOfferId =
                   waitlistEntry?.id ?? backendBtn?.ma_hang_doi ?? null
                 const waitlistPosition =
@@ -1190,7 +1214,9 @@ export default function EventDetail({
       {showWaitlistRules && (
         <div
           className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setShowWaitlistRules(false)}
+          onClick={() => {
+            if (!joiningWaitlist) setShowWaitlistRules(false)
+          }}
         >
           <div
             className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl"
@@ -1220,10 +1246,10 @@ export default function EventDetail({
               <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 flex items-start gap-2.5">
                 <span className="font-bold text-amber-700 text-sm">2.</span>
                 <p>
-                  <b>Kiểm tra trùng lịch tự động</b>: Nếu tại thời điểm cấp
-                  Offer bạn đã có vé sự kiện khác cùng giờ, hệ thống sẽ gán{" "}
-                  <code>SKIPPED_CONFLICT</code> và chuyển slot cho người kế
-                  tiếp.
+                  <b>Kiểm tra trùng lịch tự động</b>: Lưu ý rằng nếu đến lượt
+                  được Offer mà bạn đang giữ vé của sự kiện giới hạn slot khác
+                  trùng giờ, lượt của bạn sẽ bị bỏ qua và hệ thống sẽ chuyển
+                  slot cho người kế tiếp.
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5">
@@ -1245,26 +1271,42 @@ export default function EventDetail({
 
             <div className="flex gap-3 mt-6">
               <button
+                type="button"
+                disabled={joiningWaitlist}
                 onClick={() => setShowWaitlistRules(false)}
-                className="flex-1 py-3 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                className="flex-1 py-3 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
               >
                 Hủy bỏ
               </button>
               <button
+                type="button"
+                disabled={joiningWaitlist}
                 onClick={async () => {
-                  const result = await joinWaitlist(event, user)
-                  setShowWaitlistRules(false)
-                  if (result.success) reloadDetail()
-                  showToast(
-                    result.success
-                      ? `Đã vào hàng chờ ở vị trí #${result.entry?.so_thu_tu}.`
-                      : result.error || "Không thể tham gia hàng chờ.",
-                    result.success ? "success" : "error",
-                  )
+                  if (joiningWaitlist) return
+                  setJoiningWaitlist(true)
+                  try {
+                    const result = await joinWaitlist(event, user)
+                    setShowWaitlistRules(false)
+                    reloadDetail()
+                    showToast(
+                      result.success
+                        ? `Bạn đã được xếp vào danh sách chờ ở vị trí số ${result.entry?.so_thu_tu}.`
+                        : result.error || "Không thể tham gia hàng chờ.",
+                      result.success
+                        ? "success"
+                        : result.errorCode === "TICKETS_AVAILABLE"
+                          ? "warning"
+                          : "error",
+                    )
+                  } finally {
+                    setJoiningWaitlist(false)
+                  }
                 }}
-                className="flex-1 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition-colors"
+                className="flex-1 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-bold text-xs shadow-sm transition-colors"
               >
-                Xác nhận lấy số thứ tự FIFO
+                {joiningWaitlist
+                  ? "Đang xử lý..."
+                  : "Xác nhận vào danh sách chờ"}
               </button>
             </div>
           </div>

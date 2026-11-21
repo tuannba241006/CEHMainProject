@@ -366,7 +366,67 @@ export async function handleMockRequest<T>(
     } as T
   }
 
-  if (cleanPath.includes("/book") || cleanPath.includes("/waitlist")) {
+  if (cleanPath.endsWith("/waitlist") && method === "POST") {
+    const idParam = cleanPath.split("/")[2]
+    const matchedEvent =
+      mockEvents.find((e) => String(e.ma_su_kien) === idParam || e.id === idParam) ||
+      mockEvents[0]
+    const nowIso = new Date().toISOString()
+    return {
+      success: true,
+      data: {
+        id: Date.now(),
+        ma_su_kien: matchedEvent?.ma_su_kien ?? Number(idParam || 101),
+        ten_su_kien: matchedEvent?.ten_su_kien ?? matchedEvent?.title ?? "Sự kiện UIT",
+        thoi_gian_bat_dau: matchedEvent?.thoi_gian_bat_dau ?? nowIso,
+        thoi_gian_ket_thuc: matchedEvent?.thoi_gian_ket_thuc ?? nowIso,
+        ten_phong: matchedEvent?.ten_phong ?? matchedEvent?.room ?? "Hội trường A",
+        co_so: matchedEvent?.co_so ?? "CoSo1",
+        so_thu_tu: 1,
+        trang_thai: "WAITING",
+        thoi_gian_dang_ky: nowIso,
+        han_chot_xac_nhan: null,
+        thoi_gian_phan_hoi: null,
+        so_giay_con_lai: null,
+      },
+      message: "Đã xếp vào hàng đợi danh sách chờ",
+      server_time: nowIso,
+    } as T
+  }
+
+  if (cleanPath.startsWith("/waitlist/") && cleanPath.endsWith("/claim")) {
+    return {
+      success: true,
+      data: mockTickets[0],
+      message: "Nhận vé chuyển tiếp thành công",
+    } as T
+  }
+
+  if (cleanPath.startsWith("/waitlist/") && cleanPath.endsWith("/decline")) {
+    const id = Number(cleanPath.split("/")[2] || 1)
+    const nowIso = new Date().toISOString()
+    return {
+      success: true,
+      data: {
+        id,
+        ma_su_kien: mockEvents[0]?.ma_su_kien ?? 101,
+        ten_su_kien: mockEvents[0]?.ten_su_kien ?? "Sự kiện UIT",
+        thoi_gian_bat_dau: mockEvents[0]?.thoi_gian_bat_dau ?? nowIso,
+        thoi_gian_ket_thuc: mockEvents[0]?.thoi_gian_ket_thuc ?? nowIso,
+        ten_phong: mockEvents[0]?.ten_phong ?? "Hội trường A",
+        co_so: mockEvents[0]?.co_so ?? "CoSo1",
+        so_thu_tu: 1,
+        trang_thai: "DECLINED",
+        thoi_gian_dang_ky: nowIso,
+        han_chot_xac_nhan: null,
+        thoi_gian_phan_hoi: nowIso,
+        so_giay_con_lai: null,
+      },
+      message: "Đã từ chối nhận suất chờ",
+    } as T
+  }
+
+  if (cleanPath.includes("/book")) {
     return {
       success: true,
       data: mockTickets[0],

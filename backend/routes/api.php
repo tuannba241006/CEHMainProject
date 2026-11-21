@@ -295,7 +295,7 @@ Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRout
     Route::prefix('organizer')->name('v1.')->group($organizerRoutes);
     Route::prefix('tickets')->name('v1.tickets.')->group($ticketRoutes);
     Route::prefix('notifications')->name('v1.notifications.')->group($notificationRoutes);
-    $waitlistRoutes();
+    Route::name('v1.')->group($waitlistRoutes);
     $attendanceRoutes();
     $feedbackAndCertificateRoutes();
     $drlAndAnalyticsRoutes();

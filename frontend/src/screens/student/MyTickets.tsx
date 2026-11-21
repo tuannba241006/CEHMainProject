@@ -112,7 +112,13 @@ export default function MyTickets({
   const upcoming = myTickets.filter((t) => t.status === "pending")
   const history = myTickets.filter((t) => t.status !== "pending")
   const list = tab === "upcoming" ? upcoming : history
-  const waitlist = getStudentWaitlistEntries(user.studentId)
+  const waitlistPriority: Record<string, number> = {
+    OFFERED: 0,
+    WAITING: 1,
+  }
+  const waitlist = [...getStudentWaitlistEntries(user.studentId)].sort(
+    (a, b) => (waitlistPriority[a.trang_thai] ?? 2) - (waitlistPriority[b.trang_thai] ?? 2),
+  )
 
   async function handleCancel() {
     if (!showCancelModal || cancelling) return
@@ -259,7 +265,44 @@ export default function MyTickets({
               </p>
             </div>
           ) : (
-            waitlist.map((entry) => (
+            waitlist.map((entry) => {
+              const wlStatusLabel: Record<string, { badge: string; desc: string }> = {
+                OFFERED: {
+                  badge: "Có suất chờ xác nhận",
+                  desc: "Bạn đang có suất ưu tiên chờ xác nhận.",
+                },
+                WAITING: {
+                  badge: `Hàng đợi #${entry.so_thu_tu}`,
+                  desc: `Đang chờ slot trống (Thứ tự FIFO #${entry.so_thu_tu}). Khi có sinh viên hủy vé trước T-4h, hệ thống tự động kiểm tra trùng lịch và gửi suất nhận vé ưu tiên cho bạn. Hàng đợi tự động đóng tại mốc T-2h.`,
+                },
+                ACCEPTED: {
+                  badge: "Đã nhận vé",
+                  desc: "Bạn đã xác nhận nhận vé từ danh sách chờ.",
+                },
+                DECLINED: {
+                  badge: "Đã từ chối",
+                  desc: "Bạn đã từ chối suất nhận vé.",
+                },
+                EXPIRED: {
+                  badge: "Hết hạn xác nhận",
+                  desc: "Suất nhận vé đã hết thời hạn xác nhận.",
+                },
+                SKIPPED_CONFLICT: {
+                  badge: "Bỏ qua do trùng lịch",
+                  desc: "Lượt chờ bị bỏ qua vì trùng khung giờ với sự kiện giới hạn slot bạn đang giữ vé.",
+                },
+                CLOSED_WAITLIST: {
+                  badge: "Hàng đợi đã đóng (T-2h)",
+                  desc: "Danh sách chờ đã đóng trước giờ sự kiện 2 tiếng.",
+                },
+                CANCELLED: {
+                  badge: "Sự kiện đã hủy",
+                  desc: "Danh sách chờ đã đóng do sự kiện bị hủy.",
+                },
+              }
+              const meta = wlStatusLabel[entry.trang_thai] || wlStatusLabel.WAITING
+
+              return (
               <article
                 key={entry.id}
                 className={`rounded-3xl border p-6 shadow-sm ${
@@ -269,10 +312,14 @@ export default function MyTickets({
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
-                    {entry.trang_thai === "OFFERED"
-                      ? "Có suất chờ xác nhận"
-                      : `Hàng đợi #${entry.so_thu_tu}`}
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      entry.trang_thai === "OFFERED" || entry.trang_thai === "WAITING"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {meta.badge}
                   </span>
                   <span className="font-mono text-xs text-slate-400">
                     #{entry.id}
@@ -335,17 +382,19 @@ export default function MyTickets({
                   </>
                 ) : (
                   <div className="mt-4 space-y-3">
-                    <p className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/60 text-xs text-amber-900 leading-relaxed">
-                      Trạng thái:{" "}
-                      <b>
-                        Đang chờ slot trống (Thứ tự FIFO #{entry.so_thu_tu})
-                      </b>
-                      . Khi có sinh viên hủy vé, hệ thống tự động kiểm tra trùng lịch và gửi suất nhận vé (Offer) ưu tiên cho bạn. Hàng đợi tự động đóng tại mốc T-2h.
+                    <p
+                      className={`p-3 rounded-xl text-xs leading-relaxed border ${
+                        entry.trang_thai === "WAITING"
+                          ? "bg-amber-50/70 border-amber-200/60 text-amber-900"
+                          : "bg-slate-50 border-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {meta.desc}
                     </p>
                   </div>
                 )}
               </article>
-            ))
+            )})
           )}
         </div>
       )}
