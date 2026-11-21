@@ -855,6 +855,7 @@ export const STATUS_LABELS: Record<string, string> = {
   full: "Hết chỗ",
   draft: "Bản nháp",
   closed: "Đã đóng",
+  happening: "Đang diễn ra",
   ended: "Đã kết thúc",
   PUBLISHED: "Đang mở đăng ký",
   HAPPENING: "Đang diễn ra",

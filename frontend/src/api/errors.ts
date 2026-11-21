@@ -103,7 +103,31 @@ export function isAuthError(error: unknown): boolean {
   return false
 }
 
+export function getValidationErrors(
+  error: unknown,
+): Record<string, string[]> | undefined {
+  if (error instanceof ApiError && error.validationErrors) {
+    return error.validationErrors
+  }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "validationErrors" in error &&
+    typeof (error as { validationErrors: unknown }).validationErrors === "object"
+  ) {
+    return (error as { validationErrors: Record<string, string[]> })
+      .validationErrors
+  }
+  return undefined
+}
+
 export function getApiErrorMessage(error: unknown): string {
+  if (error instanceof ApiError && error.validationErrors) {
+    const firstField = Object.keys(error.validationErrors)[0]
+    if (firstField && error.validationErrors[firstField]?.length) {
+      return error.validationErrors[firstField][0]
+    }
+  }
   return error instanceof Error
     ? error.message
     : "Đã xảy ra lỗi không xác định."

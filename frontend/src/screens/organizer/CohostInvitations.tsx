@@ -28,64 +28,13 @@ export interface CohostInvitation {
   status: "pending" | "accepted" | "declined" | "expired"
   declineReason?: string
   invitedUnit?: string
+  description?: string
+  agenda?: any
+  speaker?: string
+  targetAudience?: string
 }
 
-const INITIAL_INVITATIONS: CohostInvitation[] = [
-  {
-    id: "cohost-01",
-    eventId: "evt-01",
-    eventTitle: "UIT AI & Cloud Computing Workshop 2026",
-    hostUnit: "CLB WebDev UIT",
-    invitedUnit: "Phòng Công tác Sinh viên (P.CTSV)",
-    hostContact: "Nguyễn Văn An · bch.webdev@uit.edu.vn",
-    topic: "Học thuật & Trí tuệ nhân tạo",
-    eventDate: "2026-11-15",
-    eventTime: "08:00 - 11:30",
-    roomName: "Hội trường E · Tầng 2 · Tòa E",
-    roleDescription:
-      "Phối hợp hỗ trợ kiểm tra thiết bị đường truyền mạng, điều phối sinh viên và hỗ trợ check-in.",
-    drlAllocation: "Cộng 5 điểm DRL Điều 3 cho sinh viên tham gia.",
-    deadline: "2026-11-02T18:00:00+07:00",
-    hoursLeft: 38,
-    status: "pending",
-  },
-  {
-    id: "cohost-02",
-    eventId: "evt-02",
-    eventTitle: "Chung kết Hackathon UIT Code Sprint 2026",
-    hostUnit: "Khoa Hệ thống Thông tin",
-    invitedUnit: "CLB WebDev UIT",
-    hostContact: "TS. Nguyễn Minh Hải · bql.httt@uit.edu.vn",
-    topic: "Kỹ năng mềm & Công nghệ",
-    eventDate: "2026-11-20",
-    eventTime: "07:30 - 17:00",
-    roomName: "Hội trường B · Tòa B",
-    roleDescription:
-      "Cử 3 giám khảo vòng sơ loại và cử 5 CTV hỗ trợ soát vé thẻ sinh viên cơ sở.",
-    drlAllocation: "Cộng 8 điểm DRL Điều 2.",
-    deadline: "2026-10-30T12:00:00+07:00",
-    hoursLeft: 0,
-    status: "accepted",
-  },
-  {
-    id: "cohost-03",
-    eventId: "evt-03",
-    eventTitle: "Ngày hội Sách và Văn hóa Đọc Sinh viên",
-    hostUnit: "Đoàn Thanh niên - Hội Sinh viên",
-    invitedUnit: "Khoa Hệ thống Thông tin",
-    hostContact: "Đ/c Lê Thanh Tùng · doanthanhnien@uit.edu.vn",
-    topic: "Văn hóa & Nghệ thuật",
-    eventDate: "2026-12-01",
-    eventTime: "08:30 - 16:30",
-    roomName: "Sảnh Tòa A",
-    roleDescription: "Hỗ trợ 2 gian hàng trưng bày sản phẩm công nghệ.",
-    drlAllocation: "Cộng 4 điểm DRL Điều 4.",
-    deadline: "2026-10-25T17:00:00+07:00",
-    hoursLeft: 0,
-    status: "declined",
-    declineReason: "Trùng lịch tổ chức kỳ thi giữa kỳ của đơn vị.",
-  },
-]
+const INITIAL_INVITATIONS: CohostInvitation[] = []
 
 export default function CohostInvitations({ onNavigate, onLogout }: Props) {
   const { user, role } = useUser()
@@ -98,10 +47,10 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     setLoading(true)
     setError(null)
     eventsService
-      .getCohostInvitations()
+      .getCohostInvitations({ trang_thai_xac_nhan: "ALL", limit: 100 })
       .then((res) => {
         if (!cancelled && res.data && Array.isArray(res.data)) {
-          const mapped: CohostInvitation[] = res.data.map((item) => {
+          const mapped: CohostInvitation[] = res.data.map((item: any) => {
             const startDateStr = item.thoi_gian_bat_dau || "2026-11-15T08:00:00+07:00"
             const endDateStr = item.thoi_gian_ket_thuc || "2026-11-15T11:30:00+07:00"
             const eventDate = startDateStr.slice(0, 10)
@@ -114,6 +63,12 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
             let uiStatus: CohostInvitation["status"] = "pending"
             if (item.trang_thai_xac_nhan === "DONG_Y") uiStatus = "accepted"
             else if (item.trang_thai_xac_nhan === "TU_CHOI") uiStatus = "declined"
+
+            let hoursLeft = 48
+            if (item.han_giu_cho_tam) {
+              const diffMs = new Date(item.han_giu_cho_tam).getTime() - Date.now()
+              hoursLeft = Math.max(0, Math.round(diffMs / (1000 * 60 * 60)))
+            }
 
             return {
               id: `cohost-${item.id}`,
@@ -131,11 +86,17 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
               roomName: item.ten_phong || "Hội trường A",
               roleDescription:
                 "Phối hợp hỗ trợ kiểm tra thiết bị và điều phối check-in sinh viên.",
-              drlAllocation: "Cộng 5 điểm DRL Điều 3 cho sinh viên tham gia.",
-              deadline: "2026-11-02T18:00:00+07:00",
-              hoursLeft: 24,
+              drlAllocation: item.diem_drl_du_kien
+                ? `Cộng ${item.diem_drl_du_kien} điểm DRL ${item.dieu_khoan_drl || ""}`
+                : "Cộng 5 điểm DRL Điều 3 cho sinh viên tham gia.",
+              deadline: item.han_giu_cho_tam || "2026-11-02T18:00:00+07:00",
+              hoursLeft,
               status: uiStatus,
-              declineReason: item.ly_do_tu_choi || undefined,
+              declineReason: item.ghi_chu_tu_choi || item.ly_do_tu_choi || undefined,
+              description: item.mo_ta,
+              agenda: item.lo_trinh,
+              speaker: item.dien_gia,
+              targetAudience: item.doi_tuong_tham_gia,
             }
           })
           setInvitations(mapped)
@@ -160,6 +121,8 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
   const [selectedDecline, setSelectedDecline] =
     useState<CohostInvitation | null>(null)
   const [declineReason, setDeclineReason] = useState("")
+  const [viewPlanModal, setViewPlanModal] =
+    useState<CohostInvitation | null>(null)
 
   // Data scoping cô lập tuyệt đối: Chỉ hiển thị lời mời gửi đích danh đến đơn vị của người dùng!
   const scopedInvitations = useMemo(() => {
@@ -473,22 +436,30 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                   </div>
 
                   {/* Actions */}
-                  {inv.status === "pending" && (
-                    <div className="flex lg:flex-col gap-2 self-start lg:self-center shrink-0 w-full lg:w-44 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                      <button
-                        onClick={() => handleAccept(inv)}
-                        className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer text-center"
-                      >
-                        Đồng ý tham gia
-                      </button>
-                      <button
-                        onClick={() => setSelectedDecline(inv)}
-                        className="flex-1 py-2.5 px-4 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-semibold text-xs transition-colors cursor-pointer text-center"
-                      >
-                        Từ chối lời mời
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex lg:flex-col gap-2 self-start lg:self-center shrink-0 w-full lg:w-44 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                    <button
+                      onClick={() => setViewPlanModal(inv)}
+                      className="flex-1 py-2 px-3 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors cursor-pointer text-center"
+                    >
+                      Xem chi tiết kế hoạch
+                    </button>
+                    {inv.status === "pending" && (
+                      <>
+                        <button
+                          onClick={() => handleAccept(inv)}
+                          className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer text-center"
+                        >
+                          Đồng ý tham gia
+                        </button>
+                        <button
+                          onClick={() => setSelectedDecline(inv)}
+                          className="flex-1 py-2.5 px-4 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-semibold text-xs transition-colors cursor-pointer text-center"
+                        >
+                          Từ chối lời mời
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -548,6 +519,110 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                 >
                   Xác nhận từ chối
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Plan Detail Modal */}
+        {viewPlanModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-xl w-full shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-100">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <div>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                    Kế hoạch tổ chức chi tiết
+                  </span>
+                  <h3 className="font-display font-bold text-lg text-navy mt-1">
+                    {viewPlanModal.eventTitle}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setViewPlanModal(null)}
+                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 text-xs text-slate-700">
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl">
+                  <div>
+                    <span className="text-slate-400">Đơn vị chủ trì:</span>
+                    <p className="font-semibold text-slate-900 mt-0.5">{viewPlanModal.hostUnit}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Địa điểm:</span>
+                    <p className="font-semibold text-slate-900 mt-0.5">{viewPlanModal.roomName}</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Thời gian tổ chức:</span>
+                    <p className="font-semibold text-slate-900 mt-0.5">{viewPlanModal.eventDate} ({viewPlanModal.eventTime})</p>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Diễn giả:</span>
+                    <p className="font-semibold text-slate-900 mt-0.5">{viewPlanModal.speaker || "Chưa cập nhật"}</p>
+                  </div>
+                </div>
+
+                {viewPlanModal.description && (
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-1">Mô tả sự kiện:</h4>
+                    <p className="p-3 bg-slate-50 rounded-xl leading-relaxed whitespace-pre-wrap">{viewPlanModal.description}</p>
+                  </div>
+                )}
+
+                {viewPlanModal.targetAudience && (
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-1">Đối tượng tham gia:</h4>
+                    <p className="p-3 bg-slate-50 rounded-xl leading-relaxed">{viewPlanModal.targetAudience}</p>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="font-semibold text-slate-900 mb-1">Lộ trình chương trình (Agenda):</h4>
+                  {Array.isArray(viewPlanModal.agenda) && viewPlanModal.agenda.length > 0 ? (
+                    <div className="space-y-1.5 p-3 bg-slate-50 rounded-xl">
+                      {viewPlanModal.agenda.map((ag: any, idx: number) => (
+                        <div key={idx} className="flex items-start gap-2 border-b border-slate-100 last:border-0 pb-1.5 last:pb-0">
+                          <span className="font-mono font-semibold text-indigo-600 shrink-0">{ag.thoi_gian}</span>
+                          <span className="text-slate-800">{ag.hoat_dong} {ag.dien_gia ? `(${ag.dien_gia})` : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : typeof viewPlanModal.agenda === "string" && viewPlanModal.agenda ? (
+                    <p className="p-3 bg-slate-50 rounded-xl leading-relaxed whitespace-pre-wrap">{viewPlanModal.agenda}</p>
+                  ) : (
+                    <p className="p-3 bg-slate-50 rounded-xl text-slate-400 italic">Theo phân công của Ban tổ chức chủ trì.</p>
+                  )}
+                </div>
+
+                <div className="p-3.5 bg-indigo-50 rounded-xl border border-indigo-100">
+                  <p className="font-semibold text-indigo-900">Phân công vai trò & Quyền lợi DRL:</p>
+                  <p className="mt-1 text-slate-600">{viewPlanModal.roleDescription}</p>
+                  <p className="font-medium text-indigo-700 mt-1">⭐ {viewPlanModal.drlAllocation}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-3 border-t border-slate-100 flex justify-end gap-2">
+                <button
+                  onClick={() => setViewPlanModal(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 cursor-pointer"
+                >
+                  Đóng
+                </button>
+                {viewPlanModal.status === "pending" && (
+                  <button
+                    onClick={() => {
+                      const item = viewPlanModal
+                      setViewPlanModal(null)
+                      void handleAccept(item)
+                    }}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs cursor-pointer shadow-xs"
+                  >
+                    Đồng ý tham gia
+                  </button>
+                )}
               </div>
             </div>
           </div>

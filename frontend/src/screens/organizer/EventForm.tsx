@@ -4,19 +4,81 @@ import { OrgLayout } from "./OrgLayout"
 import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
-import type { RoomPublic, Topic, OrganizationSummary } from "../../data/contract"
+import type { RoomPublic, Topic, OrganizationSummary, AgendaItem } from "../../data/contract"
 import { formatCalendarDate } from "../../utils/date"
 import { eventsService } from "../../api/services/events.service"
-import { getApiErrorMessage } from "../../api/errors"
+import { getApiErrorMessage, getValidationErrors } from "../../api/errors"
 import { organizationsService } from "../../api/services/organizations.service"
 import { roomsService } from "../../api/services/rooms.service"
 import { reportsService } from "../../api/services/reports.service"
 import { api } from "../../api/client"
-import { Sparkles, Calendar, MapPin, Users, X } from "lucide-react"
+import { Sparkles, Calendar, MapPin, Users, X, Image as ImageIcon, Trash2 } from "lucide-react"
 
 interface Props {
   onNavigate: (screen: string) => void
   onLogout: () => void
+}
+
+export function parseAgendaText(text: string): AgendaItem[] | null {
+  if (!text || !text.trim()) return null
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+  if (lines.length === 0) return null
+  return lines.map((line) => {
+    const timeRangeMatch = line.match(
+      /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})[:\s-]+(.+)$/,
+    )
+    if (timeRangeMatch) {
+      return {
+        gio_bat_dau: timeRangeMatch[1],
+        gio_ket_thuc: timeRangeMatch[2],
+        thoi_gian_bat_dau: timeRangeMatch[1],
+        thoi_gian_ket_thuc: timeRangeMatch[2],
+        tieu_de: timeRangeMatch[3].trim(),
+      }
+    }
+    const singleTimeMatch = line.match(/^(\d{1,2}:\d{2})[:\s-]+(.+)$/)
+    if (singleTimeMatch) {
+      return {
+        gio_bat_dau: singleTimeMatch[1],
+        gio_ket_thuc: singleTimeMatch[1],
+        thoi_gian_bat_dau: singleTimeMatch[1],
+        thoi_gian_ket_thuc: singleTimeMatch[1],
+        tieu_de: singleTimeMatch[2].trim(),
+      }
+    }
+    return {
+      gio_bat_dau: "00:00",
+      gio_ket_thuc: "00:00",
+      thoi_gian_bat_dau: "00:00",
+      thoi_gian_ket_thuc: "00:00",
+      tieu_de: line,
+    }
+  })
+}
+
+export function formatAgendaItems(items: unknown): string {
+  if (!Array.isArray(items) || items.length === 0) return ""
+  return items
+    .map((item: any) => {
+      const start = item.gio_bat_dau || item.thoi_gian_bat_dau || item.time || ""
+      const end = item.gio_ket_thuc || item.thoi_gian_ket_thuc || ""
+      const title = item.tieu_de || item.title || ""
+      const speaker = item.dien_gia ? ` (Diễn giả: ${item.dien_gia})` : ""
+      if (start && end) return `${start} - ${end}: ${title}${speaker}`
+      if (start) return `${start}: ${title}${speaker}`
+      return `${title}${speaker}`
+    })
+    .join("\n")
+}
+
+export function parseTimeToMinutes(timeStr: string): number {
+  if (!timeStr) return -1
+  const parts = timeStr.split(":").map(Number)
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return -1
+  return parts[0] * 60 + parts[1]
 }
 
 export default function EventForm({ onNavigate, onLogout }: Props) {
@@ -26,10 +88,33 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
   const { saveApprovalDraft } = useApp()
   const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [bannerUploading, setBannerUploading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [orgList, setOrgList] = useState<OrganizationSummary[]>([])
   const [roomList, setRoomList] = useState<RoomPublic[]>([])
   const [topicList, setTopicList] = useState<Topic[]>([])
+
+  const [form, setForm] = useState({
+    title: "",
+    topic: "",
+    description: "",
+    publishDate: "",
+    eventDate: "",
+    startTime: "",
+    endTime: "",
+    location: "",
+    room: "",
+    capacity: "",
+    unlimited: "false",
+    drlRule: "Dieu3",
+    proposedPoints: "5",
+    volunteerHours: "0",
+    cohostIds: "",
+    banner: "",
+    speaker: "",
+    targetAudience: "",
+    agenda: "",
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -37,7 +122,9 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       .publicList()
       .then((res) => {
         if (!cancelled && res.data) {
-          const raw = res.data as Array<OrganizationSummary & { ma_don_vi_to_chuc?: number }>
+          const raw = res.data as Array<
+            OrganizationSummary & { ma_don_vi_to_chuc?: number }
+          >
           const mapped: OrganizationSummary[] = raw.map((o) => ({
             ...o,
             ma_don_vi: Number(o.ma_don_vi ?? o.ma_don_vi_to_chuc),
@@ -53,7 +140,16 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       .list()
       .then((res) => {
         if (!cancelled && res.data) {
-          const rawList = res.data as Array<Partial<RoomPublic> & { suc_chua_toi_da?: number; trang_thiet_bi?: { may_chieu?: boolean; am_thanh?: boolean; wifi?: boolean } }>
+          const rawList = res.data as Array<
+            Partial<RoomPublic> & {
+              suc_chua_toi_da?: number
+              trang_thiet_bi?: {
+                may_chieu?: boolean
+                am_thanh?: boolean
+                wifi?: boolean
+              }
+            }
+          >
           const mapped: RoomPublic[] = rawList.map((r) => ({
             ma_phong: Number(r.ma_phong),
             ten_phong: r.ten_phong || "Hội trường",
@@ -105,12 +201,8 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       .then((res) => {
         if (cancelled || !res.data) return
         const ev: any = res.data
-        const start = ev.thoi_gian_bat_dau
-          ? new Date(ev.thoi_gian_bat_dau)
-          : null
-        const end = ev.thoi_gian_ket_thuc
-          ? new Date(ev.thoi_gian_ket_thuc)
-          : null
+        const start = ev.thoi_gian_bat_dau ? new Date(ev.thoi_gian_bat_dau) : null
+        const end = ev.thoi_gian_ket_thuc ? new Date(ev.thoi_gian_ket_thuc) : null
         const dateStr = start ? start.toISOString().slice(0, 10) : ""
         const startTimeStr = start ? start.toTimeString().slice(0, 5) : ""
         const endTimeStr = end ? end.toTimeString().slice(0, 5) : ""
@@ -119,9 +211,21 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
         const roomId = ev.phong?.ma_phong ?? ev.ma_phong
         const cohostList = Array.isArray(ev.danh_sach_dong_to_chuc)
           ? ev.danh_sach_dong_to_chuc
-              .map((c: any) => c.don_vi_dong_to_chuc?.ma_don_vi_to_chuc ?? c.don_vi?.ma_don_vi_to_chuc ?? c.ma_don_vi_to_chuc ?? c.ma_don_vi)
+              .map(
+                (c: any) =>
+                  c.don_vi_dong_to_chuc?.ma_don_vi_to_chuc ??
+                  c.don_vi?.ma_don_vi_to_chuc ??
+                  c.ma_don_vi_to_chuc ??
+                  c.ma_don_vi,
+              )
               .filter(Boolean)
               .join(",")
+          : ""
+
+        const pubDateStr = ev.ngay_cong_bo
+          ? typeof ev.ngay_cong_bo === "string" && ev.ngay_cong_bo.includes("T")
+            ? ev.ngay_cong_bo.split("T")[0]
+            : String(ev.ngay_cong_bo).slice(0, 10)
           : ""
 
         setForm((prev) => ({
@@ -129,29 +233,29 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
           title: ev.ten_su_kien || ev.title || prev.title,
           topic: topicId ? String(topicId) : prev.topic,
           description: ev.mo_ta || prev.description,
-          regStart: ev.ngay_cong_bo
-            ? String(ev.ngay_cong_bo).slice(0, 16)
-            : prev.regStart,
-          regEnd: ev.thoi_gian_dong_dang_ky
-            ? String(ev.thoi_gian_dong_dang_ky).slice(0, 16)
-            : prev.regEnd,
+          publishDate: pubDateStr || prev.publishDate,
           eventDate: dateStr || prev.eventDate,
           startTime: startTimeStr || prev.startTime,
           endTime: endTimeStr || prev.endTime,
           room: roomId ? String(roomId) : prev.room,
           cohostIds: cohostList || prev.cohostIds,
           location: ev.dia_diem || ev.ten_phong || prev.location,
-          capacity: ev.so_luong_toi_da
-            ? String(ev.so_luong_toi_da)
-            : prev.capacity,
+          capacity:
+            ev.so_luong_toi_da != null ? String(ev.so_luong_toi_da) : "",
           unlimited: ev.khong_gioi_han_slot ? "true" : "false",
           drlRule: ev.dieu_khoan_drl || prev.drlRule,
-          proposedPoints: ev.diem_drl_du_kien
-            ? String(ev.diem_drl_du_kien)
-            : prev.proposedPoints,
-          volunteerHours: ev.gio_tinh_nguyen
-            ? String(ev.gio_tinh_nguyen)
-            : prev.volunteerHours,
+          proposedPoints:
+            ev.diem_drl_du_kien != null
+              ? String(ev.diem_drl_du_kien)
+              : prev.proposedPoints,
+          volunteerHours:
+            ev.gio_tinh_nguyen != null
+              ? String(ev.gio_tinh_nguyen)
+              : prev.volunteerHours,
+          banner: ev.anh_bia || prev.banner,
+          speaker: ev.dien_gia || prev.speaker,
+          targetAudience: ev.doi_tuong_tham_gia || prev.targetAudience,
+          agenda: formatAgendaItems(ev.lo_trinh) || prev.agenda,
         }))
       })
       .catch((err) => {
@@ -163,30 +267,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
     return () => {
       cancelled = true
     }
-  }, [id])
-
-  const [form, setForm] = useState({
-    title: "",
-    topic: "",
-    description: "",
-    regStart: "",
-    regEnd: "",
-    eventDate: "",
-    startTime: "",
-    endTime: "",
-    location: "",
-    room: "",
-    capacity: "",
-    unlimited: "false",
-    drlRule: "Dieu3",
-    volunteerHours: "0",
-    cohostIds: "",
-    proposedPoints: "5",
-    validMinutes: "150",
-    certificateCondition:
-      "Tham gia tối thiểu 90% thời lượng hợp lệ và có đủ check-in/check-out.",
-    ruleBasis: "Đề xuất của đơn vị — dữ liệu minh họa",
-  })
+  }, [id, showToast])
 
   // AI Content Copilot state (UC-AI-01)
   const [showAiModal, setShowAiModal] = useState(false)
@@ -235,7 +316,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       setAiResult({
         title: `Hội thảo Chuyên đề: ${aiPrompt.trim()} — Ứng dụng & Xu hướng 2026`,
         description: `Chương trình hội thảo chuyên sâu về ${aiPrompt.trim()} nhằm trang bị cho sinh viên UIT các kiến thức thực chiến, phương pháp tiếp cận mới nhất cùng sự tham gia của các chuyên gia đầu ngành. Sinh viên tham dự đầy đủ sẽ được cấp Giấy chứng nhận điện tử và cộng Điểm rèn luyện.`,
-        agenda: `1. 08:00 - 08:30: Đón tiếp đại biểu & Check-in qua mã Dynamic Kiosk\n2. 08:30 - 10:00: Diễn giả trình bày chuyên đề ${aiPrompt.trim()}\n3. 10:00 - 11:00: Thảo luận, Q&A và kết nối doanh nghiệp\n4. 11:00 - 11:30: Check-out và hướng dẫn làm bài khảo sát nhận chứng nhận.`,
+        agenda: `08:00 - 08:30: Đón tiếp đại biểu & Check-in qua mã Dynamic Kiosk\n08:30 - 10:00: Diễn giả trình bày chuyên đề ${aiPrompt.trim()}\n10:00 - 11:00: Thảo luận, Q&A và kết nối doanh nghiệp\n11:00 - 11:30: Check-out và hướng dẫn làm bài khảo sát nhận chứng nhận.`,
       })
     } finally {
       setAiGenerating(false)
@@ -247,7 +328,8 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
     setForm((f) => ({
       ...f,
       title: aiResult.title,
-      description: `${aiResult.description}\n\n[LỊCH TRÌNH AGENDA]\n${aiResult.agenda}`,
+      description: aiResult.description,
+      agenda: aiResult.agenda,
     }))
     setShowAiModal(false)
     showToast(
@@ -257,29 +339,80 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
   }
 
   function set(k: string, v: string) {
-    setForm((f) => ({ ...f, [k]: v }))
+    setForm((f) => {
+      const next = { ...f, [k]: v }
+      if (k === "drlRule" && v === "KhongCo") {
+        next.proposedPoints = "0"
+      } else if (k === "drlRule" && v !== "KhongCo" && f.proposedPoints === "0") {
+        next.proposedPoints = "5"
+      }
+      return next
+    })
     setErrors((e) => ({ ...e, [k]: "" }))
   }
 
+  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Dung lượng ảnh banner không được vượt quá 5MB.", "error")
+      return
+    }
+    setBannerUploading(true)
+    try {
+      const res = await organizationsService.uploadImage(file, "banner")
+      if (res && res.data && res.data.url) {
+        set("banner", res.data.url)
+        showToast("Tải ảnh banner thành công!", "success")
+      }
+    } catch (err) {
+      showToast("Lỗi khi tải ảnh banner: " + getApiErrorMessage(err), "error")
+    } finally {
+      setBannerUploading(false)
+    }
+  }
+
+  const selectedRoom = roomList.find((item) => String(item.ma_phong) === form.room)
+
   function validate(submitForApproval: boolean) {
     const e: Record<string, string> = {}
-    if (!form.title.trim()) e.title = "Vui lòng nhập tên sự kiện."
+    if (!form.title.trim()) {
+      e.title = "Vui lòng nhập tên sự kiện."
+    } else if (form.title.trim().length < 5) {
+      e.title = "Tên sự kiện phải có ít nhất 5 ký tự."
+    }
+
     if (!form.topic) e.topic = "Vui lòng chọn chủ đề."
-    if (
-      form.unlimited === "false" &&
-      (!form.capacity ||
-        isNaN(Number(form.capacity)) ||
-        Number(form.capacity) <= 0)
-    )
-      e.capacity = "Sức chứa phải là số nguyên dương."
+    if (!form.description.trim()) {
+      e.description = "Vui lòng nhập mô tả sự kiện."
+    } else if (form.description.trim().length < 10) {
+      e.description = "Mô tả sự kiện phải có ít nhất 10 ký tự."
+    }
+
     if (!form.room) e.room = "Vui lòng chọn phòng từ danh mục."
-    const room = roomList.find((item) => String(item.ma_phong) === form.room)
-    if (
-      room &&
-      form.unlimited === "false" &&
-      Number(form.capacity) > room.suc_chua
-    )
-      e.capacity = `Vượt sức chứa tối đa của phòng (${room.suc_chua} chỗ).`
+
+    if (form.unlimited === "false") {
+      if (
+        !form.capacity ||
+        isNaN(Number(form.capacity)) ||
+        Number(form.capacity) <= 0
+      ) {
+        e.capacity = "Sức chứa phải là số nguyên dương."
+      } else if (selectedRoom && Number(form.capacity) > selectedRoom.suc_chua) {
+        e.capacity = `Vượt sức chứa tối đa của phòng (${selectedRoom.suc_chua} chỗ).`
+      }
+    }
+
+    if (form.drlRule === "KhongCo") {
+      if (Number(form.proposedPoints) !== 0) {
+        e.proposedPoints = "Điểm ĐRL phải bằng 0 khi chọn điều khoản Không có."
+      }
+    } else {
+      const pts = Number(form.proposedPoints)
+      if (isNaN(pts) || pts < 1 || pts > 5) {
+        e.proposedPoints = "Điểm ĐRL phải từ 1 đến 5 khi chọn Điều 3 hoặc Điều 4."
+      }
+    }
 
     // UC-EVT-01.EX.2: Co-host cannot be host unit
     const hostUnitId = user?.ma_don_vi_to_chuc ?? user?.don_vi?.ma_don_vi
@@ -288,8 +421,16 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       const selectedCohostIds = form.cohostIds.split(",").map((s) => s.trim())
       const isSelectingOwnUnit = orgList.some((org) => {
         if (!selectedCohostIds.includes(String(org.ma_don_vi))) return false
-        if (hostUnitId && (org.ma_don_vi === hostUnitId || org.ma_don_vi === Number(hostUnitId))) return true
-        if (hostUnitName && org.ten_don_vi.toLowerCase().trim() === hostUnitName) return true
+        if (
+          hostUnitId &&
+          (org.ma_don_vi === hostUnitId || org.ma_don_vi === Number(hostUnitId))
+        )
+          return true
+        if (
+          hostUnitName &&
+          org.ten_don_vi.toLowerCase().trim() === hostUnitName
+        )
+          return true
         return false
       })
       if (isSelectingOwnUnit) {
@@ -297,118 +438,162 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       }
     }
 
+    const today = new Date().toISOString().slice(0, 10)
     if (!form.eventDate) {
       if (submitForApproval) e.eventDate = "Vui lòng chọn ngày tổ chức."
-    } else {
-      const today = new Date().toISOString().slice(0, 10)
-      if (form.eventDate < today) {
-        e.eventDate = "Thời gian tổ chức không được nằm trong quá khứ."
-      }
+    } else if (form.eventDate < today) {
+      e.eventDate = "Thời gian tổ chức không được nằm trong quá khứ."
+    }
+
+    if (!form.publishDate) {
+      e.publishDate = "Vui lòng chọn ngày công bố sự kiện."
+    } else if (form.eventDate && form.publishDate > form.eventDate) {
+      e.publishDate = "Ngày công bố phải trước hoặc bằng ngày diễn ra sự kiện."
     }
 
     if (!form.startTime || !form.endTime) {
       if (submitForApproval) e.endTime = "Vui lòng chọn giờ bắt đầu và kết thúc."
-    } else if (form.startTime >= form.endTime) {
-      e.endTime = "Thời gian kết thúc phải sau thời gian bắt đầu."
+    } else {
+      const startMin = parseTimeToMinutes(form.startTime)
+      const endMin = parseTimeToMinutes(form.endTime)
+      if (startMin >= 0 && endMin >= 0 && endMin <= startMin) {
+        e.endTime = "Thời gian kết thúc phải sau thời gian bắt đầu."
+      }
     }
 
-    if (form.regEnd && form.eventDate && form.regEnd > form.eventDate)
-      e.regEnd = "Thời gian đóng đăng ký không được sau ngày diễn ra sự kiện."
-    if (form.regStart && form.eventDate && form.regStart > form.eventDate)
-      e.regStart = "Ngày công bố phải trước hoặc bằng ngày diễn ra sự kiện."
     return e
   }
 
   async function handleSubmit(submitForApproval: boolean) {
     if (saving) return
-    const errors = validate(submitForApproval)
-    if (Object.keys(errors).length) {
-      setErrors(errors)
-      showToast(Object.values(errors)[0], "error")
+    const clientErrors = validate(submitForApproval)
+    if (Object.keys(clientErrors).length) {
+      setErrors(clientErrors)
+      showToast(Object.values(clientErrors)[0], "error")
       return
     }
     setSaving(true)
     try {
       const title = form.title.trim() || "Bản nháp chưa đặt tên"
       let eventTargetId = id ? Number(id) : undefined
-      if (
-        form.eventDate &&
-        form.startTime &&
-        form.endTime &&
-        form.topic &&
-        form.room
-      ) {
-        const payload = {
-          ten_su_kien: title,
-          mo_ta: form.description,
-          ma_chuyen_de: Number(form.topic),
-          ma_phong: Number(form.room),
-          ngay_cong_bo: form.regStart || new Date().toISOString().slice(0, 10),
-          thoi_gian_bat_dau: `${form.eventDate}T${form.startTime}:00`,
-          thoi_gian_ket_thuc: `${form.eventDate}T${form.endTime}:00`,
-          khong_gioi_han_slot: form.unlimited === "true",
-          so_luong_toi_da:
-            form.unlimited === "true" ? null : Number(form.capacity),
-          dieu_khoan_drl: form.drlRule,
-          diem_drl_du_kien: Number(form.proposedPoints),
-          gio_tinh_nguyen: Number(form.volunteerHours),
-          ...(form.cohostIds.trim()
-            ? {
-                danh_sach_co_host_ids: form.cohostIds
-                  .split(",")
-                  .map(Number)
-                  .filter(Number.isFinite),
-              }
-            : {}),
-        }
-        if (id) {
-          const updated = await eventsService.updateDraft(id, payload)
-          if (!updated.success)
-            throw new Error(updated.message || "Không thể cập nhật bản nháp")
-        } else {
-          const created = await eventsService.createDraft(payload)
-          if (!created.success)
-            throw new Error(created.message || "Không thể tạo bản nháp")
-          const event = (created.data ?? {}) as {
-            ma_su_kien?: number
-            id?: number
-          }
-          eventTargetId = event.ma_su_kien ?? event.id
-        }
 
-        if (submitForApproval && eventTargetId) {
-          await eventsService.submitApproval(eventTargetId)
-        }
+      const payload: any = {
+        ten_su_kien: title,
+        mo_ta: form.description.trim(),
+        ma_chuyen_de: Number(form.topic),
+        ma_phong: Number(form.room),
+        ngay_cong_bo: `${form.publishDate}T08:00:00`,
+        thoi_gian_bat_dau: `${form.eventDate}T${form.startTime}:00`,
+        thoi_gian_ket_thuc: `${form.eventDate}T${form.endTime}:00`,
+        khong_gioi_han_slot: form.unlimited === "true",
+        so_luong_toi_da:
+          form.unlimited === "true" ? null : Number(form.capacity),
+        dieu_khoan_drl: form.drlRule,
+        diem_drl_du_kien:
+          form.drlRule === "KhongCo" ? 0 : Number(form.proposedPoints),
+        gio_tinh_nguyen: Number(form.volunteerHours) || 0,
+        anh_bia: form.banner || null,
+        dien_gia: form.speaker.trim() || null,
+        doi_tuong_tham_gia: form.targetAudience.trim() || null,
+        lo_trinh: parseAgendaText(form.agenda),
+        ...(form.cohostIds.trim()
+          ? {
+              danh_sach_co_host_ids: form.cohostIds
+                .split(",")
+                .map(Number)
+                .filter(Number.isFinite),
+            }
+          : {}),
       }
+
+      if (id) {
+        const updated = await eventsService.updateDraft(id, payload)
+        if (!updated.success)
+          throw new Error(updated.message || "Không thể cập nhật bản nháp")
+      } else {
+        const created = await eventsService.createDraft(payload)
+        if (!created.success)
+          throw new Error(created.message || "Không thể tạo bản nháp")
+        const event = (created.data ?? {}) as {
+          ma_su_kien?: number
+          id?: number
+        }
+        eventTargetId = event.ma_su_kien ?? event.id
+      }
+
+      if (submitForApproval && eventTargetId) {
+        await eventsService.submitApproval(eventTargetId)
+      }
+
       saveApprovalDraft(
         {
           eventId: eventTargetId ? String(eventTargetId) : undefined,
           title,
           eventDate: form.eventDate,
           description: form.description,
-          plan: "Nội dung chương trình được lưu từ biểu mẫu sự kiện.",
-          proposedPoints: Number(form.proposedPoints) || 0,
-          maxPoints: Number(form.proposedPoints) || 0,
-          validMinutes: Number(form.validMinutes) || 0,
-          certificateCondition: form.certificateCondition,
-          ruleBasis: form.ruleBasis,
+          plan: form.agenda || "Nội dung chương trình được lưu từ biểu mẫu sự kiện.",
+          proposedPoints:
+            form.drlRule === "KhongCo" ? 0 : Number(form.proposedPoints) || 0,
+          maxPoints:
+            form.drlRule === "KhongCo" ? 0 : Number(form.proposedPoints) || 0,
           thresholds: [
             {
               ratio: 70,
-              points: Math.max(1, (Number(form.proposedPoints) || 0) - 2),
+              points: Math.max(
+                1,
+                (form.drlRule === "KhongCo" ? 0 : Number(form.proposedPoints) || 0) - 2,
+              ),
             },
-            { ratio: 90, points: Number(form.proposedPoints) || 0 },
+            {
+              ratio: 90,
+              points:
+                form.drlRule === "KhongCo" ? 0 : Number(form.proposedPoints) || 0,
+            },
           ],
         },
         submitForApproval,
       )
+
       showToast(
-        submitForApproval ? "Đã gửi duyệt sự kiện." : "Đã lưu bản nháp.",
+        submitForApproval
+          ? "Đã gửi duyệt sự kiện thành công."
+          : "Đã lưu bản nháp sự kiện thành công.",
         "success",
       )
       onNavigate("org-events")
     } catch (error) {
-      showToast(getApiErrorMessage(error), "error")
+      const vErrors = getValidationErrors(error)
+      if (vErrors && Object.keys(vErrors).length > 0) {
+        const mappedErrors: Record<string, string> = {}
+        const fieldMapping: Record<string, string> = {
+          ten_su_kien: "title",
+          mo_ta: "description",
+          ma_chuyen_de: "topic",
+          ma_phong: "room",
+          ngay_cong_bo: "publishDate",
+          thoi_gian_bat_dau: "startTime",
+          thoi_gian_ket_thuc: "endTime",
+          so_luong_toi_da: "capacity",
+          khong_gioi_han_slot: "capacity",
+          dieu_khoan_drl: "drlRule",
+          diem_drl_du_kien: "proposedPoints",
+          gio_tinh_nguyen: "volunteerHours",
+          anh_bia: "banner",
+          dien_gia: "speaker",
+          doi_tuong_tham_gia: "targetAudience",
+          lo_trinh: "agenda",
+          danh_sach_co_host_ids: "cohost",
+        }
+        for (const [backendField, msgs] of Object.entries(vErrors)) {
+          const formField = fieldMapping[backendField] || backendField
+          mappedErrors[formField] = Array.isArray(msgs) ? msgs[0] : String(msgs)
+        }
+        setErrors(mappedErrors)
+        const firstMsg = Object.values(mappedErrors)[0]
+        showToast(firstMsg || "Dữ liệu cung cấp không hợp lệ.", "error")
+      } else {
+        showToast(getApiErrorMessage(error), "error")
+      }
     } finally {
       setSaving(false)
     }
@@ -460,7 +645,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
               </div>
             </div>
 
-            {/* Section 1 */}
+            {/* Section 1: Thông tin chung */}
             <Section title="Thông tin chung">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xs text-slate-500">
@@ -501,44 +686,93 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                     ))}
                   </select>
                 </FormField>
-                <FormField label="Ảnh banner">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      id="banner-upload"
-                    />
-                    <label
-                      htmlFor="banner-upload"
-                      className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm cursor-pointer hover:bg-slate-50 transition-colors"
-                      style={{ borderColor: "#e2e8f0", color: "#64748b" }}
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
+
+                <FormField label="Ảnh banner" error={errors.banner}>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        id="banner-upload"
+                        onChange={handleBannerUpload}
+                        disabled={bannerUploading}
+                      />
+                      <label
+                        htmlFor="banner-upload"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border text-sm cursor-pointer hover:bg-slate-50 transition-colors"
+                        style={{ borderColor: "#e2e8f0", color: "#64748b" }}
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
+                        <ImageIcon className="w-4 h-4" />
+                        <span>
+                          {bannerUploading
+                            ? "Đang tải ảnh lên..."
+                            : form.banner
+                              ? "Thay đổi banner"
+                              : "Tải lên banner"}
+                        </span>
+                      </label>
+                      {form.banner && (
+                        <button
+                          type="button"
+                          onClick={() => set("banner", "")}
+                          className="p-2.5 text-rose-600 hover:bg-rose-50 rounded-xl border border-rose-200 transition-colors"
+                          title="Xóa banner"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    {form.banner && (
+                      <div className="relative h-24 rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                        <img
+                          src={form.banner}
+                          alt="Banner Preview"
+                          className="w-full h-full object-cover"
                         />
-                      </svg>
-                      Tải lên banner
-                    </label>
+                      </div>
+                    )}
                   </div>
                 </FormField>
               </div>
-              <FormField label="Mô tả sự kiện">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  label="Diễn giả / Khách mời"
+                  error={errors.speaker}
+                >
+                  <input
+                    value={form.speaker}
+                    onChange={(e) => set("speaker", e.target.value)}
+                    placeholder="VD: TS. Nguyễn Văn A (Trưởng khoa HTTT)"
+                    className={inputClass(!!errors.speaker)}
+                  />
+                </FormField>
+
+                <FormField
+                  label="Đối tượng tham gia"
+                  error={errors.targetAudience}
+                >
+                  <input
+                    value={form.targetAudience}
+                    onChange={(e) => set("targetAudience", e.target.value)}
+                    placeholder="VD: Toàn thể sinh viên UIT"
+                    className={inputClass(!!errors.targetAudience)}
+                  />
+                </FormField>
+              </div>
+
+              <FormField
+                label="Mô tả sự kiện"
+                required
+                error={errors.description}
+              >
                 <textarea
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
                   rows={4}
-                  placeholder="Mô tả chi tiết về sự kiện, chương trình và mục tiêu..."
-                  className={inputClass(false)}
+                  placeholder="Mô tả chi tiết về sự kiện, mục tiêu và quyền lợi tham gia (tối thiểu 10 ký tự)..."
+                  className={inputClass(!!errors.description)}
                   style={{ resize: "vertical" }}
                 />
               </FormField>
@@ -587,52 +821,62 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                 })}
               </div>
               {errors.cohost && (
-                <p className="text-xs text-rose-600 mt-2 font-medium">{errors.cohost}</p>
+                <p className="text-xs text-rose-600 mt-2 font-medium">
+                  {errors.cohost}
+                </p>
               )}
             </Section>
 
-            {/* Section 2 */}
-            <Section title="Thời gian đăng ký">
+            {/* Section 2: Thời gian đăng ký (Ngày công bố) */}
+            <Section title="Thời gian đăng ký & Công bố">
+              <p className="text-xs text-slate-500 mb-3">
+                Sinh viên có thể đăng ký vé từ Ngày công bố cho đến khi hệ
+                thống tự động đóng đăng ký tại thời điểm <strong>T-2h</strong>{" "}
+                trước khi sự kiện bắt đầu.
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Thời gian mở đăng ký">
+                <FormField
+                  label="Ngày công bố (Bắt đầu mở đăng ký)"
+                  required
+                  error={errors.publishDate}
+                >
                   <input
-                    type="datetime-local"
-                    value={form.regStart}
-                    onChange={(e) => set("regStart", e.target.value)}
-                    className={inputClass(false)}
-                  />
-                </FormField>
-                <FormField label="Thời gian đóng đăng ký" error={errors.regEnd}>
-                  <input
-                    type="datetime-local"
-                    value={form.regEnd}
-                    onChange={(e) => set("regEnd", e.target.value)}
-                    className={inputClass(!!errors.regEnd)}
+                    type="date"
+                    value={form.publishDate}
+                    onChange={(e) => set("publishDate", e.target.value)}
+                    min={new Date().toISOString().slice(0, 10)}
+                    max={form.eventDate || undefined}
+                    className={inputClass(!!errors.publishDate)}
                   />
                 </FormField>
               </div>
             </Section>
 
-            {/* Section 3 */}
+            {/* Section 3: Thời gian tổ chức */}
             <Section title="Thời gian tổ chức">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <FormField label="Ngày tổ chức">
+                <FormField
+                  label="Ngày tổ chức"
+                  required
+                  error={errors.eventDate}
+                >
                   <input
                     type="date"
                     value={form.eventDate}
                     onChange={(e) => set("eventDate", e.target.value)}
-                    className={inputClass(false)}
+                    min={new Date().toISOString().slice(0, 10)}
+                    className={inputClass(!!errors.eventDate)}
                   />
                 </FormField>
-                <FormField label="Giờ bắt đầu">
+                <FormField label="Giờ bắt đầu" required error={errors.startTime}>
                   <input
                     type="time"
                     value={form.startTime}
                     onChange={(e) => set("startTime", e.target.value)}
-                    className={inputClass(false)}
+                    className={inputClass(!!errors.startTime)}
                   />
                 </FormField>
-                <FormField label="Giờ kết thúc" error={errors.endTime}>
+                <FormField label="Giờ kết thúc" required error={errors.endTime}>
                   <input
                     type="time"
                     value={form.endTime}
@@ -643,10 +887,10 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
               </div>
             </Section>
 
-            {/* Section 4 */}
-            <Section title="Địa điểm">
+            {/* Section 4: Địa điểm & Phòng */}
+            <Section title="Địa điểm & Phòng hội trường">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Tên địa điểm / Trường">
+                <FormField label="Tên địa điểm / Cơ sở">
                   <input
                     value={form.location}
                     onChange={(e) => set("location", e.target.value)}
@@ -680,102 +924,121 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
               </div>
             </Section>
 
-            {/* Section 5 */}
-            <Section title="Sức chứa">
-              <label className="flex items-center gap-2 text-sm text-slate-600 mb-4">
+            {/* Section 5: Sức chứa */}
+            <Section title="Sức chứa & Slot tham gia">
+              <label className="flex items-center gap-2 text-sm text-slate-600 mb-4 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={form.unlimited === "true"}
-                  onChange={(event) =>
-                    set("unlimited", event.target.checked ? "true" : "false")
-                  }
+                  onChange={(event) => {
+                    const isUnl = event.target.checked
+                    set("unlimited", isUnl ? "true" : "false")
+                    if (isUnl) set("capacity", "")
+                  }}
                 />
-                Sự kiện mở tự do, không giới hạn slot
+                <span>Sự kiện mở tự do, không giới hạn slot vé</span>
               </label>
-              <FormField
-                label="Số lượng tham gia tối đa"
-                required={form.unlimited === "false"}
-                error={errors.capacity}
-              >
-                <input
-                  type="number"
-                  min={1}
-                  value={form.capacity}
-                  onChange={(e) => set("capacity", e.target.value)}
-                  disabled={form.unlimited === "true"}
-                  placeholder="VD: 200"
-                  className={`${inputClass(!!errors.capacity)} max-w-xs`}
-                />
-              </FormField>
+
+              {form.unlimited === "false" && (
+                <FormField
+                  label="Số lượng tham gia tối đa (Slot vé)"
+                  required
+                  error={errors.capacity}
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    max={selectedRoom ? selectedRoom.suc_chua : undefined}
+                    value={form.capacity}
+                    onChange={(e) => set("capacity", e.target.value)}
+                    placeholder={
+                      selectedRoom
+                        ? `Tối đa ${selectedRoom.suc_chua} chỗ theo sức chứa phòng`
+                        : "VD: 100"
+                    }
+                    className={`${inputClass(!!errors.capacity)} max-w-xs`}
+                  />
+                </FormField>
+              )}
               <p className="text-xs mt-2" style={{ color: "#94a3b8" }}>
-                Sau khi đạt giới hạn, hệ thống sẽ tự động đóng đăng ký và hiển
-                thị trạng thái "Hết chỗ".
+                {form.unlimited === "true"
+                  ? "Sự kiện mở tự do cho phép sinh viên tham gia không cần xếp hàng slot."
+                  : selectedRoom
+                    ? `Phòng ${selectedRoom.ten_phong} có sức chứa tối đa ${selectedRoom.suc_chua} chỗ. Hệ thống sẽ đóng đăng ký khi hết slot.`
+                    : "Sau khi đạt giới hạn, hệ thống sẽ tự động đóng đăng ký và kích hoạt hàng đợi Waitlist."}
               </p>
             </Section>
 
-            {/* Section 6 */}
-            <Section title="Nội dung chương trình">
-              <textarea
-                rows={5}
-                placeholder="Mô tả lịch trình, các tiết mục và hoạt động trong sự kiện..."
-                className={inputClass(false)}
-                style={{ resize: "vertical" }}
-              />
+            {/* Section 6: Nội dung chương trình (lo_trinh) */}
+            <Section title="Nội dung chương trình (Lộ trình sự kiện)">
+              <FormField
+                label="Lịch trình chi tiết (Lộ trình JSON Array - Mỗi mốc một dòng)"
+                error={errors.agenda}
+              >
+                <textarea
+                  value={form.agenda}
+                  onChange={(e) => set("agenda", e.target.value)}
+                  rows={5}
+                  placeholder="08:00 - 08:30: Khai mạc và đón tiếp đại biểu&#10;08:30 - 10:00: Diễn giả thuyết trình chuyên đề&#10;10:00 - 11:00: Thảo luận, Q&A và giải đáp thắc mắc&#10;11:00 - 11:30: Bế mạc và check-out nhận DRL"
+                  className={inputClass(!!errors.agenda)}
+                  style={{ resize: "vertical" }}
+                />
+              </FormField>
+              <p className="text-xs text-slate-400">
+                Hệ thống sẽ tự động chuyển đổi các dòng lịch trình thành danh
+                sách Agenda chuẩn OpenAPI để hiển thị cho sinh viên.
+              </p>
             </Section>
 
-            <Section title="Đề xuất điểm & chứng nhận">
+            {/* Section 7: Đề xuất điểm rèn luyện */}
+            <Section title="Đề xuất Điểm rèn luyện (ĐRL)">
               <div className="rounded-xl p-3 bg-indigo-50 border border-indigo-100">
                 <p className="text-xs text-indigo-700">
-                  Đây là quy tắc điểm dự kiến. Điểm thực tế chỉ được công nhận
-                  sau khi đối soát và Phòng CTSV phê duyệt.
+                  Đây là quy tắc điểm dự kiến theo SRS v3.1.3. Điểm thực tế chỉ
+                  được công nhận sau khi đối soát và Phòng CTSV phê duyệt.
                 </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Điều khoản ĐRL">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <FormField label="Điều khoản ĐRL" required error={errors.drlRule}>
                   <select
                     value={form.drlRule}
                     onChange={(event) => set("drlRule", event.target.value)}
-                    className={inputClass(false)}
+                    className={inputClass(!!errors.drlRule)}
                   >
                     <option value="KhongCo">Không có</option>
                     <option value="Dieu3">Điều 3</option>
                     <option value="Dieu4">Điều 4</option>
                   </select>
                 </FormField>
-                <FormField label="Điểm đề xuất tối đa">
+                <FormField
+                  label="Điểm ĐRL đề xuất (0 - 5)"
+                  required
+                  error={errors.proposedPoints}
+                >
                   <input
                     type="number"
                     min={0}
+                    max={5}
                     value={form.proposedPoints}
                     onChange={(e) => set("proposedPoints", e.target.value)}
-                    className={inputClass(false)}
+                    disabled={form.drlRule === "KhongCo"}
+                    className={inputClass(!!errors.proposedPoints)}
                   />
                 </FormField>
-                <FormField label="Thời lượng hợp lệ (phút)">
+                <FormField
+                  label="Giờ tình nguyện"
+                  error={errors.volunteerHours}
+                >
                   <input
                     type="number"
+                    step="0.5"
                     min={0}
-                    value={form.validMinutes}
-                    onChange={(e) => set("validMinutes", e.target.value)}
-                    className={inputClass(false)}
+                    value={form.volunteerHours}
+                    onChange={(e) => set("volunteerHours", e.target.value)}
+                    className={inputClass(!!errors.volunteerHours)}
                   />
                 </FormField>
               </div>
-              <FormField label="Điều kiện chứng nhận (tách riêng điều kiện điểm)">
-                <textarea
-                  value={form.certificateCondition}
-                  onChange={(e) => set("certificateCondition", e.target.value)}
-                  rows={3}
-                  className={inputClass(false)}
-                />
-              </FormField>
-              <FormField label="Căn cứ đề xuất">
-                <input
-                  value={form.ruleBasis}
-                  onChange={(e) => set("ruleBasis", e.target.value)}
-                  className={inputClass(false)}
-                />
-              </FormField>
             </Section>
           </div>
 
@@ -790,30 +1053,26 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                   className="font-display font-semibold text-sm mb-3"
                   style={{ color: "#1a1a2e" }}
                 >
-                  Xem trước
+                  Xem trước thẻ sự kiện
                 </h3>
                 <div
-                  className="rounded-xl overflow-hidden mb-3"
-                  style={{ background: "#f8fafc", height: 120 }}
+                  className="rounded-xl overflow-hidden mb-3 bg-slate-100"
+                  style={{ height: 130 }}
                 >
-                  <div
-                    className="w-full h-full flex items-center justify-center"
-                    style={{ color: "#cbd5e1" }}
-                  >
-                    <svg
-                      className="w-10 h-10"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={0.75}
+                  {form.banner ? (
+                    <img
+                      src={form.banner}
+                      alt={form.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full flex items-center justify-center"
+                      style={{ color: "#cbd5e1" }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
-                      />
-                    </svg>
-                  </div>
+                      <ImageIcon className="w-10 h-10 text-slate-300" />
+                    </div>
+                  )}
                 </div>
                 <h4
                   className="font-display font-semibold text-sm leading-snug mb-2"
@@ -824,15 +1083,29 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                 <div className="space-y-1.5">
                   <p className="text-xs flex items-center gap-1.5 text-slate-500">
                     <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{form.eventDate ? formatCalendarDate(form.eventDate) : "Chưa chọn ngày"}</span>
+                    <span>
+                      {form.eventDate
+                        ? formatCalendarDate(form.eventDate)
+                        : "Chưa chọn ngày"}
+                    </span>
                   </p>
                   <p className="text-xs flex items-center gap-1.5 text-slate-500">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{form.room || form.location || "Chưa có địa điểm"}</span>
+                    <span>
+                      {selectedRoom?.ten_phong ||
+                        form.location ||
+                        "Chưa có địa điểm"}
+                    </span>
                   </p>
                   <p className="text-xs flex items-center gap-1.5 text-slate-500">
                     <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span>{form.capacity ? `0/${form.capacity} chỗ` : "Chưa có sức chứa"}</span>
+                    <span>
+                      {form.unlimited === "true"
+                        ? "Không giới hạn slot"
+                        : form.capacity
+                          ? `0/${form.capacity} chỗ`
+                          : "Chưa có sức chứa"}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -846,6 +1119,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
           style={{ borderColor: "#e2e8f0" }}
         >
           <button
+            type="button"
             onClick={() => onNavigate("org-events")}
             className="px-6 py-2.5 rounded-xl text-sm font-medium border"
             style={{
@@ -857,22 +1131,26 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
             Hủy bỏ
           </button>
           <button
+            type="button"
+            disabled={saving}
             onClick={() => handleSubmit(false)}
-            className="px-6 py-2.5 rounded-xl text-sm font-semibold border"
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold border disabled:opacity-50"
             style={{
               borderColor: "#e2e8f0",
               color: "#4f46e5",
               background: "#eef2ff",
             }}
           >
-            Lưu bản nháp
+            {saving ? "Đang lưu..." : "Lưu bản nháp"}
           </button>
           <button
+            type="button"
+            disabled={saving}
             onClick={() => handleSubmit(true)}
-            className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white"
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
             style={{ background: "#4f46e5" }}
           >
-            Gửi khoa duyệt
+            {saving ? "Đang xử lý..." : "Gửi khoa duyệt"}
           </button>
           <p className="w-full text-xs text-slate-400">
             Gửi duyệt không đồng nghĩa công bố. Sự kiện chỉ đủ điều kiện công bố
@@ -905,6 +1183,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowAiModal(false)}
                   className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
                   title="Đóng"
@@ -929,6 +1208,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-purple-600 font-medium"
                 />
                 <button
+                  type="button"
                   onClick={handleGenerateAi}
                   disabled={aiGenerating || !aiPrompt.trim()}
                   className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
@@ -978,6 +1258,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
 
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={() => setShowAiModal(false)}
                   className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
@@ -985,6 +1266,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                 </button>
                 {aiResult && (
                   <button
+                    type="button"
                     onClick={applyAiResult}
                     className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 cursor-pointer"
                   >
@@ -1049,7 +1331,7 @@ function FormField({
       </label>
       {children}
       {error && (
-        <p className="text-xs mt-1" style={{ color: "#dc2626" }}>
+        <p className="text-xs mt-1 font-medium" style={{ color: "#dc2626" }}>
           {error}
         </p>
       )}
@@ -1060,7 +1342,7 @@ function FormField({
 function inputClass(hasError: boolean) {
   return `w-full px-3 py-2.5 rounded-xl border text-sm outline-none transition-all ${
     hasError
-      ? "border-red-400 bg-red-50"
+      ? "border-red-400 bg-red-50 text-red-900"
       : "border-slate-200 focus:border-indigo-500"
   }`
 }
