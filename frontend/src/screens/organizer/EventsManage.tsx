@@ -196,12 +196,26 @@ export default function EventsManage({
     return filteredList.length > 0 ? filteredList : EVENTS
   }, [EVENTS, role, user])
 
-  const filtered = scopedEvents.filter(
-    (e) =>
-      (statusFilter === "all" || computeStatus(e) === statusFilter) &&
-      (e.title.toLowerCase().includes(search.toLowerCase()) ||
-        e.location.toLowerCase().includes(search.toLowerCase())),
-  )
+  const filtered = scopedEvents.filter((e) => {
+    const rawStatus = (e.trang_thai || "").toUpperCase()
+    const isHappening =
+      rawStatus === "HAPPENING" ||
+      rawStatus === "DANG_DIEN_RA" ||
+      e.status === "happening" ||
+      computeStatus(e) === "happening"
+
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "happening"
+        ? isHappening
+        : computeStatus(e) === statusFilter)
+
+    const matchesSearch =
+      e.title.toLowerCase().includes(search.toLowerCase()) ||
+      e.location.toLowerCase().includes(search.toLowerCase())
+
+    return matchesStatus && matchesSearch
+  })
 
   const statusTabs = [
     { id: "all", label: "Tất cả" },

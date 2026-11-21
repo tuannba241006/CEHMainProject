@@ -67,9 +67,12 @@ export interface LiveEvent {
 export function computeEventStatus(e: LiveEvent): EventStatus {
   if (e.isCancelled || e.trang_thai === "CANCELLED") return "closed"
   if (e.trang_thai === "COMPLETED") return "ended"
+  const rawTrangThai = String(e.trang_thai || "").toUpperCase()
+  if (rawTrangThai === "HAPPENING" || rawTrangThai === "DANG_DIEN_RA" || e.status === "happening") return "happening"
   if (
-    e.registered >= e.capacity ||
-    (typeof e.so_ve_con_lai === "number" && e.so_ve_con_lai <= 0)
+    !e.khong_gioi_han_slot &&
+    (e.registered >= e.capacity ||
+      (typeof e.so_ve_con_lai === "number" && e.so_ve_con_lai <= 0))
   ) {
     return "full"
   }
