@@ -285,10 +285,7 @@ class AuthController extends Controller
             ->orWhere('mssv', $loginId)
             ->first();
 
-        $passwordValid = $user && (
-            Hash::check($password, $user->mat_khau)
-            || ($user->email === '22521999@gm.uit.edu.vn' && in_array($password, ['Checkin@123', 'Checkin123!', 'Student@123'], true))
-        );
+        $passwordValid = $user && Hash::check($password, $user->mat_khau);
 
         if (! $user || ! $passwordValid) {
             RateLimiter::hit($throttleKey, 60);

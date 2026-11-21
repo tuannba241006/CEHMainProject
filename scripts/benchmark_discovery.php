@@ -7,6 +7,8 @@
  */
 
 require __DIR__.'/../vendor/autoload.php';
+use Illuminate\Contracts\Console\Kernel;
+
 $app = require_once __DIR__.'/../bootstrap/app.php';
 $kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
@@ -18,7 +20,6 @@ use App\Models\SuKien;
 use App\Models\User;
 use App\Services\EventSearchService;
 use App\Services\EventSmartActionService;
-use Illuminate\Contracts\Console\Kernel;
 
 $options = getopt('', ['iterations::']);
 $iterations = isset($options['iterations']) ? (int) $options['iterations'] : 100;

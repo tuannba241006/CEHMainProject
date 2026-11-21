@@ -6,6 +6,8 @@
  */
 
 require __DIR__.'/../vendor/autoload.php';
+use Illuminate\Contracts\Console\Kernel;
+
 $app = require_once __DIR__.'/../bootstrap/app.php';
 $kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
@@ -19,7 +21,6 @@ use App\Models\PhongHoiTruong;
 use App\Models\User;
 use App\Services\RoomScheduleService;
 use Carbon\Carbon;
-use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\DB;
 
 // Đọc arguments CLI
