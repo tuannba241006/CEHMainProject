@@ -103,6 +103,10 @@ export default function EventList({
 
   const [pagedEvents, setPagedEvents] = useState<LiveEvent[]>([])
   const [meta, setMeta] = useState<PaginationMeta | null>(null)
+  const [serverStats, setServerStats] = useState<{
+    openCount: number | null
+    totalCount: number | null
+  }>({ openCount: null, totalCount: null })
   const [listLoading, setListLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
 
@@ -119,7 +123,9 @@ export default function EventList({
     Promise.allSettled([
       organizationsService.topics(),
       organizationsService.publicList(),
-    ]).then(([topicsRes, orgsRes]) => {
+      eventsService.listPublic({ con_cho: "true", limit: 1 }),
+      eventsService.listPublic({ limit: 1 }),
+    ]).then(([topicsRes, orgsRes, openRes, totalRes]) => {
       if (ignore) return
       if (topicsRes.status === "fulfilled" && Array.isArray(topicsRes.value.data)) {
         setTopics(topicsRes.value.data)
@@ -127,6 +133,16 @@ export default function EventList({
       if (orgsRes.status === "fulfilled" && Array.isArray(orgsRes.value.data)) {
         setOrganizations(orgsRes.value.data as OrgOption[])
       }
+      setServerStats({
+        openCount:
+          openRes.status === "fulfilled"
+            ? (openRes.value.meta?.tong_so_ban_ghi ?? openRes.value.meta?.total ?? null)
+            : null,
+        totalCount:
+          totalRes.status === "fulfilled"
+            ? (totalRes.value.meta?.tong_so_ban_ghi ?? totalRes.value.meta?.total ?? null)
+            : null,
+      })
     })
     return () => {
       ignore = true
@@ -262,13 +278,12 @@ export default function EventList({
             <div className="flex items-center gap-3">
               <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3.5 shadow-xs text-center min-w-[120px]">
                 <div className="text-2xl font-display font-bold text-indigo-600">
-                  {
+                  {serverStats.openCount ??
                     events.filter(
                       (e) =>
                         computeStatus(e) === "open" ||
                         computeStatus(e) === "nearly_full",
-                    ).length
-                  }
+                    ).length}
                 </div>
                 <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mt-0.5">
                   Đang mở đăng ký
@@ -276,7 +291,7 @@ export default function EventList({
               </div>
               <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3.5 shadow-xs text-center min-w-[120px]">
                 <div className="text-2xl font-display font-bold text-emerald-600">
-                  {events.length}
+                  {serverStats.totalCount ?? totalRecords}
                 </div>
                 <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mt-0.5">
                   Tổng sự kiện
@@ -693,7 +708,16 @@ function EventCard({
 }) {
   const { computeStatus } = useApp()
   const status = computeStatus(event)
-  const sc = STATUS_COLORS[status]
+  const isHappening = event.trang_thai === "HAPPENING" && status !== "ended"
+  const isWaitlistOpen = status === "full" && event.trang_thai === "PUBLISHED"
+  const sc = isHappening
+    ? { bg: "#e0e7ff", text: "#4338ca" }
+    : STATUS_COLORS[status]
+  const statusBadgeLabel = isHappening
+    ? "Đang diễn ra"
+    : status === "closed"
+      ? "Đã đóng đăng ký"
+      : EVENT_STATUS_LABELS[status]
   const pct = Math.round((event.registered / event.capacity) * 100)
   const dateObj = new Date(event.date)
   const dateStr = dateObj.toLocaleDateString("vi-VN", {
@@ -740,7 +764,7 @@ function EventCard({
           </div>
           <span
             className={`px-2.5 py-0.8 rounded-full text-xs font-semibold shadow-xs ${
-              status === "full" && !isRegistered
+              isWaitlistOpen && !isRegistered
                 ? waitlistEntry?.trang_thai === "OFFERED"
                   ? "bg-amber-500 text-white animate-pulse"
                   : waitlistEntry
@@ -749,18 +773,18 @@ function EventCard({
                 : ""
             }`}
             style={
-              status === "full" && !isRegistered
+              isWaitlistOpen && !isRegistered
                 ? undefined
                 : { background: sc.bg, color: sc.text }
             }
           >
-            {status === "full" && !isRegistered
+            {isWaitlistOpen && !isRegistered
               ? waitlistEntry?.trang_thai === "OFFERED"
                 ? "Có suất nhận vé (Hạn 15p)"
                 : waitlistEntry
                   ? `Hàng chờ FIFO #${waitlistEntry.so_thu_tu}`
                   : "Hết vé · Hàng chờ FIFO mở"
-              : EVENT_STATUS_LABELS[status]}
+              : statusBadgeLabel}
           </span>
         </div>
 
@@ -781,7 +805,7 @@ function EventCard({
               />
             </svg>
             <span className="font-medium">
-              {dateStr} · {event.time}
+              {dateStr} · {event.time} - {event.endTime}
             </span>
           </div>
           {isRegistered && (
@@ -799,7 +823,7 @@ function EventCard({
               Hàng chờ #{waitlistEntry.so_thu_tu}
             </span>
           )}
-          {!isRegistered && !waitlistEntry && status === "full" && (
+          {!isRegistered && !waitlistEntry && isWaitlistOpen && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600/90 text-white shadow-xs">
               Hàng chờ FIFO mở
             </span>
@@ -915,11 +939,13 @@ function EventCard({
                 >
                   {status === "ended"
                     ? "Đã kết thúc"
-                    : status === "closed"
-                      ? "Đã đóng đăng ký"
-                      : event.capacity - event.registered > 0
-                        ? "Còn " + (event.capacity - event.registered) + " chỗ"
-                        : "Hết vé · Có hàng chờ FIFO"}
+                    : isHappening
+                      ? "Đang diễn ra (Đóng ĐK)"
+                      : status === "closed"
+                        ? "Đã đóng đăng ký"
+                        : event.capacity - event.registered > 0
+                          ? "Còn " + (event.capacity - event.registered) + " chỗ"
+                          : "Hết vé · Có hàng chờ FIFO"}
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -975,11 +1001,13 @@ function EventCard({
                 ? "Có suất nhận vé — Mở Ví vé →"
                 : waitlistEntry
                   ? `Trong hàng chờ FIFO #${waitlistEntry.so_thu_tu} →`
-                  : status === "full"
+                  : isWaitlistOpen
                     ? "Hết vé · Đăng ký hàng chờ FIFO →"
-                    : isGuest
+                    : status === "ended" || status === "closed" || isHappening
                       ? "Xem chi tiết sự kiện →"
-                      : "Xem chi tiết & Đăng ký →"}
+                      : isGuest
+                        ? "Xem chi tiết sự kiện →"
+                        : "Xem chi tiết & Đăng ký →"}
           </div>
         </div>
       </div>

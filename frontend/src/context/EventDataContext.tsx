@@ -65,16 +65,20 @@ export interface LiveEvent {
 
 export function computeEventStatus(e: LiveEvent): EventStatus {
   if (e.isCancelled || e.trang_thai === "CANCELLED") return "closed"
-  if (e.trang_thai === "COMPLETED") return "ended"
-  if (
-    !e.khong_gioi_han_slot &&
-    (e.registered >= e.capacity ||
-      (typeof e.so_ve_con_lai === "number" && e.so_ve_con_lai <= 0))
-  ) {
-    return "full"
+  const endMs = e.thoi_gian_ket_thuc
+    ? new Date(e.thoi_gian_ket_thuc).getTime()
+    : 0
+  if (e.trang_thai === "COMPLETED" || (endMs > 0 && endMs <= Date.now())) {
+    return "ended"
   }
   if (!e.registrationOpen) return "closed"
   if (e.khong_gioi_han_slot) return "open"
+  if (
+    e.registered >= e.capacity ||
+    (typeof e.so_ve_con_lai === "number" && e.so_ve_con_lai <= 0)
+  ) {
+    return "full"
+  }
   const ratio = (e.capacity - e.registered) / e.capacity
   if (ratio <= 0.2) return "nearly_full"
   return "open"
@@ -214,7 +218,29 @@ export function mapContractEventToLiveEvent(
     ? (card.trang_thai === "PUBLISHED" || card.trang_thai === "HAPPENING") &&
       (!endMs || endMs > nowMs)
     : card.trang_thai === "PUBLISHED" &&
-      (!startMs || startMs - nowMs > 2 * 3600 * 1000)
+      (!startMs || startMs - nowMs > 2 * 3600 * 1000) &&
+      (!endMs || endMs > nowMs)
+
+  const drlRule = (card.dieu_khoan_drl || "Dieu3") as
+    | "KhongCo"
+    | "Dieu3"
+    | "Dieu4"
+  const drlPoints = drlRule === "KhongCo" ? 0 : (card.diem_drl_du_kien ?? 5)
+  const volunteerHours =
+    (card as unknown as { gio_tinh_nguyen?: number }).gio_tinh_nguyen ?? 0
+  const benefits: string[] = []
+  if (drlRule !== "KhongCo") {
+    benefits.push(
+      `Cộng ${drlPoints} điểm ĐRL (${drlRule === "Dieu4" ? "Điều 4" : "Điều 3"})`,
+    )
+    benefits.push("Chứng nhận tham gia hội thảo / hoạt động chính quy")
+  } else {
+    benefits.push("Hoạt động ngoại khóa / giao lưu (Không cộng điểm rèn luyện)")
+  }
+  if (volunteerHours > 0) {
+    benefits.push(`Cộng ${volunteerHours} giờ tình nguyện xã hội`)
+  }
+  benefits.push("Cơ hội mở rộng kiến thức và giao lưu chuyên gia")
 
   return {
     ma_su_kien: card.ma_su_kien,
@@ -235,13 +261,9 @@ export function mapContractEventToLiveEvent(
     so_ve_con_lai: remaining,
     so_luong_toi_da: capacity,
     trang_thai: (card.trang_thai || "PUBLISHED") as ContractEventStatus,
-    dieu_khoan_drl: (card.dieu_khoan_drl || "Dieu3") as
-      | "KhongCo"
-      | "Dieu3"
-      | "Dieu4",
-    diem_drl_du_kien: card.diem_drl_du_kien ?? 5,
-    gio_tinh_nguyen:
-      (card as unknown as { gio_tinh_nguyen?: number }).gio_tinh_nguyen ?? 0,
+    dieu_khoan_drl: drlRule,
+    diem_drl_du_kien: drlPoints,
+    gio_tinh_nguyen: volunteerHours,
     mo_ta: description,
     lo_trinh: rawAgenda,
     doi_tuong_tham_gia: detail.doi_tuong_tham_gia || "Sinh viên toàn trường",
@@ -266,11 +288,7 @@ export function mapContractEventToLiveEvent(
       existingInitial?.banner ||
       "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=800&h=400&fit=crop&auto=format",
     organizer: hostOrgName,
-    benefits: [
-      `Cộng ${card.diem_drl_du_kien ?? 5} điểm ĐRL (${card.dieu_khoan_drl === "Dieu4" ? "Điều 4" : card.dieu_khoan_drl === "KhongCo" ? "Không có" : "Điều 3"})`,
-      "Chứng nhận tham gia hội thảo / hoạt động chính quy",
-      "Cơ hội mở rộng kiến thức và giao lưu chuyên gia",
-    ],
+    benefits,
     schedule:
       mappedSchedule.length > 0
         ? mappedSchedule

@@ -88,7 +88,7 @@ class EventSmartActionService
                     return $this->action(
                         'LAM_FEEDBACK_NHAN_CERT',
                         $ticket->du_dieu_kien_drl
-                            ? 'Xem chứng nhận của tôi'
+                            ? 'Làm khảo sát Feedback / Xem chứng nhận'
                             : 'Chưa đủ điều kiện nhận chứng nhận',
                         (bool) $ticket->du_dieu_kien_drl,
                         $extra
@@ -111,7 +111,7 @@ class EventSmartActionService
                 if ($withinDeadline || $withinGrace) {
                     return $this->action(
                         'LAM_FEEDBACK_NHAN_CERT',
-                        'Làm khảo sát đánh giá sự kiện',
+                        'Làm khảo sát Feedback / Xem chứng nhận',
                         true,
                         $extra
                     );
@@ -129,9 +129,17 @@ class EventSmartActionService
          * 2. Khach chua dang nhap.
          */
         if (! $user) {
+            if ($event->trang_thai === 'HAPPENING' && ! $event->khong_gioi_han_slot) {
+                return $this->action(
+                    'SU_KIEN_DANG_DIEN_RA_DONG_DK',
+                    'Sự kiện đang diễn ra (Đã đóng đăng ký)',
+                    false
+                );
+            }
+
             return $this->action(
                 'CHUA_DANG_NHAP',
-                'Đăng nhập để tham gia',
+                'Đăng nhập để đặt vé',
                 true
             );
         }
@@ -151,15 +159,22 @@ class EventSmartActionService
          * 4. Sinh vien da co ve.
          */
         if ($ticket) {
-            // Su kien dang dien ra va da mo cong diem danh.
-            if (
-                $event->trang_thai === 'HAPPENING'
-                && $event->cong_check_in_mo
-                && ! $ticket->da_check_in
-            ) {
+            // Su kien dang dien ra.
+            if ($event->trang_thai === 'HAPPENING') {
+                if ($event->cong_check_in_mo && ! $ticket->da_check_in) {
+                    return $this->action(
+                        'VAO_DIEM_DANH',
+                        'Vào điểm danh / Xem vé',
+                        true,
+                        [
+                            'ma_dang_ky' => (int) $ticket->ma_dang_ky,
+                        ]
+                    );
+                }
+
                 return $this->action(
-                    'VAO_DIEM_DANH',
-                    'Vào điểm danh',
+                    'DA_CO_VE',
+                    'Vào điểm danh / Xem vé',
                     true,
                     [
                         'ma_dang_ky' => (int) $ticket->ma_dang_ky,
@@ -169,8 +184,8 @@ class EventSmartActionService
 
             return $this->action(
                 'DA_CO_VE',
-                'Xem vé của tôi',
-                true,
+                'Bạn đã đăng ký vé',
+                false,
                 [
                     'ma_dang_ky' => (int) $ticket->ma_dang_ky,
                 ]
@@ -206,9 +221,21 @@ class EventSmartActionService
             && $waitlist->han_chot_xac_nhan
             && $now->lt($waitlist->han_chot_xac_nhan)
         ) {
+            $remainingSeconds = max(
+                0,
+                $waitlist->han_chot_xac_nhan->getTimestamp()
+                    - $now->getTimestamp()
+            );
+
+            $formattedCountdown = sprintf(
+                '%02d:%02d',
+                intdiv($remainingSeconds, 60),
+                $remainingSeconds % 60
+            );
+
             return $this->action(
                 'CO_OFFER_WAITLIST',
-                'Xác nhận suất tham gia',
+                "Bạn có 1 slot đang chờ nhận - Còn {$formattedCountdown}",
                 true,
                 [
                     'ma_hang_doi' => (int) $waitlist->id,
@@ -219,12 +246,7 @@ class EventSmartActionService
                         ->setTimezone('Asia/Ho_Chi_Minh')
                         ->toIso8601String(),
 
-                    'so_giay_offer_con_lai' => max(
-                        0,
-                        $waitlist->han_chot_xac_nhan
-                            ->getTimestamp()
-                            - $now->getTimestamp()
-                    ),
+                    'so_giay_offer_con_lai' => $remainingSeconds,
                 ]
             );
         }
@@ -238,7 +260,7 @@ class EventSmartActionService
         ) {
             return $this->action(
                 'DANG_O_WAITLIST',
-                'Bạn đang trong danh sách chờ',
+                'Bạn đang ở vị trí số '.(int) $waitlist->so_thu_tu.' trong danh sách chờ',
                 false,
                 [
                     'ma_hang_doi' => (int) $waitlist->id,
@@ -276,7 +298,7 @@ class EventSmartActionService
         if ($event->trang_thai === 'HAPPENING') {
             return $this->action(
                 'SU_KIEN_DANG_DIEN_RA_DONG_DK',
-                'Sự kiện đang diễn ra, đã đóng đăng ký',
+                'Sự kiện đang diễn ra (Đã đóng đăng ký)',
                 false
             );
         }
@@ -295,14 +317,14 @@ class EventSmartActionService
             if ((int) $event->so_ve_con_lai <= 0) {
                 return $this->action(
                     'HET_VE_DONG_WAITLIST_T2H',
-                    'Hết vé và đã đóng danh sách chờ',
+                    'Hết vé (Đã đóng danh sách chờ)',
                     false
                 );
             }
 
             return $this->action(
                 'DONG_DANG_KY_T2H',
-                'Đã đóng đăng ký trước 2 giờ',
+                'Đã đóng đăng ký',
                 false
             );
         }
