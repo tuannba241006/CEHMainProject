@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\SuKien;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class EventSearchService
@@ -31,14 +32,23 @@ class EventSearchService
             'COMPLETED',
         ]);
 
-        // Mặc định chỉ hiển thị sự kiện PUBLISHED/HAPPENING.
+        // Mặc định chỉ hiển thị sự kiện PUBLISHED/HAPPENING còn hiệu lực thời gian.
+        // Sự kiện đã qua thoi_gian_ket_thuc được xếp vào nhóm đã kết thúc dù cron chưa chuyển trạng thái.
         if (! empty($filters['trang_thai'])) {
-            $query->where('trang_thai', $filters['trang_thai']);
+            if ($filters['trang_thai'] === 'COMPLETED') {
+                $query->where(function ($q) use ($now) {
+                    $q->where('trang_thai', 'COMPLETED')
+                        ->orWhere('thoi_gian_ket_thuc', '<=', $now);
+                });
+            } else {
+                $query->where('trang_thai', $filters['trang_thai'])
+                    ->where('thoi_gian_ket_thuc', '>', $now);
+            }
         } else {
             $query->whereIn('trang_thai', [
                 'PUBLISHED',
                 'HAPPENING',
-            ]);
+            ])->where('thoi_gian_ket_thuc', '>', $now);
         }
 
         // Tim kiem theo ten, mo ta va dien gia.
@@ -121,21 +131,24 @@ class EventSearchService
             );
         }
 
-        // Lọc theo ngày bắt đầu.
+        // Lọc theo ngày bắt đầu theo múi giờ Việt Nam (Asia/Ho_Chi_Minh), quy đổi sang múi giờ lưu trữ DB.
+        $displayTimezone = 'Asia/Ho_Chi_Minh';
+        $storageTimezone = config('app.timezone', 'UTC');
+
         if (! empty($filters['tu_ngay'])) {
-            $query->whereDate(
-                'thoi_gian_bat_dau',
-                '>=',
-                $filters['tu_ngay']
-            );
+            $from = Carbon::createFromFormat('Y-m-d', $filters['tu_ngay'], $displayTimezone)
+                ->startOfDay()
+                ->setTimezone($storageTimezone);
+
+            $query->where('thoi_gian_bat_dau', '>=', $from);
         }
 
         if (! empty($filters['den_ngay'])) {
-            $query->whereDate(
-                'thoi_gian_bat_dau',
-                '<=',
-                $filters['den_ngay']
-            );
+            $to = Carbon::createFromFormat('Y-m-d', $filters['den_ngay'], $displayTimezone)
+                ->endOfDay()
+                ->setTimezone($storageTimezone);
+
+            $query->where('thoi_gian_bat_dau', '<=', $to);
         }
 
         // Chỉ lấy sự kiện còn mở đăng ký.

@@ -43,6 +43,12 @@
                 ->setTimezone('Asia/Ho_Chi_Minh')
                 ->format('d/m/Y H:i') }}
         </p>
+
+        @if (! empty($detailUrl))
+            <p>
+                <a href="{{ $detailUrl }}">Xem chi tiết sự kiện trên Campus Event Hub</a>
+            </p>
+        @endif
     </main>
 </body>
 </html>
