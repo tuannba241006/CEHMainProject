@@ -98,13 +98,13 @@ export const ORGANIZATIONS: OrganizationSummary[] = [
   {
     ma_don_vi: 4,
     ten_don_vi: "CLB WebDev UIT",
-    loai_don_vi: "CLB_Doi_Nhom",
+    loai_don_vi: "CLB",
     ma_don_vi_cha: 1,
   },
   {
     ma_don_vi: 5,
     ten_don_vi: "Đoàn Thanh niên - Hội Sinh viên",
-    loai_don_vi: "PhongBan",
+    loai_don_vi: "DoanHoi",
     ma_don_vi_cha: null,
   },
 ]
@@ -149,6 +149,23 @@ export const ROOMS: RoomPublic[] = [
 ]
 
 // Unified Event Interface supporting both Contract fields and Legacy aliases
+export type UiEventStatus =
+  | EventStatus
+  | "draft"
+  | "pending"
+  | "upcoming"
+  | "happening"
+  | "completed"
+  | "cancelled"
+  | "open"
+  | "full"
+  | "nearly_full"
+  | "closed"
+  | "ended"
+  | "published"
+  | "rejected"
+  | string
+
 export interface Event
   extends ContractEventCard {
   // Legacy aliases
@@ -156,7 +173,7 @@ export interface Event
   id: string
   title: string
   speaker: string
-  topic: TopicKey
+  topic: TopicKey | string
   description: string
   date: string
   time: string
@@ -165,7 +182,7 @@ export interface Event
   room: string
   capacity: number
   registered: number
-  status: any
+  status: UiEventStatus
   banner: string
   organizer: string
   benefits: string[]
@@ -180,6 +197,11 @@ export interface Event
   gio_tinh_nguyen: number
   doi_tuong_tham_gia?: string | null
   nut_bam_dieu_huong?: SmartActionButton
+  da_chot_drl?: boolean
+  so_luong_da_dang_ky?: number
+  coHosts?: string[]
+  ly_do_tu_choi?: string | null
+  points?: number
 }
 
 // Unified Ticket Interface supporting both Contract fields and Legacy aliases
@@ -195,11 +217,14 @@ export interface Ticket
   studentId: string
   studentName: string
   faculty: string
-  status: any
+  status: TicketStatus | "attended" | "pending" | "cancelled" | "checked_in" | "checked_out"
   checkinTime?: string
   checkoutTime?: string
   qrCode: string
   registeredAt: string
+  ticketCode?: string
+  mssv?: string
+  studentEmail?: string
 }
 
 export interface Staff {

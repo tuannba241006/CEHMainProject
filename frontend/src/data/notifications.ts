@@ -6,7 +6,7 @@ export type NotifAction = "event-detail" | "ticket-confirm" | "tickets" | "facul
 
 export interface Notification {
   // Contract fields
-  id: any
+  id: number | string
   tieu_de: string
   noi_dung: string
   loai_thong_bao: NotificationType

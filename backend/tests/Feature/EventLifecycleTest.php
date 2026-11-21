@@ -242,6 +242,22 @@ class EventLifecycleTest extends TestCase
         ]);
     }
 
+    public function test_create_unlimited_slot_draft_has_no_capacity_or_remaining_slots(): void
+    {
+        $payload = $this->validEventPayload([
+            'khong_gioi_han_slot' => true,
+            'so_luong_toi_da' => null,
+        ]);
+
+        $response = $this->actingAs($this->hostUserA)
+            ->postJson('/api/events', $payload);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.khong_gioi_han_slot', true)
+            ->assertJsonPath('data.so_luong_toi_da', null)
+            ->assertJsonPath('data.so_ve_con_lai', null);
+    }
+
     public function test_create_event_draft_fails_when_start_time_in_past(): void
     {
         $payload = $this->validEventPayload([

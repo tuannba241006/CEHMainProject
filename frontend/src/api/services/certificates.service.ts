@@ -18,5 +18,6 @@ export const certificatesService = {
   revoke: (id: number, ly_do: string) =>
     api.post<ApiEnvelope<Certificate>>(`/admin/certificates/${id}/revoke`, {
       ly_do,
+      ly_do_thu_hoi: ly_do,
     }),
 }

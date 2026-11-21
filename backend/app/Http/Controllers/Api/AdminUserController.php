@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -26,7 +27,7 @@ class AdminUserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = User::with(['donViToChuc', 'khoa']);
+        $query = User::with(['donViToChuc', 'donViKhoa']);
 
         if ($request->filled('q')) {
             $keyword = trim($request->input('q'));
@@ -115,6 +116,84 @@ class AdminUserController extends Controller
             new UserResource($user),
             'Tạo tài khoản nội bộ thành công. Mật khẩu tạm đã được khởi tạo và gửi tới email.',
             201
+        );
+    }
+
+    /**
+     * UC-ADM-01.AC.1: Lock or unlock account with audit log
+     * PUT /api/v1/admin/users/{id}/status
+     */
+    public function updateStatus(Request $request, int $id): JsonResponse
+    {
+        $request->validate([
+            'hoat_dong' => 'required|boolean',
+            'ly_do' => 'nullable|string|min:5|max:500',
+        ]);
+
+        $user = User::findOrFail($id);
+        $prevStatus = $user->hoat_dong ? 'ACTIVE' : 'LOCKED';
+        $isLocking = ! $request->boolean('hoat_dong');
+        $nextStatus = $isLocking ? 'LOCKED' : 'ACTIVE';
+        $reason = $request->input('ly_do') ?: ($isLocking ? 'Khóa tài khoản bởi Quản trị viên' : 'Mở khóa tài khoản bởi Quản trị viên');
+
+        $user->hoat_dong = ! $isLocking;
+        $user->save();
+
+        if ($isLocking) {
+            // Revoke active sessions / personal access tokens (UC-ADM-01.AC.1)
+            DB::table('sessions')->where('user_id', $user->ma_tai_khoan)->delete();
+            DB::table('personal_access_tokens')->where('tokenable_id', $user->ma_tai_khoan)->delete();
+        }
+
+        $this->auditLogService->logAudit(
+            action: $isLocking ? 'LOCK_ACCOUNT' : 'UNLOCK_ACCOUNT',
+            eventId: null,
+            regId: null,
+            targetUserId: $user->ma_tai_khoan,
+            prevStatus: $prevStatus,
+            nextStatus: $nextStatus,
+            reason: $reason,
+            actorUserId: $request->user()->ma_tai_khoan
+        );
+
+        return $this->successResponse(
+            new UserResource($user),
+            $isLocking ? 'Đã khóa tài khoản thành công.' : 'Đã mở khóa tài khoản thành công.',
+            200
+        );
+    }
+
+    /**
+     * UC-ADM-01: Grant Organizer role to existing account
+     * PUT /api/v1/admin/users/{id}/assign-organizer
+     */
+    public function assignOrganizer(Request $request, int $id): JsonResponse
+    {
+        $request->validate([
+            'ma_don_vi_to_chuc' => 'required|integer|exists:don_vi_to_chuc,ma_don_vi_to_chuc',
+        ]);
+
+        $user = User::findOrFail($id);
+        $prevRole = $user->loai_tai_khoan;
+        $user->loai_tai_khoan = 'ToChuc';
+        $user->ma_don_vi_to_chuc = $request->input('ma_don_vi_to_chuc');
+        $user->save();
+
+        $this->auditLogService->logAudit(
+            action: 'GRANT_ORGANIZER',
+            eventId: null,
+            regId: null,
+            targetUserId: $user->ma_tai_khoan,
+            prevStatus: $prevRole,
+            nextStatus: 'ToChuc',
+            reason: "Gán quyền Ban tổ chức cho tài khoản {$user->ho_ten}",
+            actorUserId: $request->user()->ma_tai_khoan
+        );
+
+        return $this->successResponse(
+            new UserResource($user),
+            'Đã gán quyền Ban tổ chức thành công.',
+            200
         );
     }
 }

@@ -1,6 +1,10 @@
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { OrgLayout } from "./OrgLayout"
 import { useToast } from "../../components/Toast"
+import { useUser } from "../../context/UserContext"
+import { eventsService } from "../../api/services/events.service"
+import { getApiErrorMessage, isAuthError } from "../../api/errors"
+import { AlertTriangle, Mail, Check, X, Calendar, MapPin } from "lucide-react"
 
 interface Props {
   onNavigate: (screen: string) => void
@@ -23,6 +27,7 @@ export interface CohostInvitation {
   hoursLeft: number
   status: "pending" | "accepted" | "declined" | "expired"
   declineReason?: string
+  invitedUnit?: string
 }
 
 const INITIAL_INVITATIONS: CohostInvitation[] = [
@@ -30,7 +35,8 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     id: "cohost-01",
     eventId: "evt-01",
     eventTitle: "UIT AI & Cloud Computing Workshop 2026",
-    hostUnit: "CLB WebDev UIT (Host A)",
+    hostUnit: "CLB WebDev UIT",
+    invitedUnit: "Phòng Công tác Sinh viên (P.CTSV)",
     hostContact: "Nguyễn Văn An · bch.webdev@uit.edu.vn",
     topic: "Học thuật & Trí tuệ nhân tạo",
     eventDate: "2026-11-15",
@@ -47,7 +53,8 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     id: "cohost-02",
     eventId: "evt-02",
     eventTitle: "Chung kết Hackathon UIT Code Sprint 2026",
-    hostUnit: "Khoa Hệ thống Thông tin (Host A)",
+    hostUnit: "Khoa Hệ thống Thông tin",
+    invitedUnit: "CLB WebDev UIT",
     hostContact: "TS. Nguyễn Minh Hải · bql.httt@uit.edu.vn",
     topic: "Kỹ năng mềm & Công nghệ",
     eventDate: "2026-11-20",
@@ -64,7 +71,8 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
     id: "cohost-03",
     eventId: "evt-03",
     eventTitle: "Ngày hội Sách và Văn hóa Đọc Sinh viên",
-    hostUnit: "Đoàn Thanh niên - Hội Sinh viên (Host A)",
+    hostUnit: "Đoàn Thanh niên - Hội Sinh viên",
+    invitedUnit: "Khoa Hệ thống Thông tin",
     hostContact: "Đ/c Lê Thanh Tùng · doanthanhnien@uit.edu.vn",
     topic: "Văn hóa & Nghệ thuật",
     eventDate: "2026-12-01",
@@ -80,7 +88,71 @@ const INITIAL_INVITATIONS: CohostInvitation[] = [
 ]
 
 export default function CohostInvitations({ onNavigate, onLogout }: Props) {
+  const { user, role } = useUser()
   const { showToast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    eventsService
+      .getCohostInvitations()
+      .then((res) => {
+        if (!cancelled && res.data && Array.isArray(res.data)) {
+          const mapped: CohostInvitation[] = res.data.map((item) => {
+            const startDateStr = item.thoi_gian_bat_dau || "2026-11-15T08:00:00+07:00"
+            const endDateStr = item.thoi_gian_ket_thuc || "2026-11-15T11:30:00+07:00"
+            const eventDate = startDateStr.slice(0, 10)
+            const startTime = startDateStr.includes("T")
+              ? startDateStr.split("T")[1].slice(0, 5)
+              : "08:00"
+            const endTime = endDateStr.includes("T")
+              ? endDateStr.split("T")[1].slice(0, 5)
+              : "11:30"
+            let uiStatus: CohostInvitation["status"] = "pending"
+            if (item.trang_thai_xac_nhan === "DONG_Y") uiStatus = "accepted"
+            else if (item.trang_thai_xac_nhan === "TU_CHOI") uiStatus = "declined"
+
+            return {
+              id: `cohost-${item.id}`,
+              eventId: String(item.ma_su_kien),
+              eventTitle: item.ten_su_kien,
+              hostUnit: item.don_vi_host?.ten_don_vi || "Ban tổ chức",
+              invitedUnit:
+                item.don_vi_dong_to_chuc?.ten_don_vi ||
+                user.don_vi?.ten_don_vi ||
+                "CLB WebDev UIT",
+              hostContact: "bch@uit.edu.vn",
+              topic: "Học thuật & Công nghệ",
+              eventDate,
+              eventTime: `${startTime} - ${endTime}`,
+              roomName: item.ten_phong || "Hội trường A",
+              roleDescription:
+                "Phối hợp hỗ trợ kiểm tra thiết bị và điều phối check-in sinh viên.",
+              drlAllocation: "Cộng 5 điểm DRL Điều 3 cho sinh viên tham gia.",
+              deadline: "2026-11-02T18:00:00+07:00",
+              hoursLeft: 24,
+              status: uiStatus,
+              declineReason: item.ly_do_tu_choi || undefined,
+            }
+          })
+          setInvitations(mapped)
+        }
+      })
+      .catch((err) => {
+        if (isAuthError(err)) return
+        if (!cancelled) setError(getApiErrorMessage(err))
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
   const [invitations, setInvitations] =
     useState<CohostInvitation[]>(INITIAL_INVITATIONS)
   const [filter, setFilter] =
@@ -89,45 +161,90 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
     useState<CohostInvitation | null>(null)
   const [declineReason, setDeclineReason] = useState("")
 
-  const filtered = invitations.filter(
+  // Data scoping cô lập tuyệt đối: Chỉ hiển thị lời mời gửi đích danh đến đơn vị của người dùng!
+  const scopedInvitations = useMemo(() => {
+    const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const targetKeyword = isPctsAdmin
+      ? "sinh viên"
+      : (user.don_vi?.ten_don_vi || "").toLowerCase()
+
+    return invitations.filter((inv) => {
+      const target = (inv.invitedUnit || "").toLowerCase()
+      if (target) return target.includes(targetKeyword)
+      if (isPctsAdmin) return inv.id === "cohost-01"
+      return !inv.hostUnit.toLowerCase().includes(targetKeyword)
+    })
+  }, [invitations, role, user])
+
+  const filtered = scopedInvitations.filter(
     (inv) => filter === "all" || inv.status === filter,
   )
 
-  function handleAccept(inv: CohostInvitation) {
-    setInvitations((prev) =>
-      prev.map((item) =>
-        item.id === inv.id ? { ...item, status: "accepted" } : item,
-      ),
-    )
-    showToast(
-      `Đã đồng ý (DONG_Y) tham gia đồng tổ chức sự kiện "${inv.eventTitle}". Hồ sơ tiến hành chuyển bước phê duyệt tiếp theo.`,
-      "success",
-    )
+  async function handleAccept(inv: CohostInvitation) {
+    const numericEventId = Number(inv.eventId.replace(/\D/g, "")) || 101
+    try {
+      await eventsService.cohostRespond(numericEventId, {
+        dong_y: true,
+        trang_thai_xac_nhan: "DONG_Y",
+      })
+      setInvitations((prev) =>
+        prev.map((item) =>
+          item.id === inv.id ? { ...item, status: "accepted" } : item,
+        ),
+      )
+      showToast(
+        `Đã đồng ý tham gia đồng tổ chức sự kiện "${inv.eventTitle}". Hồ sơ tiến hành chuyển bước phê duyệt tiếp theo.`,
+        "success",
+      )
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
-  function handleDeclineConfirm() {
+  async function handleDeclineConfirm() {
     if (!selectedDecline) return
-    if (!declineReason.trim()) {
+    const trimmed = declineReason.trim()
+    if (!trimmed) {
       showToast("Vui lòng nhập lý do từ chối đồng tổ chức.", "error")
       return
     }
+    if (trimmed.length < 5) {
+      showToast("Lý do từ chối đồng tổ chức bắt buộc phải có ít nhất 5 ký tự.", "error")
+      return
+    }
 
-    setInvitations((prev) =>
-      prev.map((item) =>
-        item.id === selectedDecline.id
-          ? { ...item, status: "declined", declineReason: declineReason.trim() }
-          : item,
-      ),
-    )
-    showToast(
-      `Đã từ chối (TU_CHOI) lời mời đồng tổ chức cho sự kiện "${selectedDecline.eventTitle}".`,
-      "info",
-    )
-    setSelectedDecline(null)
-    setDeclineReason("")
+    const numericEventId =
+      Number(selectedDecline.eventId.replace(/\D/g, "")) || 101
+    try {
+      await eventsService.cohostRespond(numericEventId, {
+        dong_y: false,
+        trang_thai_xac_nhan: "TU_CHOI",
+        ghi_chu_tu_choi: trimmed,
+        ly_do_tu_choi: trimmed,
+      })
+      setInvitations((prev) =>
+        prev.map((item) =>
+          item.id === selectedDecline.id
+            ? {
+                ...item,
+                status: "declined",
+                declineReason: trimmed,
+              }
+            : item,
+        ),
+      )
+      showToast(
+        `Đã từ chối lời mời đồng tổ chức cho sự kiện "${selectedDecline.eventTitle}".`,
+        "info",
+      )
+      setSelectedDecline(null)
+      setDeclineReason("")
+    } catch (err) {
+      showToast(getApiErrorMessage(err), "error")
+    }
   }
 
-  const pendingCount = invitations.filter((i) => i.status === "pending").length
+  const pendingCount = scopedInvitations.filter((i) => i.status === "pending").length
 
   return (
     <OrgLayout current="org-cohost" onNavigate={onNavigate} onLogout={onLogout}>
@@ -135,10 +252,18 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-slate-400 mb-4">
           <button
-            onClick={() => onNavigate("org-dashboard")}
+            onClick={() =>
+              onNavigate(
+                role === "admin" || role === "student_affairs"
+                  ? "/admin/dashboard"
+                  : "org-dashboard",
+              )
+            }
             className="hover:text-indigo-600 cursor-pointer"
           >
-            Ban tổ chức
+            {role === "admin" || role === "student_affairs"
+              ? "Quản trị viên"
+              : "Ban tổ chức"}
           </button>
           <span>/</span>
           <span className="text-slate-700 font-medium">
@@ -160,16 +285,8 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                 Lời mời đồng tổ chức sự kiện
               </h1>
               <p className="text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-                Khi Đơn vị chủ trì chính (Host A) gửi đề xuất có mời đơn vị của
-                bạn đồng tổ chức, bạn có thời hạn 48 giờ để xác nhận Đồng ý (
-                <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">
-                  DONG_Y
-                </code>
-                ) hoặc Từ chối (
-                <code className="text-rose-700 bg-rose-50 px-1 py-0.5 rounded">
-                  TU_CHOI
-                </code>
-                ).
+                Khi Đơn vị chủ trì gửi đề xuất có mời đơn vị của
+                bạn đồng tổ chức, bạn có thời hạn 48 giờ để xác nhận Đồng ý hoặc Từ chối phối hợp.
               </p>
             </div>
 
@@ -186,7 +303,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
             <div className="p-3.5 rounded-2xl bg-slate-50">
               <p className="text-xs text-slate-500">Tổng lời mời</p>
               <p className="font-display font-bold text-xl text-navy mt-0.5">
-                {invitations.length}
+                {scopedInvitations.length}
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-100">
@@ -196,15 +313,15 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100">
-              <p className="text-xs text-emerald-700">Đã đồng ý (DONG_Y)</p>
+              <p className="text-xs text-emerald-700">Đã đồng ý</p>
               <p className="font-display font-bold text-xl text-emerald-900 mt-0.5">
-                {invitations.filter((i) => i.status === "accepted").length}
+                {scopedInvitations.filter((i) => i.status === "accepted").length}
               </p>
             </div>
             <div className="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100">
-              <p className="text-xs text-rose-700">Đã từ chối (TU_CHOI)</p>
+              <p className="text-xs text-rose-700">Đã từ chối</p>
               <p className="font-display font-bold text-xl text-rose-900 mt-0.5">
-                {invitations.filter((i) => i.status === "declined").length}
+                {scopedInvitations.filter((i) => i.status === "declined").length}
               </p>
             </div>
           </div>
@@ -232,11 +349,31 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
           ))}
         </div>
 
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center gap-2.5 text-sm">
+            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Invitations List */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <div
+                key={`skel-inv-${idx}`}
+                className="bg-white rounded-3xl border border-slate-200 p-6 animate-pulse"
+              >
+                <div className="h-5 bg-slate-200 rounded w-1/3 mb-3" />
+                <div className="h-4 bg-slate-100 rounded w-2/3 mb-2" />
+                <div className="h-4 bg-slate-100 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-3">
-              ✉️
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+              <Mail className="w-7 h-7" />
             </div>
             <h3 className="font-display font-bold text-base text-slate-900">
               Không có lời mời nào
@@ -267,13 +404,15 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                         </span>
                       )}
                       {inv.status === "accepted" && (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          ✓ Đã đồng ý (DONG_Y)
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Đã đồng ý</span>
                         </span>
                       )}
                       {inv.status === "declined" && (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                          ✕ Đã từ chối (TU_CHOI)
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                          <X className="w-3.5 h-3.5" />
+                          <span>Đã từ chối</span>
                         </span>
                       )}
                     </div>
@@ -285,7 +424,7 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4 text-xs text-slate-600 mt-3 pt-3 border-t border-slate-100">
                       <div>
                         <span className="text-slate-400">
-                          Đơn vị chủ trì (Host A):
+                          Đơn vị chủ trì:
                         </span>
                         <p className="font-semibold text-slate-900 mt-0.5">
                           {inv.hostUnit}
@@ -298,16 +437,18 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                         <span className="text-slate-400">
                           Thời gian tổ chức:
                         </span>
-                        <p className="font-semibold text-slate-900 mt-0.5">
-                          📅 {inv.eventDate} ({inv.eventTime})
+                        <p className="font-semibold text-slate-900 mt-0.5 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span>{inv.eventDate} ({inv.eventTime})</span>
                         </p>
                       </div>
                       <div>
                         <span className="text-slate-400">
                           Địa điểm / Hội trường:
                         </span>
-                        <p className="font-semibold text-slate-900 mt-0.5">
-                          📍 {inv.roomName}
+                        <p className="font-semibold text-slate-900 mt-0.5 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <span>{inv.roomName}</span>
                         </p>
                       </div>
                     </div>
@@ -338,13 +479,13 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                         onClick={() => handleAccept(inv)}
                         className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer text-center"
                       >
-                        Đồng ý (DONG_Y)
+                        Đồng ý tham gia
                       </button>
                       <button
                         onClick={() => setSelectedDecline(inv)}
                         className="flex-1 py-2.5 px-4 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 font-semibold text-xs transition-colors cursor-pointer text-center"
                       >
-                        Từ chối (TU_CHOI)
+                        Từ chối lời mời
                       </button>
                     </div>
                   )}
@@ -367,9 +508,20 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
               </p>
 
               <div className="mt-4">
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Lý do từ chối tham gia (Bắt buộc theo quy chế kiểm toán)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Lý do từ chối tham gia (bắt buộc)
+                  </label>
+                  <span
+                    className={`text-[11px] font-mono ${
+                      declineReason.trim().length >= 5
+                        ? "text-emerald-600 font-semibold"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {declineReason.trim().length} / 5 ký tự tối thiểu
+                  </span>
+                </div>
                 <textarea
                   value={declineReason}
                   onChange={(e) => setDeclineReason(e.target.value)}
@@ -391,7 +543,8 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                 </button>
                 <button
                   onClick={handleDeclineConfirm}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+                  disabled={declineReason.trim().length < 5}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
                 >
                   Xác nhận từ chối
                 </button>

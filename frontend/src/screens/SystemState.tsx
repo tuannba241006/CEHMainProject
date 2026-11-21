@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router"
+import { useUser } from "../context/UserContext"
 
 interface Props {
   kind: "loading" | "forbidden" | "session" | "not-found" | "info"
@@ -8,6 +9,7 @@ interface Props {
 
 export default function SystemState({ kind, title, message }: Props) {
   const navigate = useNavigate()
+  const { role, authenticated } = useUser()
   const content = {
     loading: [
       "Đang tải dữ liệu",
@@ -27,6 +29,25 @@ export default function SystemState({ kind, title, message }: Props) {
     ],
     info: [title || "Thông tin", message || ""],
   }[kind]
+
+  const userHome =
+    role === "admin" || role === "student_affairs"
+      ? "/admin/dashboard"
+      : role === "organizer"
+        ? "/organizer/dashboard"
+        : role === "faculty_manager"
+          ? "/faculty/approvals"
+          : "/events"
+
+  const homeLabel =
+    role === "admin" || role === "student_affairs"
+      ? "Về Cổng Quản trị Admin"
+      : role === "organizer"
+        ? "Về Không gian Ban tổ chức"
+        : role === "faculty_manager"
+          ? "Về Quản lý Khoa"
+          : "Trang sự kiện"
+
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center p-6">
       <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-8 text-center shadow-sm">
@@ -44,18 +65,18 @@ export default function SystemState({ kind, title, message }: Props) {
         </h1>
         <p className="text-sm text-slate-500 mt-2">{content[1]}</p>
         {kind !== "loading" && (
-          <div className="flex justify-center gap-3 mt-6">
+          <div className="flex flex-wrap justify-center gap-3 mt-6">
             <button
               onClick={() => navigate(-1)}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
             >
               Quay lại
             </button>
             <button
-              onClick={() => navigate("/events")}
-              className="px-4 py-2.5 rounded-xl bg-indigo text-white text-sm font-semibold"
+              onClick={() => navigate(authenticated ? userHome : "/events")}
+              className="px-4 py-2.5 rounded-xl bg-indigo text-white text-sm font-semibold hover:bg-indigo-600 cursor-pointer"
             >
-              Trang sự kiện
+              {authenticated ? homeLabel : "Trang sự kiện"}
             </button>
           </div>
         )}

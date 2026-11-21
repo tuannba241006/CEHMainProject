@@ -30,8 +30,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/*',
         ]);
 
-        $middleware->statefulApi();
-
         $middleware->api(prepend: [
             EncryptCookies::class,
             AddQueuedCookiesToResponse::class,

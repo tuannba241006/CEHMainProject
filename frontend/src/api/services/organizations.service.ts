@@ -6,9 +6,10 @@ export const organizationsService = {
   publicList: () =>
     api.get<ApiEnvelope<OrganizationSummary[]>>("/organizations"),
   topics: () => api.get<ApiEnvelope<Topic[]>>("/topics"),
-  uploadImage: (file: File) => {
+  uploadImage: (file: File, loai: "poster" | "logo" | "avatar" = "poster") => {
     const body = new FormData()
     body.append("file", file)
+    body.append("loai", loai)
     return api.post<ApiEnvelope<{ url: string }>>("/uploads/images", body)
   },
 }

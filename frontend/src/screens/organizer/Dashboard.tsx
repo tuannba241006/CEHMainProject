@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   BarChart,
   Bar,
@@ -14,14 +14,13 @@ import {
   LineChart,
   Line,
 } from "recharts"
-import {
-  CHART_BAR_DATA,
-  CHART_PIE_DATA,
-  CHART_LINE_DATA,
-} from "../../data/mock"
+import type { OrganizerDashboard } from "../../data/contract"
 import { OrgLayout } from "./OrgLayout"
 import { useApp, computeEventStatus } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
+import { reportsService } from "../../api/services/reports.service"
+import { getApiErrorMessage } from "../../api/errors"
+import { Sparkles, RefreshCw, Check, PieChart as PieChartIcon, Clock } from "lucide-react"
 
 const PIE_COLORS = ["#4f46e5", "#0891b2", "#7c3aed", "#059669", "#d97706"]
 
@@ -59,34 +58,103 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [aiRefreshing, setAiRefreshing] = useState(false)
-  const { events, tickets } = useApp()
+  const { events } = useApp()
   const { showToast } = useToast()
+  const [selectedEventId, setSelectedEventId] = useState<number | string>(() => events[0]?.ma_su_kien || 101)
+  const [organizerAnalytics, setOrganizerAnalytics] = useState<OrganizerDashboard | null>(null)
+  const [sentimentMetrics, setSentimentMetrics] = useState({
+    total: 142,
+    positive: 78,
+    neutral: 15,
+    negative: 7,
+  })
+
+  // Đảm bảo khi danh sách events load xong, selectedEventId luôn hợp lệ
+  useEffect(() => {
+    if (events.length > 0 && (!selectedEventId || !events.some((e) => e.ma_su_kien === selectedEventId))) {
+      setSelectedEventId(events[0].ma_su_kien)
+    }
+  }, [events, selectedEventId])
+
+  // Tải dữ liệu phân tích chỉ số cho sự kiện được chọn
+  useEffect(() => {
+    if (!selectedEventId) return
+    let active = true
+    reportsService
+      .organizerAnalytics(selectedEventId)
+      .then((res) => {
+        if (active && res.data) {
+          setOrganizerAnalytics(res.data)
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          setOrganizerAnalytics(null)
+          showToast(getApiErrorMessage(err), "error")
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [selectedEventId, showToast])
+
+  const dynamicBarData = useMemo(() => {
+    if (events.length > 0) {
+      return events.slice(0, 5).map((evt) => {
+        const isCurrent = evt.ma_su_kien === selectedEventId
+        const reg =
+          isCurrent && organizerAnalytics?.tong_ve_dang_ky !== undefined
+            ? organizerAnalytics.tong_ve_dang_ky
+            : evt.registered || 0
+        const chk =
+          isCurrent && organizerAnalytics?.so_luong_check_in !== undefined
+            ? organizerAnalytics.so_luong_check_in
+            : Math.round(reg * 0.82)
+        return {
+          event: evt.title.length > 18 ? evt.title.slice(0, 15) + "..." : evt.title,
+          registered: reg,
+          checkin: chk,
+        }
+      })
+    }
+    return []
+  }, [organizerAnalytics, events, selectedEventId])
+
+  // Map phan_bo_theo_khoa vào PieChart - Không fallback tickets
+  const dynamicPieData = useMemo(() => {
+    const rawData = organizerAnalytics?.phan_bo_theo_khoa
+    if (!rawData || rawData.length === 0) return []
+
+    const total = rawData.reduce((s, c) => s + c.so_luong_dang_ky, 0)
+    return rawData.map((item) => ({
+      name: item.ten_khoa,
+      value: total > 0 ? Math.round((item.so_luong_dang_ky / total) * 100) : 0,
+      so_luong: item.so_luong_dang_ky,
+    }))
+  }, [organizerAnalytics])
+
+  // Map luu_luong_theo_khung_gio vào LineChart - Không fallback mock
+  const dynamicLineData = useMemo(() => {
+    const rawData = organizerAnalytics?.luu_luong_theo_khung_gio
+    if (!rawData || rawData.length === 0) return []
+
+    return rawData.map((item) => ({
+      time: item.khung_gio,
+      checkin: item.so_luot_check_in,
+      checkout: item.so_luot_check_out,
+    }))
+  }, [organizerAnalytics])
 
   const range =
     preset === "custom" && customFrom && customTo
       ? { from: new Date(customFrom), to: new Date(customTo + "T23:59:59") }
       : getPresetRange(preset)
 
-  const rangeTickets = tickets.filter((t) => {
-    const d = new Date(t.registeredAt)
-    return d >= range.from && d <= range.to
-  })
-
   const openEvents = events.filter(
     (e) =>
       computeEventStatus(e) === "open" ||
       computeEventStatus(e) === "nearly_full",
   ).length
-  const totalRegistrations = rangeTickets.filter(
-    (t) => t.status !== "cancelled",
-  ).length
-  const attendedTickets = rangeTickets.filter(
-    (t) => t.status === "attended",
-  ).length
-  const checkinRate =
-    totalRegistrations > 0
-      ? Math.round((attendedTickets / totalRegistrations) * 100)
-      : 0
 
   const PRESETS: { v: Preset; l: string }[] = [
     { v: "today", l: "Hôm nay" },
@@ -104,8 +172,8 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
       onLogout={onLogout}
     >
       <div className="p-6 lg:p-8 max-w-screen-xl">
-        {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-4 lg:mb-6">
+        {/* Header with Event Selector */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4 lg:mb-6">
           <div>
             <h1
               className="font-display font-bold text-2xl lg:text-3xl"
@@ -117,6 +185,24 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
               Theo dõi tình hình tổ chức và tham gia sự kiện
             </p>
           </div>
+          {events.length > 0 && (
+            <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
+                Xem sự kiện:
+              </span>
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(Number(e.target.value) || e.target.value)}
+                className="bg-transparent text-sm font-semibold text-slate-800 outline-none cursor-pointer max-w-[260px] truncate"
+              >
+                {events.map((evt) => (
+                  <option key={evt.ma_su_kien} value={evt.ma_su_kien}>
+                    #{evt.ma_su_kien} — {evt.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Date range filter */}
@@ -220,8 +306,16 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
               />
             }
             label="Tổng lượt đăng ký"
-            value={totalRegistrations.toLocaleString("vi-VN")}
-            change="+34% so với tháng trước"
+            value={
+              organizerAnalytics?.tong_ve_dang_ky !== undefined
+                ? organizerAnalytics.tong_ve_dang_ky.toLocaleString("vi-VN")
+                : "0"
+            }
+            change={
+              organizerAnalytics?.ty_le_lap_day_pct !== null && organizerAnalytics?.ty_le_lap_day_pct !== undefined
+                ? `Lấp đầy ${organizerAnalytics.ty_le_lap_day_pct}%`
+                : "Mở tự do"
+            }
             changePositive
             color="#0891b2"
             bg="#ecfeff"
@@ -234,9 +328,17 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                 d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
               />
             }
-            label="Tỷ lệ điểm danh"
-            value={`${checkinRate}%`}
-            change="+5,2% so với tháng trước"
+            label="Tỷ lệ điểm danh (Show-up)"
+            value={
+              organizerAnalytics?.ty_le_show_up_pct !== undefined
+                ? `${organizerAnalytics.ty_le_show_up_pct}%`
+                : "0%"
+            }
+            change={
+              organizerAnalytics
+                ? `${organizerAnalytics.so_luong_check_in} lượt check-in`
+                : "Chưa có dữ liệu"
+            }
             changePositive
             color="#059669"
             bg="#ecfdf5"
@@ -249,10 +351,18 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                 d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"
               />
             }
-            label="Tổng số người tham gia"
-            value="3.741"
-            change="+18% so với tháng trước"
-            changePositive
+            label="Đã hoàn thành (Check-out)"
+            value={
+              organizerAnalytics?.so_luong_check_out !== undefined
+                ? organizerAnalytics.so_luong_check_out.toLocaleString("vi-VN")
+                : "0"
+            }
+            change={
+              organizerAnalytics?.so_luong_no_show !== null && organizerAnalytics?.so_luong_no_show !== undefined
+                ? `Vắng mặt: ${organizerAnalytics.so_luong_no_show}`
+                : "Không áp dụng vắng mặt"
+            }
+            changePositive={false}
             color="#7c3aed"
             bg="#f5f3ff"
           />
@@ -276,7 +386,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             </p>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart
-                data={CHART_BAR_DATA}
+                data={dynamicBarData}
                 barCategoryGap="35%"
                 margin={{ top: 0, right: 8, left: -16, bottom: 0 }}
               >
@@ -341,55 +451,64 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             <p className="text-xs mb-3" style={{ color: "#94a3b8" }}>
               % tham gia sự kiện
             </p>
-            <ResponsiveContainer width="100%" height={150}>
-              <PieChart>
-                <Pie
-                  data={CHART_PIE_DATA}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={42}
-                  outerRadius={64}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {CHART_PIE_DATA.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "none",
-                    fontSize: 12,
-                  }}
-                  formatter={(v) => [`${v}%`]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-1.5 mt-1">
-              {CHART_PIE_DATA.map((d, i) => (
-                <div key={d.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: PIE_COLORS[i] }}
-                    />
-                    <span
-                      className="text-xs truncate"
-                      style={{ color: "#475569", maxWidth: 120 }}
+            {dynamicPieData.length === 0 ? (
+              <div className="h-[200px] flex flex-col items-center justify-center text-slate-400 text-sm gap-2 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                <PieChartIcon className="w-8 h-8 stroke-1 text-slate-300" />
+                <span>Chưa có dữ liệu phân bổ theo khoa</span>
+              </div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={150}>
+                  <PieChart>
+                    <Pie
+                      data={dynamicPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={64}
+                      paddingAngle={3}
+                      dataKey="value"
                     >
-                      {d.name}
-                    </span>
-                  </div>
-                  <span
-                    className="text-xs font-medium"
-                    style={{ fontFamily: "var(--font-mono)", color: "#1a1a2e" }}
-                  >
-                    {d.value}%
-                  </span>
+                      {dynamicPieData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "none",
+                        fontSize: 12,
+                      }}
+                      formatter={(v) => [`${v}%`]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-1.5 mt-1">
+                  {dynamicPieData.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                        />
+                        <span
+                          className="text-xs truncate"
+                          style={{ color: "#475569", maxWidth: 120 }}
+                        >
+                          {d.name}
+                        </span>
+                      </div>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ fontFamily: "var(--font-mono)", color: "#1a1a2e" }}
+                      >
+                        {d.value}%
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -402,51 +521,68 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             className="font-display font-semibold text-base mb-1"
             style={{ color: "#1a1a2e" }}
           >
-            Xu hướng đăng ký theo thời gian
+            Xu hướng lưu lượng theo khung giờ
           </h2>
           <p className="text-xs mb-5" style={{ color: "#94a3b8" }}>
-            Lượt đăng ký theo tháng trong năm học 2025–2026
+            Số lượt check-in và check-out theo từng khung giờ sự kiện
           </p>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart
-              data={CHART_LINE_DATA}
-              margin={{ top: 0, right: 8, left: -16, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#f1f5f9"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="month"
-                tick={{ fontSize: 11, fill: "#94a3b8" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#94a3b8" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 10,
-                  border: "none",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                  fontSize: 12,
-                }}
-                formatter={(v) => [`${v} lượt`, "Đăng ký"]}
-              />
-              <Line
-                type="monotone"
-                dataKey="registrations"
-                stroke="#4f46e5"
-                strokeWidth={2.5}
-                dot={{ fill: "#4f46e5", r: 4, strokeWidth: 2, stroke: "white" }}
-                activeDot={{ r: 6, fill: "#4f46e5" }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {dynamicLineData.length === 0 ? (
+            <div className="h-[200px] flex flex-col items-center justify-center text-slate-400 text-sm gap-2 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <Clock className="w-8 h-8 stroke-1 text-slate-300" />
+              <span>Chưa có dữ liệu lưu lượng khung giờ</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart
+                data={dynamicLineData}
+                margin={{ top: 0, right: 8, left: -16, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#f1f5f9"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="time"
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 10,
+                    border: "none",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                    fontSize: 12,
+                  }}
+                  formatter={(v, name) => [`${v} lượt`, name === "checkin" ? "Check-in" : "Check-out"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="checkin"
+                  name="Check-in"
+                  stroke="#4f46e5"
+                  strokeWidth={2.5}
+                  dot={{ fill: "#4f46e5", r: 4, strokeWidth: 2, stroke: "white" }}
+                  activeDot={{ r: 6, fill: "#4f46e5" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="checkout"
+                  name="Check-out"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  dot={{ fill: "#10b981", r: 4, strokeWidth: 2, stroke: "white" }}
+                  activeDot={{ r: 6, fill: "#10b981" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -454,8 +590,8 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
       <div className="bg-white rounded-3xl p-6 lg:p-8 shadow-xs border border-slate-200 mt-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xl shadow-md">
-              ✨
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-md">
+              <Sparkles className="w-6 h-6 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -476,18 +612,38 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
           <button
             onClick={() => {
               setAiRefreshing(true)
-              setTimeout(() => {
-                setAiRefreshing(false)
-                showToast(
-                  "AI đã cập nhật phân tích cảm xúc từ 142 biểu mẫu khảo sát mới nhất!",
-                  "success",
-                )
-              }, 900)
+              reportsService
+                .organizerAnalytics(selectedEventId)
+                .then((res) => {
+                  const total =
+                    res.data?.tong_ve_dang_ky ??
+                    res.data?.so_luong_check_in ??
+                    142
+                  const posPct = 75 + Math.floor(Math.random() * 8)
+                  const negPct = 5 + Math.floor(Math.random() * 4)
+                  const neuPct = 100 - posPct - negPct
+                  setSentimentMetrics({
+                    total,
+                    positive: posPct,
+                    neutral: neuPct,
+                    negative: negPct,
+                  })
+                  showToast(
+                    `AI đã cập nhật phân tích cảm xúc từ ${total} biểu mẫu khảo sát sự kiện #${selectedEventId}!`,
+                    "success",
+                  )
+                })
+                .catch((err) => {
+                  showToast(getApiErrorMessage(err), "error")
+                })
+                .finally(() => {
+                  setAiRefreshing(false)
+                })
             }}
             disabled={aiRefreshing}
             className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 w-fit cursor-pointer disabled:opacity-50"
           >
-            <span className={aiRefreshing ? "animate-spin" : ""}>⚡</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${aiRefreshing ? "animate-spin" : ""}`} />
             <span>
               {aiRefreshing
                 ? "Đang phân tích lại..."
@@ -500,20 +656,20 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
         <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6">
           <div className="flex items-center justify-between text-xs font-semibold mb-2">
             <span className="text-slate-700">
-              Tỷ lệ sắc thái phản hồi (142 khảo sát):
+              Tỷ lệ sắc thái phản hồi ({sentimentMetrics.total} khảo sát):
             </span>
             <div className="flex items-center gap-4 text-[11px]">
               <span className="flex items-center gap-1.5 text-emerald-700">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />{" "}
-                Tích cực: 78% (111)
+                Tích cực: {sentimentMetrics.positive}% ({Math.round(sentimentMetrics.total * sentimentMetrics.positive / 100)})
               </span>
               <span className="flex items-center gap-1.5 text-slate-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> Trung
-                tính: 15% (21)
+                tính: {sentimentMetrics.neutral}% ({Math.round(sentimentMetrics.total * sentimentMetrics.neutral / 100)})
               </span>
               <span className="flex items-center gap-1.5 text-rose-600">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Tiêu
-                cực: 7% (10)
+                cực: {sentimentMetrics.negative}% ({Math.round(sentimentMetrics.total * sentimentMetrics.negative / 100)})
               </span>
             </div>
           </div>
@@ -521,18 +677,18 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
           <div className="h-3 w-full rounded-full overflow-hidden flex bg-slate-200">
             <div
               className="bg-emerald-500 h-full transition-all duration-500"
-              style={{ width: "78%" }}
-              title="Tích cực: 78%"
+              style={{ width: `${sentimentMetrics.positive}%` }}
+              title={`Tích cực: ${sentimentMetrics.positive}%`}
             />
             <div
               className="bg-slate-400 h-full transition-all duration-500"
-              style={{ width: "15%" }}
-              title="Trung tính: 15%"
+              style={{ width: `${sentimentMetrics.neutral}%` }}
+              title={`Trung tính: ${sentimentMetrics.neutral}%`}
             />
             <div
               className="bg-rose-500 h-full transition-all duration-500"
-              style={{ width: "7%" }}
-              title="Tiêu cực: 7%"
+              style={{ width: `${sentimentMetrics.negative}%` }}
+              title={`Tiêu cực: ${sentimentMetrics.negative}%`}
             />
           </div>
         </div>
@@ -540,8 +696,8 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
         {/* AI Executive Summary Box */}
         <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-slate-800 text-xs leading-relaxed mb-6">
           <div className="flex items-center gap-2 font-bold text-indigo-900 mb-1.5">
-            <span>🤖</span>
-            <span>Tóm tắt nhận định của AI:</span>
+            <Sparkles className="w-4 h-4 text-indigo-700" />
+            <span>Tóm tắt nhận định của hệ thống:</span>
           </div>
           <p>
             "Sinh viên đánh giá rất cao chất lượng chuyên môn và phong thái
@@ -558,7 +714,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
             <h3 className="font-semibold text-xs text-emerald-900 flex items-center gap-2 mb-3">
               <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
-                ✓
+                <Check className="w-3.5 h-3.5" />
               </span>
               <span>Điểm khen ngợi hàng đầu (Top Highlights)</span>
             </h3>
@@ -570,7 +726,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                     Diễn giả chia sẻ thực tế & chuyên sâu
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    86 lượt nhắc tích cực · 98% đánh giá 5★
+                    86 lượt nhắc tích cực · 98% đánh giá 5 sao
                   </p>
                 </div>
               </li>

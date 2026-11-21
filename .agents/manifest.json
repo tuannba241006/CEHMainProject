@@ -336,6 +336,28 @@
         "Write"
       ],
       "version": "1.0.0"
+    },
+    "ui-qa-auditor": {
+      "model": "inherit",
+      "path": "agent/ui-qa-auditor.md",
+      "requires": {
+        "skills": {
+          "clean-code": "^2.0.0",
+          "lint-and-validate": "^1.0.0",
+          "package-qa-qc": "^1.0.0",
+          "playwright-ui-auditor": "^1.0.0",
+          "webapp-testing": "^1.0.0"
+        }
+      },
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash",
+        "Edit",
+        "Write"
+      ],
+      "version": "1.0.0"
     }
   },
   "contracts": {
@@ -931,6 +953,22 @@
       "path": "skills/webapp-testing/SKILL.md",
       "scripts": [
         "skills/webapp-testing/scripts/playwright_runner.py"
+      ],
+      "version": "1.0.0"
+    },
+    "playwright-ui-auditor": {
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+        "call_mcp_tool"
+      ],
+      "path": "skills/playwright-ui-auditor/SKILL.md",
+      "scripts": [
+        "skills/playwright-ui-auditor/scripts/mailpit_helper.py"
       ],
       "version": "1.0.0"
     }

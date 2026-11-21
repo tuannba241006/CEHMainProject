@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { TOPIC_LABELS, type Topic } from "../../data/mock"
+import type { WaitlistEntry } from "../../data/contract"
 import { useUser } from "../../context/UserContext"
 import {
   useApp,
@@ -7,6 +8,21 @@ import {
   type LiveEvent,
   type EventStatus,
 } from "../../context/AppContext"
+
+import {
+  Search,
+  Calendar,
+  MapPin,
+  User as UserIcon,
+  Clock,
+  Sparkles,
+  Ticket,
+  CheckCircle2,
+  Check,
+  Filter,
+  X,
+  GraduationCap,
+} from "lucide-react"
 
 export { TOPIC_LABELS }
 
@@ -48,10 +64,13 @@ export default function EventList({
     getUserActiveTicket,
     computeStatus,
     getStudentWaitlistEntries,
+    loading,
+    error,
+    refetch,
   } = useApp()
   const [search, setSearch] = useState("")
   const [topic, setTopic] = useState<Topic | "all">("all")
-  const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all")
+  const [statusFilter, setStatusFilter] = useState<EventStatus | "all" | "unlimited">("all")
   const [dateFilter, setDateFilter] = useState("")
   const [locationFilter, setLocationFilter] = useState("")
 
@@ -61,7 +80,11 @@ export default function EventList({
       e.title.toLowerCase().includes(search.toLowerCase()) ||
       e.speaker.toLowerCase().includes(search.toLowerCase())
     const matchTopic = topic === "all" || e.topic === topic
-    const matchStatus = statusFilter === "all" || status === statusFilter
+    const matchStatus =
+      statusFilter === "all" ||
+      (statusFilter === "unlimited"
+        ? Boolean(e.khong_gioi_han_slot)
+        : status === statusFilter)
     const matchDate = !dateFilter || e.date === dateFilter
     const matchLocation =
       !locationFilter ||
@@ -99,7 +122,8 @@ export default function EventList({
                 </div>
               ) : (
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 mb-3">
-                  <span>👋 Xin chào, {user.displayName}</span>
+                  <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Xin chào, {user.displayName}</span>
                   <span>·</span>
                   <span>{user.faculty}</span>
                 </div>
@@ -205,12 +229,13 @@ export default function EventList({
                 <select
                   value={statusFilter}
                   onChange={(e) =>
-                    setStatusFilter(e.target.value as EventStatus | "all")
+                    setStatusFilter(e.target.value as EventStatus | "all" | "unlimited")
                   }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
                 >
                   <option value="all">Tất cả trạng thái</option>
-                  <option value="open">Đang mở</option>
+                  <option value="open">Đang mở (Còn chỗ)</option>
+                  <option value="unlimited">Mở tự do</option>
                   <option value="nearly_full">Sắp hết chỗ</option>
                   <option value="full">Đã hết chỗ</option>
                 </select>
@@ -289,7 +314,34 @@ export default function EventList({
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4"
+              >
+                <div className="h-44 bg-slate-100 rounded-2xl w-full" />
+                <div className="h-5 bg-slate-200 rounded-md w-3/4" />
+                <div className="h-4 bg-slate-100 rounded-md w-1/2" />
+                <div className="h-10 bg-slate-100 rounded-xl w-full" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center max-w-lg mx-auto my-8">
+            <p className="text-sm font-semibold text-rose-800">
+              Không thể tải dữ liệu sự kiện từ máy chủ
+            </p>
+            <p className="text-xs text-rose-600 mt-1">{error}</p>
+            <button
+              onClick={() => void refetch?.()}
+              className="mt-4 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-8">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-4">
               <svg
@@ -359,10 +411,10 @@ function EventCard({
 }: {
   event: LiveEvent
   isRegistered: boolean
-  waitlistEntry?: any
+  waitlistEntry?: WaitlistEntry
   isGuest: boolean
   onSelect: () => void
-  key?: any
+  key?: React.Key
 }) {
   const { computeStatus } = useApp()
   const status = computeStatus(event)
@@ -392,12 +444,19 @@ function EventCard({
 
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
-          <span
-            className="px-2.5 py-0.8 rounded-full text-xs font-semibold text-white shadow-xs backdrop-blur-xs"
-            style={{ background: TOPIC_COLORS[event.topic] || "#4f46e5" }}
-          >
-            {TOPIC_LABELS[event.topic]}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className="px-2.5 py-0.8 rounded-full text-xs font-semibold text-white shadow-xs backdrop-blur-xs"
+              style={{ background: TOPIC_COLORS[event.topic] || "#4f46e5" }}
+            >
+              {TOPIC_LABELS[event.topic]}
+            </span>
+            {event.khong_gioi_han_slot && (
+              <span className="px-2.5 py-0.8 rounded-full text-xs font-bold bg-sky-500 text-white shadow-xs">
+                Mở tự do
+              </span>
+            )}
+          </div>
           <span
             className={`px-2.5 py-0.8 rounded-full text-xs font-semibold shadow-xs ${
               status === "full" && !isRegistered
@@ -416,10 +475,10 @@ function EventCard({
           >
             {status === "full" && !isRegistered
               ? waitlistEntry?.trang_thai === "OFFERED"
-                ? "🎉 Có suất nhận vé (Sàn 15p)"
+                ? "Có suất nhận vé (Hạn 15p)"
                 : waitlistEntry
-                  ? `⏳ Trong hàng chờ #${waitlistEntry.so_thu_tu}`
-                  : "⏳ Hết vé · Mở hàng chờ FIFO"
+                  ? `Hàng chờ FIFO #${waitlistEntry.so_thu_tu}`
+                  : "Hết vé · Hàng chờ FIFO mở"
               : EVENT_STATUS_LABELS[status]}
           </span>
         </div>
@@ -446,22 +505,22 @@ function EventCard({
           </div>
           {isRegistered && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-white shadow-xs">
-              ✓ Đã có vé
+              Đã có vé
             </span>
           )}
           {!isRegistered && waitlistEntry?.trang_thai === "OFFERED" && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white shadow-xs animate-pulse">
-              🎉 Có suất vé chờ xác nhận
+              Suất vé chờ xác nhận
             </span>
           )}
           {!isRegistered && waitlistEntry?.trang_thai === "WAITING" && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white shadow-xs">
-              ⏳ Hàng chờ #{waitlistEntry.so_thu_tu}
+              Hàng chờ #{waitlistEntry.so_thu_tu}
             </span>
           )}
           {!isRegistered && !waitlistEntry && status === "full" && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600/90 text-white shadow-xs">
-              ⏳ Hàng chờ FIFO mở
+              Hàng chờ FIFO mở
             </span>
           )}
         </div>
@@ -512,42 +571,51 @@ function EventCard({
 
         {/* Capacity Meter */}
         <div className="pt-3 border-t border-slate-100">
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-400 font-mono text-[11px]">
-                {event.registered}/{event.capacity} chỗ ({pct}%)
+          {event.khong_gioi_han_slot ? (
+            <div className="flex justify-between items-center text-xs py-1">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                Mở tự do
               </span>
-              <span
-                className={`font-semibold text-xs ${
-                  pct >= 100
-                    ? "text-amber-700"
-                    : pct >= 90
-                      ? "text-rose-600"
-                      : pct >= 70
-                        ? "text-amber-600"
-                        : "text-emerald-600"
-                }`}
-              >
-                {event.capacity - event.registered > 0
-                  ? "Còn " + (event.capacity - event.registered) + " chỗ"
-                  : "Hết vé · Có hàng chờ FIFO"}
-              </span>
+              <span className="text-slate-500 text-xs font-medium">Không giới hạn slot</span>
             </div>
-            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  pct >= 100
-                    ? "bg-amber-500"
-                    : pct >= 90
-                      ? "bg-rose-500"
-                      : pct >= 70
-                        ? "bg-amber-500"
-                        : "bg-indigo-600"
-                }`}
-                style={{ width: `${Math.min(pct, 100)}%` }}
-              />
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400 font-mono text-[11px]">
+                  {event.registered}/{event.capacity} chỗ ({pct}%)
+                </span>
+                <span
+                  className={`font-semibold text-xs ${
+                    pct >= 100
+                      ? "text-amber-700"
+                      : pct >= 90
+                        ? "text-rose-600"
+                        : pct >= 70
+                          ? "text-amber-600"
+                          : "text-emerald-600"
+                  }`}
+                >
+                  {event.capacity - event.registered > 0
+                    ? "Còn " + (event.capacity - event.registered) + " chỗ"
+                    : "Hết vé · Có hàng chờ FIFO"}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    pct >= 100
+                      ? "bg-amber-500"
+                      : pct >= 90
+                        ? "bg-rose-500"
+                        : pct >= 70
+                          ? "bg-amber-500"
+                          : "bg-indigo-600"
+                  }`}
+                  style={{ width: `${Math.min(pct, 100)}%` }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Button CTA preview */}
           <div
@@ -580,13 +648,13 @@ function EventCard({
             }}
           >
             {!isGuest && isRegistered
-              ? "✓ Xem vé của bạn"
+              ? "Xem vé của bạn →"
               : waitlistEntry?.trang_thai === "OFFERED"
-                ? "🎉 Bạn có suất nhận vé — Mở Ví vé →"
+                ? "Có suất nhận vé — Mở Ví vé →"
                 : waitlistEntry
-                  ? `⏳ Đang trong hàng chờ FIFO #${waitlistEntry.so_thu_tu} →`
+                  ? `Trong hàng chờ FIFO #${waitlistEntry.so_thu_tu} →`
                   : status === "full"
-                    ? "⏳ Hết vé · Đăng ký hàng chờ FIFO →"
+                    ? "Hết vé · Đăng ký hàng chờ FIFO →"
                     : isGuest
                       ? "Xem chi tiết sự kiện →"
                       : "Xem chi tiết & Đăng ký →"}
@@ -607,7 +675,7 @@ function Chip({
   active: boolean
   onClick: () => void
   color: string
-  key?: any
+  key?: React.Key
 }) {
   return (
     <button

@@ -1,7 +1,7 @@
 ---
 type: feedback
 created: 2026-07-18
-updated: 2026-10-21
+updated: 2026-11-07
 ---
 
 # Feedback History
@@ -57,5 +57,26 @@ updated: 2026-10-21
    - Đảm bảo giải phóng hoàn toàn các slot tồn đọng trước khi Waitlist đóng cửa lúc $T - 2$h, tránh hiện tượng "slot treo ma" khi cận giờ diễn ra sự kiện.
 6. **Cắt bỏ Tính năng Dời phòng (`RESCHEDULE_PENDING` / `UC-EVT-04`):**
    - Loại bỏ trạng thái dời phòng trên web để tinh gọn State Machine. Đảm bảo bất biến $\text{so\_luong\_toi\_da} \le \text{phong\_hoi\_truong.suc\_chua}$ ngay từ khâu tạo sự kiện. Nếu thực tế có dời phòng, Ban tổ chức tự điều phối thông báo tại chỗ hoặc gửi email khẩn cấp, hệ thống không can thiệp.
+
+## 2026-11-07: Định hướng Kiến trúc Frontend — Phân định Ranh giới Client-Side vs Server-Side & Chuẩn hóa Vòng đời API (API-First / Contract-Driven)
+- **1. Ranh giới Trách nhiệm Tuyệt đối (Separation of Concerns & "Never Trust the Client"):**
+  - *Frontend là Tầng Trình diễn & Trải nghiệm (Presentation & Client State):* Chịu trách nhiệm hiển thị giao diện, điều hướng màn hình, định dạng dữ liệu (ngày tháng, nhãn trạng thái), kiểm tra ràng buộc nhập liệu cơ bản (client-side validation), hiển thị trạng thái chờ mạng (Loading/Skeleton) và bắt lỗi HTTP để thông báo cho người dùng.
+  - *Backend là Tầng Nghiệp vụ & Toàn vẹn Dữ liệu (Domain Logic & Data Integrity):* Nắm quyền tối cao về tính toán slot, trừ vé, khóa bi quan (Pessimistic Locking), băm chữ ký mật mã HMAC, giải mã TOTP QR, luân chuyển State Machine (Duyệt Khoa/CTSV), chế tài No-show và cấp phát điểm DRL.
+  - *⛔ ĐIỀU CẤM:* Frontend tuyệt đối **KHÔNG ĐƯỢC** tự viết logic "đóng giả Backend" (ví dụ: tự sinh mã vé UUID/HMAC trong RAM, tự chạy switch-case đổi trạng thái duyệt hồ sơ trong component, tự trừ slot trong mảng bộ nhớ). Giao diện người dùng phải đóng vai trò là "tấm gương phản chiếu trạng thái của máy chủ".
+- **2. Quy chuẩn Mock-First & Khai thác Prism Mock Server (Cổng 4010):**
+  - Trong giai đoạn Backend thật (`:8000`) đang phát triển, Frontend **BẮT BUỘC gửi yêu cầu HTTP thực thụ** đến **Prism Mock Server (cổng `4010`)** thông qua cấu hình proxy `/api/*` của Vite.
+  - Prism Mock Server đọc trực tiếp hợp đồng chuẩn `docs/openapi_v3.2.3.yml` (SSOT) và cung cấp sẵn 100% các endpoint với đầy đủ phản hồi thành công và các mã lỗi HTTP biên (`400`, `401`, `403`, `404`, `409`, `422`).
+  - *⛔ ĐIỀU CẤM:* Không được đi đường tắt bằng cách đọc/ghi mảng dữ liệu tĩnh trong RAM (`mock.ts`) bên trong component giao diện. Mảng RAM tạo ra "ảo tưởng hoàn thành", triệt tiêu độ trễ mạng thực tế và gây mất sạch dữ liệu khi người dùng làm mới trang (F5).
+- **3. Chuẩn hóa Vòng đời Nạp Dữ liệu Mạng (Server Hydration Lifecycle & 3 Trạng thái UI):**
+  - 100% màn hình hiển thị dữ liệu bắt buộc phải có đầy đủ 3 trạng thái mạng: `{ data, loading, error }`.
+  - Phải có khung xương chờ nạp dữ liệu (Skeleton Loaders) khi đang gọi mạng; có giao diện thân thiện khi không có dữ liệu (Empty States); có bộ bắt lỗi trực quan (Toast/Error Banner) khi server trả về mã lỗi `4xx`/`5xx`.
+  - Phải duy trì dữ liệu khi F5: Component tự động gửi request nạp lại trạng thái mới nhất từ server thay vì hoàn nguyên về dữ liệu mẫu cứng.
+- **4. Triệt tiêu Anti-Pattern "Phantom API Call":**
+  - Mọi lệnh gọi hàm dịch vụ mạng (`eventsService`, `ticketsService`, `attendanceService`...) đều bắt buộc phải có khối xử lý lưu kết quả phản hồi vào React State (`.then(res => setState(res.data))` hoặc `const res = await service; setState(res.data)`).
+  - Nghiêm cấm hành vi gọi API nhưng bỏ rơi kết quả (chỉ có `.catch()`) hoặc để trống khối lệnh `// mapped from API`.
+- **5. Kiến trúc Chuyển đổi "Cắm-và-Chạy" (Plug-and-Play Architecture):**
+  - Toàn bộ giao diện người dùng chỉ tương tác qua lớp dịch vụ trung gian `api/services/*`.
+  - Khi Backend thật (`:8000`) hoàn tất quá trình kiểm thử, việc tích hợp hệ thống chỉ đơn thuần là thay đổi biến môi trường `VITE_BACKEND_URL=http://localhost:8000` trong cấu hình.
+  - Toàn bộ 100% mã nguồn React UI được giữ nguyên vẹn, không cần sửa lại bất kỳ dòng code nào.
 
 

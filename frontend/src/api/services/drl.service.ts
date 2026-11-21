@@ -6,9 +6,9 @@ export const drlService = {
   list: (eventId: number | string, query?: Record<string, string | number>) =>
     api.get<ApiEnvelope<DrlRecord[]>>(`/events/${eventId}/drl`, { query }),
   lock: (eventId: number | string) =>
-    api.post<ApiEnvelope<unknown>>(`/events/${eventId}/drl/lock`),
+    api.post<ApiEnvelope<{ da_chot_drl: number }>>(`/events/${eventId}/drl/lock`),
   unlock: (eventId: number | string, ly_do: string) =>
-    api.post<ApiEnvelope<unknown>>(`/events/${eventId}/drl/unlock`, { ly_do }),
+    api.post<ApiEnvelope<{ da_chot_drl: number }>>(`/events/${eventId}/drl/unlock`, { ly_do }),
   export: (eventId: number | string) =>
     api.get<Blob>(`/events/${eventId}/drl/export`),
 }

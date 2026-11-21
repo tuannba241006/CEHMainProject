@@ -1,3 +1,4 @@
+node_modules/
 frontend/node_modules/
 frontend/.npm/
 /frontend/.env
@@ -7,3 +8,14 @@ docs/PHASE_0_SIGNOFF.md
 __pycache__/
 *.bak
 *.tsbuildinfo
+coverage/
+frontend/coverage/
+.playwright-mcp/
+/backup_ceh_*.sql
+graphify-out/
+make_payload.py
+*.png
+frontend/.env
+*.env
+!*.env.example
+

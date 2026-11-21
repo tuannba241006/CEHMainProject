@@ -633,7 +633,9 @@
 
 ---
 
-### 📦 WP2.9: AI Ecosystem Integration Services (UC-AI-01, UC-AI-02 | FR-31, FR-32)
+### 📦 WP2.9: AI Ecosystem Integration Services (UC-AI-01, UC-AI-02 | FR-31, FR-32) [Phân hệ Phase 2.B - Dời triển khai sau khi hoàn tất Core]
+
+> **Ghi chú Kiến trúc Chiến lược**: Theo quyết định tái cấu trúc tăng tốc luồng nghiệp vụ chính (Core Fast-Track), toàn bộ Phân hệ AI (WP2.9 gồm `CEH-P2-AI-01`, `CEH-P2-AI-02`, `CEH-P2-AI-03`) được chuyển sang **Phase 2.B** độc lập. Nhánh này sẽ được thực hiện sau khi Phase 2.A (Nghiệp vụ Core: PKG-01 $\rightarrow$ PKG-14) đã hoàn tất nghiệm thu và bàn giao Production MVP.
 
 > **Mục tiêu**: Tích hợp các mô hình ngôn ngữ lớn (Google Gemini / OpenAI) theo kiến trúc phòng thủ an toàn: Làm sạch dữ liệu cá nhân (PII Sanitization), áp dụng System Prompt Guardrails chống Prompt Injection và thiết lập cơ chế Text-to-Insight chỉ đọc trên Database Views có kiểm tra AST Whitelist.
 
