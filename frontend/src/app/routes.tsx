@@ -1,7 +1,7 @@
 import {
   Navigate,
   Outlet,
-  createBrowserRouter,
+  createHashRouter,
   useLocation,
   useNavigate,
   useParams,
@@ -582,7 +582,7 @@ function VerifyRoute() {
   )
 }
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: "/",
     errorElement: <RouteErrorBoundary />,

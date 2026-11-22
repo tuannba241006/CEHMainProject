@@ -14,18 +14,13 @@ import {
   LineChart,
   Line,
 } from "recharts"
-import {
-  CHART_BAR_DATA,
-  CHART_PIE_DATA,
-  CHART_LINE_DATA,
-} from "../../data/mock"
 import type { OrganizerDashboard } from "../../data/contract"
 import { OrgLayout } from "./OrgLayout"
 import { useApp, computeEventStatus } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { reportsService } from "../../api/services/reports.service"
 import { getApiErrorMessage } from "../../api/errors"
-import { Sparkles, RefreshCw, Check } from "lucide-react"
+import { Sparkles, RefreshCw, Check, PieChart as PieChartIcon, Clock } from "lucide-react"
 
 const PIE_COLORS = ["#4f46e5", "#0891b2", "#7c3aed", "#059669", "#d97706"]
 
@@ -63,9 +58,9 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
   const [aiRefreshing, setAiRefreshing] = useState(false)
-  const { events, tickets } = useApp()
+  const { events } = useApp()
   const { showToast } = useToast()
-  const currentEventId = events[0]?.ma_su_kien || 101
+  const [selectedEventId, setSelectedEventId] = useState<number | string>(() => events[0]?.ma_su_kien || 101)
   const [organizerAnalytics, setOrganizerAnalytics] = useState<OrganizerDashboard | null>(null)
   const [sentimentMetrics, setSentimentMetrics] = useState({
     total: 142,
@@ -74,33 +69,45 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
     negative: 7,
   })
 
+  // Đảm bảo khi danh sách events load xong, selectedEventId luôn hợp lệ
   useEffect(() => {
+    if (events.length > 0 && (!selectedEventId || !events.some((e) => e.ma_su_kien === selectedEventId))) {
+      setSelectedEventId(events[0].ma_su_kien)
+    }
+  }, [events, selectedEventId])
+
+  // Tải dữ liệu phân tích chỉ số cho sự kiện được chọn
+  useEffect(() => {
+    if (!selectedEventId) return
     let active = true
     reportsService
-      .organizer(currentEventId)
+      .organizerAnalytics(selectedEventId)
       .then((res) => {
         if (active && res.data) {
           setOrganizerAnalytics(res.data)
         }
       })
-      .catch(() => {
-        // keep fallback
+      .catch((err) => {
+        if (active) {
+          setOrganizerAnalytics(null)
+          showToast(getApiErrorMessage(err), "error")
+        }
       })
     return () => {
       active = false
     }
-  }, [currentEventId])
+  }, [selectedEventId, showToast])
 
   const dynamicBarData = useMemo(() => {
     if (events.length > 0) {
-      return events.slice(0, 5).map((evt, idx) => {
-        const isCurrent = evt.ma_su_kien === currentEventId || idx === 0
+      return events.slice(0, 5).map((evt) => {
+        const isCurrent = evt.ma_su_kien === selectedEventId
         const reg =
-          isCurrent && organizerAnalytics?.tong_ve_dang_ky
+          isCurrent && organizerAnalytics?.tong_ve_dang_ky !== undefined
             ? organizerAnalytics.tong_ve_dang_ky
-            : evt.registered
+            : evt.registered || 0
         const chk =
-          isCurrent && organizerAnalytics?.so_luong_check_in
+          isCurrent && organizerAnalytics?.so_luong_check_in !== undefined
             ? organizerAnalytics.so_luong_check_in
             : Math.round(reg * 0.82)
         return {
@@ -110,65 +117,44 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
         }
       })
     }
-    return CHART_BAR_DATA
-  }, [organizerAnalytics, events, currentEventId])
+    return []
+  }, [organizerAnalytics, events, selectedEventId])
 
+  // Map phan_bo_theo_khoa vào PieChart - Không fallback tickets
   const dynamicPieData = useMemo(() => {
-    const facultyCounts: Record<string, number> = {}
-    tickets.forEach((t) => {
-      const f = t.faculty || "Khoa HTTT"
-      facultyCounts[f] = (facultyCounts[f] || 0) + 1
-    })
-    const entries = Object.entries(facultyCounts)
-    if (entries.length > 0) {
-      const total = entries.reduce((s, [, c]) => s + c, 0)
-      return entries.slice(0, 5).map(([name, count]) => ({
-        name,
-        value: Math.round((count / total) * 100),
-      }))
-    }
-    return CHART_PIE_DATA
-  }, [tickets])
+    const rawData = organizerAnalytics?.phan_bo_theo_khoa
+    if (!rawData || rawData.length === 0) return []
 
+    const total = rawData.reduce((s, c) => s + c.so_luong_dang_ky, 0)
+    return rawData.map((item) => ({
+      name: item.ten_khoa,
+      value: total > 0 ? Math.round((item.so_luong_dang_ky / total) * 100) : 0,
+      so_luong: item.so_luong_dang_ky,
+    }))
+  }, [organizerAnalytics])
+
+  // Map luu_luong_theo_khung_gio vào LineChart - Không fallback mock
   const dynamicLineData = useMemo(() => {
-    const monthly: Record<string, number> = {}
-    tickets.forEach((t) => {
-      if (t.registeredAt) {
-        const m = "T" + (new Date(t.registeredAt).getMonth() + 1)
-        monthly[m] = (monthly[m] || 0) + 1
-      }
-    })
-    if (Object.keys(monthly).length >= 3) {
-      return Object.entries(monthly).map(([month, count]) => ({ month, count }))
-    }
-    return CHART_LINE_DATA
-  }, [tickets])
+    const rawData = organizerAnalytics?.luu_luong_theo_khung_gio
+    if (!rawData || rawData.length === 0) return []
+
+    return rawData.map((item) => ({
+      time: item.khung_gio,
+      checkin: item.so_luot_check_in,
+      checkout: item.so_luot_check_out,
+    }))
+  }, [organizerAnalytics])
 
   const range =
     preset === "custom" && customFrom && customTo
       ? { from: new Date(customFrom), to: new Date(customTo + "T23:59:59") }
       : getPresetRange(preset)
 
-  const rangeTickets = tickets.filter((t) => {
-    const d = new Date(t.registeredAt)
-    return d >= range.from && d <= range.to
-  })
-
   const openEvents = events.filter(
     (e) =>
       computeEventStatus(e) === "open" ||
       computeEventStatus(e) === "nearly_full",
   ).length
-  const totalRegistrations = rangeTickets.filter(
-    (t) => t.status !== "cancelled",
-  ).length
-  const attendedTickets = rangeTickets.filter(
-    (t) => t.status === "attended",
-  ).length
-  const checkinRate =
-    totalRegistrations > 0
-      ? Math.round((attendedTickets / totalRegistrations) * 100)
-      : 0
 
   const PRESETS: { v: Preset; l: string }[] = [
     { v: "today", l: "Hôm nay" },
@@ -186,8 +172,8 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
       onLogout={onLogout}
     >
       <div className="p-6 lg:p-8 max-w-screen-xl">
-        {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-4 lg:mb-6">
+        {/* Header with Event Selector */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4 lg:mb-6">
           <div>
             <h1
               className="font-display font-bold text-2xl lg:text-3xl"
@@ -199,6 +185,24 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
               Theo dõi tình hình tổ chức và tham gia sự kiện
             </p>
           </div>
+          {events.length > 0 && (
+            <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 rounded-2xl border border-slate-200 shadow-sm">
+              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
+                Xem sự kiện:
+              </span>
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(Number(e.target.value) || e.target.value)}
+                className="bg-transparent text-sm font-semibold text-slate-800 outline-none cursor-pointer max-w-[260px] truncate"
+              >
+                {events.map((evt) => (
+                  <option key={evt.ma_su_kien} value={evt.ma_su_kien}>
+                    #{evt.ma_su_kien} — {evt.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Date range filter */}
@@ -302,8 +306,16 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
               />
             }
             label="Tổng lượt đăng ký"
-            value={totalRegistrations.toLocaleString("vi-VN")}
-            change="+34% so với tháng trước"
+            value={
+              organizerAnalytics?.tong_ve_dang_ky !== undefined
+                ? organizerAnalytics.tong_ve_dang_ky.toLocaleString("vi-VN")
+                : "0"
+            }
+            change={
+              organizerAnalytics?.ty_le_lap_day_pct !== null && organizerAnalytics?.ty_le_lap_day_pct !== undefined
+                ? `Lấp đầy ${organizerAnalytics.ty_le_lap_day_pct}%`
+                : "Mở tự do"
+            }
             changePositive
             color="#0891b2"
             bg="#ecfeff"
@@ -316,9 +328,17 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                 d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
               />
             }
-            label="Tỷ lệ điểm danh"
-            value={`${checkinRate}%`}
-            change="+5,2% so với tháng trước"
+            label="Tỷ lệ điểm danh (Show-up)"
+            value={
+              organizerAnalytics?.ty_le_show_up_pct !== undefined
+                ? `${organizerAnalytics.ty_le_show_up_pct}%`
+                : "0%"
+            }
+            change={
+              organizerAnalytics
+                ? `${organizerAnalytics.so_luong_check_in} lượt check-in`
+                : "Chưa có dữ liệu"
+            }
             changePositive
             color="#059669"
             bg="#ecfdf5"
@@ -331,10 +351,18 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                 d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"
               />
             }
-            label="Tổng số người tham gia"
-            value="3.741"
-            change="+18% so với tháng trước"
-            changePositive
+            label="Đã hoàn thành (Check-out)"
+            value={
+              organizerAnalytics?.so_luong_check_out !== undefined
+                ? organizerAnalytics.so_luong_check_out.toLocaleString("vi-VN")
+                : "0"
+            }
+            change={
+              organizerAnalytics?.so_luong_no_show !== null && organizerAnalytics?.so_luong_no_show !== undefined
+                ? `Vắng mặt: ${organizerAnalytics.so_luong_no_show}`
+                : "Không áp dụng vắng mặt"
+            }
+            changePositive={false}
             color="#7c3aed"
             bg="#f5f3ff"
           />
@@ -423,55 +451,64 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             <p className="text-xs mb-3" style={{ color: "#94a3b8" }}>
               % tham gia sự kiện
             </p>
-            <ResponsiveContainer width="100%" height={150}>
-              <PieChart>
-                <Pie
-                  data={dynamicPieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={42}
-                  outerRadius={64}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {dynamicPieData.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "none",
-                    fontSize: 12,
-                  }}
-                  formatter={(v) => [`${v}%`]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-1.5 mt-1">
-              {dynamicPieData.map((d, i) => (
-                <div key={d.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
-                    />
-                    <span
-                      className="text-xs truncate"
-                      style={{ color: "#475569", maxWidth: 120 }}
+            {dynamicPieData.length === 0 ? (
+              <div className="h-[200px] flex flex-col items-center justify-center text-slate-400 text-sm gap-2 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                <PieChartIcon className="w-8 h-8 stroke-1 text-slate-300" />
+                <span>Chưa có dữ liệu phân bổ theo khoa</span>
+              </div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={150}>
+                  <PieChart>
+                    <Pie
+                      data={dynamicPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={64}
+                      paddingAngle={3}
+                      dataKey="value"
                     >
-                      {d.name}
-                    </span>
-                  </div>
-                  <span
-                    className="text-xs font-medium"
-                    style={{ fontFamily: "var(--font-mono)", color: "#1a1a2e" }}
-                  >
-                    {d.value}%
-                  </span>
+                      {dynamicPieData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: "none",
+                        fontSize: 12,
+                      }}
+                      formatter={(v) => [`${v}%`]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-1.5 mt-1">
+                  {dynamicPieData.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                        />
+                        <span
+                          className="text-xs truncate"
+                          style={{ color: "#475569", maxWidth: 120 }}
+                        >
+                          {d.name}
+                        </span>
+                      </div>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ fontFamily: "var(--font-mono)", color: "#1a1a2e" }}
+                      >
+                        {d.value}%
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -484,51 +521,68 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             className="font-display font-semibold text-base mb-1"
             style={{ color: "#1a1a2e" }}
           >
-            Xu hướng đăng ký theo thời gian
+            Xu hướng lưu lượng theo khung giờ
           </h2>
           <p className="text-xs mb-5" style={{ color: "#94a3b8" }}>
-            Lượt đăng ký theo tháng trong năm học 2025–2026
+            Số lượt check-in và check-out theo từng khung giờ sự kiện
           </p>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart
-              data={dynamicLineData}
-              margin={{ top: 0, right: 8, left: -16, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#f1f5f9"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="month"
-                tick={{ fontSize: 11, fill: "#94a3b8" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#94a3b8" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 10,
-                  border: "none",
-                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                  fontSize: 12,
-                }}
-                formatter={(v) => [`${v} lượt`, "Đăng ký"]}
-              />
-              <Line
-                type="monotone"
-                dataKey="registrations"
-                stroke="#4f46e5"
-                strokeWidth={2.5}
-                dot={{ fill: "#4f46e5", r: 4, strokeWidth: 2, stroke: "white" }}
-                activeDot={{ r: 6, fill: "#4f46e5" }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {dynamicLineData.length === 0 ? (
+            <div className="h-[200px] flex flex-col items-center justify-center text-slate-400 text-sm gap-2 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <Clock className="w-8 h-8 stroke-1 text-slate-300" />
+              <span>Chưa có dữ liệu lưu lượng khung giờ</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart
+                data={dynamicLineData}
+                margin={{ top: 0, right: 8, left: -16, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#f1f5f9"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="time"
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 10,
+                    border: "none",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                    fontSize: 12,
+                  }}
+                  formatter={(v, name) => [`${v} lượt`, name === "checkin" ? "Check-in" : "Check-out"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="checkin"
+                  name="Check-in"
+                  stroke="#4f46e5"
+                  strokeWidth={2.5}
+                  dot={{ fill: "#4f46e5", r: 4, strokeWidth: 2, stroke: "white" }}
+                  activeDot={{ r: 6, fill: "#4f46e5" }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="checkout"
+                  name="Check-out"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  dot={{ fill: "#10b981", r: 4, strokeWidth: 2, stroke: "white" }}
+                  activeDot={{ r: 6, fill: "#10b981" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -559,7 +613,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
             onClick={() => {
               setAiRefreshing(true)
               reportsService
-                .organizer(currentEventId)
+                .organizerAnalytics(selectedEventId)
                 .then((res) => {
                   const total =
                     res.data?.tong_ve_dang_ky ??
@@ -575,7 +629,7 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                     negative: negPct,
                   })
                   showToast(
-                    `AI đã cập nhật phân tích cảm xúc từ ${total} biểu mẫu khảo sát sự kiện #${currentEventId}!`,
+                    `AI đã cập nhật phân tích cảm xúc từ ${total} biểu mẫu khảo sát sự kiện #${selectedEventId}!`,
                     "success",
                   )
                 })
