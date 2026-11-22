@@ -220,6 +220,7 @@ function PublicEventDetailRoute() {
             navigate("/student/tickets", { state: { newTicket: ticket } })
           }
           onViewTicket={() => navigate("/student/tickets")}
+          onViewWaitlist={() => navigate("/student/waitlist")}
           onRequireLogin={() =>
             navigate("/login", { state: { from: `/events/${id}` } })
           }

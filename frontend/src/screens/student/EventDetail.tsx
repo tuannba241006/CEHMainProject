@@ -66,6 +66,7 @@ interface Props {
   onBack: () => void
   onRegister: (ticket: Ticket) => void
   onViewTicket: () => void
+  onViewWaitlist?: () => void
   onRequireLogin?: () => void
 }
 
@@ -82,6 +83,7 @@ export default function EventDetail({
   onBack,
   onRegister,
   onViewTicket,
+  onViewWaitlist,
   onRequireLogin,
 }: Props) {
   const {
@@ -99,6 +101,7 @@ export default function EventDetail({
   const [tab, setTab] = useState<typeof TABS[number]>("Giới thiệu")
   const [registering, setRegistering] = useState(false)
   const [joiningWaitlist, setJoiningWaitlist] = useState(false)
+  const [processingOfferAction, setProcessingOfferAction] = useState(false)
   const [prechecking, setPrechecking] = useState(false)
   const [showWaitlistRules, setShowWaitlistRules] = useState(false)
   const [showBookingModal, setShowBookingModal] = useState(false)
@@ -119,6 +122,7 @@ export default function EventDetail({
   useEffect(() => {
     setTab("Giới thiệu")
     setJoiningWaitlist(false)
+    setProcessingOfferAction(false)
     setShowWaitlistRules(false)
     setShowBookingModal(false)
     setPrecheckData(null)
@@ -161,6 +165,9 @@ export default function EventDetail({
       backendBtnForTimer.cho_phep_bam
     ) {
       const computeRemaining = (): number => {
+        if (typeof backendBtnForTimer.so_giay_offer_con_lai === "number") {
+          return Math.max(0, backendBtnForTimer.so_giay_offer_con_lai)
+        }
         if (backendBtnForTimer.han_chot_offer) {
           const diff = Math.floor(
             (new Date(backendBtnForTimer.han_chot_offer).getTime() -
@@ -169,7 +176,7 @@ export default function EventDetail({
           )
           if (Number.isFinite(diff)) return Math.max(0, diff)
         }
-        return Math.max(0, backendBtnForTimer.so_giay_offer_con_lai ?? 0)
+        return 0
       }
 
       setOfferSecondsLeft(computeRemaining())
@@ -463,7 +470,7 @@ export default function EventDetail({
         ? backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST"
         : waitlistEntry?.trang_thai === "OFFERED"
     ) {
-      onViewTicket()
+      ;(onViewWaitlist || onViewTicket)()
       return
     }
     if (
@@ -1072,40 +1079,59 @@ export default function EventDetail({
                         {effectiveOfferId && (
                           <div className="flex gap-2 pt-1">
                             <button
+                              type="button"
                               onClick={async () => {
-                                const result =
-                                  await claimWaitlistOffer(effectiveOfferId)
-                                showToast(
-                                  result.success
-                                    ? "Đã nhận vé thành công từ hàng chờ!"
-                                    : result.error || "Không thể nhận vé.",
-                                  result.success ? "success" : "error",
-                                )
-                                if (result.success) {
+                                if (processingOfferAction) return
+                                setProcessingOfferAction(true)
+                                try {
+                                  const result =
+                                    await claimWaitlistOffer(effectiveOfferId)
+                                  showToast(
+                                    result.success
+                                      ? "Đã nhận vé thành công từ hàng chờ!"
+                                      : result.error || "Không thể nhận vé.",
+                                    result.success ? "success" : "error",
+                                  )
                                   reloadDetail()
-                                  onViewTicket()
+                                  if (result.success) {
+                                    onViewTicket()
+                                  }
+                                } finally {
+                                  setProcessingOfferAction(false)
                                 }
                               }}
-                              disabled={offerSecondsLeft === 0}
+                              disabled={
+                                offerSecondsLeft === 0 || processingOfferAction
+                              }
                               className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs shadow-xs cursor-pointer"
                             >
-                              Xác nhận nhận vé
+                              {processingOfferAction
+                                ? "Đang xử lý..."
+                                : "Xác nhận nhận vé"}
                             </button>
                             <button
+                              type="button"
+                              disabled={processingOfferAction}
                               onClick={async () => {
-                                const result =
-                                  await declineWaitlistOffer(effectiveOfferId)
-                                showToast(
-                                  result.success
-                                    ? "Đã từ chối suất giữ chỗ."
-                                    : result.error || "Không thể từ chối.",
-                                  result.success ? "info" : "error",
-                                )
-                                if (result.success) reloadDetail()
+                                if (processingOfferAction) return
+                                setProcessingOfferAction(true)
+                                try {
+                                  const result =
+                                    await declineWaitlistOffer(effectiveOfferId)
+                                  showToast(
+                                    result.success
+                                      ? "Đã từ chối suất giữ chỗ."
+                                      : result.error || "Không thể từ chối.",
+                                    result.success ? "info" : "error",
+                                  )
+                                  reloadDetail()
+                                } finally {
+                                  setProcessingOfferAction(false)
+                                }
                               }}
-                              className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-xs cursor-pointer"
+                              className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 font-semibold text-xs cursor-pointer"
                             >
-                              Từ chối
+                              Tôi không tham gia nữa
                             </button>
                           </div>
                         )}
@@ -1381,7 +1407,7 @@ export default function EventDetail({
                 <p className="leading-relaxed">
                   Bạn đang giữ vé của sự kiện giới hạn slot{" "}
                   <b>
-                    '{precheckData.su_kien_trung?.[0]?.ten_su_kien || "khác"}'
+                    '{(precheckData.su_kien_trung?.find((ev) => !ev.khong_gioi_han_slot) ?? precheckData.su_kien_trung?.[0])?.ten_su_kien || "khác"}'
                   </b>{" "}
                   diễn ra trùng khung giờ. Để tránh chiếm chỗ ảo, vui lòng hủy vé
                   sự kiện cũ (trước mốc T-4h) nếu muốn tham gia sự kiện này.

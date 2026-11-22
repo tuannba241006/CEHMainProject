@@ -352,6 +352,42 @@ class WaitlistFifoTest extends TestCase
         $this->assertSlotInvariant($event);
     }
 
+    /**
+     * @test
+     * Target: UC-BOOK-03 (Recheck schedule conflict at exact T-2h cutoff)
+     * Course: Offered entry with deadline at T-2h is claimed at exact T-2h while holding an overlapping ticket.
+     * Expected: 409 OFFER_SKIPPED_CONFLICT, entry becomes SKIPPED_CONFLICT, and the released slot is returned to so_ve_con_lai without leaking capacity.
+     */
+    public function test_conflict_at_claim_on_exact_cutoff_returns_slot_to_inventory(): void
+    {
+        $student = $this->createStudent();
+        $waitingStudent = $this->createStudent();
+        $event = $this->createEvent([
+            'so_luong_toi_da' => 1,
+            'so_ve_con_lai' => 0,
+            'thoi_gian_bat_dau' => now()->addHours(2),
+            'thoi_gian_ket_thuc' => now()->addHours(4),
+        ]);
+        $otherEvent = $this->createEvent([
+            'thoi_gian_bat_dau' => $event->thoi_gian_bat_dau,
+            'thoi_gian_ket_thuc' => $event->thoi_gian_ket_thuc,
+            'so_luong_toi_da' => 1,
+            'so_ve_con_lai' => 0,
+        ]);
+        $offered = $this->createEntry($student, $event, 'OFFERED', now());
+        $waiting = $this->createEntry($waitingStudent, $event, 'WAITING', null, 2);
+        $this->createTicket($student, $otherEvent);
+
+        $this->actingAs($student)->postJson("/api/v1/waitlist/{$offered->id}/claim")
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'OFFER_SKIPPED_CONFLICT');
+
+        $this->assertSame('SKIPPED_CONFLICT', $offered->fresh()->trang_thai);
+        $this->assertSame('WAITING', $waiting->fresh()->trang_thai);
+        $this->assertSame(1, $event->fresh()->so_ve_con_lai);
+        $this->assertSlotInvariant($event);
+    }
+
     protected function createStudent(): User
     {
         $mssv = str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);

@@ -67,10 +67,17 @@ class EventSearchService
             );
 
             if ($keyword !== '') {
-                if (mb_strlen($keyword, 'UTF-8') < 3) {
+                $tokens = preg_split('/\s+/u', $keyword, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                $hasIndexableToken = false;
+                foreach ($tokens as $token) {
+                    if (mb_strlen($token, 'UTF-8') >= 3) {
+                        $hasIndexableToken = true;
+                        break;
+                    }
+                }
 
-                    // Tu khoa ngan: dung LIKE vi MySQL
-                    // Full-text co the khong index tu duoi 3 ky tu.
+                if (! $hasIndexableToken) {
+                    // Từ khóa chỉ gồm các từ ngắn (< 3 ký tự): dùng LIKE vì MySQL InnoDB FTS bỏ qua từ dưới 3 ký tự.
                     $like = '%'.addcslashes(
                         $keyword,
                         '%_\\'
@@ -81,10 +88,8 @@ class EventSearchService
                             ->orWhere('mo_ta', 'LIKE', $like)
                             ->orWhere('dien_gia', 'LIKE', $like);
                     });
-
                 } else {
-
-                    // Tu khoa dai: su dung Full-text index.
+                    // Từ khóa có từ đủ dài (>= 3 ký tự): sử dụng Full-text index.
                     $query->whereRaw(
                         'MATCH(ten_su_kien, mo_ta, dien_gia)
                          AGAINST (? IN BOOLEAN MODE)',

@@ -394,6 +394,9 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     try {
       bookingResult = await bookingsService.book(event.ma_su_kien, uuid)
     } catch (err: unknown) {
+      if (isApiError(err) && err.status === 409) {
+        void refreshTickets(user)
+      }
       return { success: false, error: getApiErrorMessage(err) }
     }
 
@@ -455,6 +458,9 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     try {
       await ticketsService.cancel(numericId, reason, crypto.randomUUID())
     } catch (err: unknown) {
+      if (isApiError(err) && err.status === 409) {
+        void refreshTickets(user)
+      }
       return { success: false, error: getApiErrorMessage(err) }
     }
     setTickets((prev) =>
@@ -514,6 +520,9 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
         setTickets((prev) => [mapped, ...prev])
       }
     } catch (err: unknown) {
+      if (isApiError(err) && err.status === 409) {
+        void refreshTickets(user)
+      }
       return { success: false, error: getApiErrorMessage(err) }
     }
     setWaitlistEntries((prev) =>
@@ -530,6 +539,9 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
       const res = await waitlistService.decline(id, uuid)
       updatedEntry = res.data
     } catch (err: unknown) {
+      if (isApiError(err) && err.status === 409) {
+        void refreshTickets(user)
+      }
       return { success: false, error: getApiErrorMessage(err) }
     }
     setWaitlistEntries((prev) =>

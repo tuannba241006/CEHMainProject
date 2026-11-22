@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\BusinessException;
 use App\Mail\TicketBookedMailable;
 use App\Models\DangKy;
+use App\Models\HangDoiWaitlist;
 use App\Models\SuKien;
 use App\Models\User;
 use Carbon\Carbon;
@@ -66,8 +67,25 @@ class BookingService
             // 5. Hard Block for schedule conflict between 2 limited-slot events
             $this->checkScheduleConflict($userId, $event);
 
-            // 6. Deduct ticket inventory for limited-slot events
-            if (! $event->khong_gioi_han_slot) {
+            // 6. Lock any active waitlist entry for this student & event (Lock order: ... -> dang_ky -> hang_doi_waitlist)
+            $activeWaitlist = HangDoiWaitlist::query()
+                ->where('ma_su_kien', $eventId)
+                ->where('ma_tai_khoan', $userId)
+                ->whereIn('trang_thai', ['WAITING', 'OFFERED'])
+                ->lockForUpdate()
+                ->first();
+
+            $now = now();
+            $hasActiveOffer = $activeWaitlist
+                && $activeWaitlist->trang_thai === 'OFFERED'
+                && (! $activeWaitlist->han_chot_xac_nhan || $now->lte($activeWaitlist->han_chot_xac_nhan));
+
+            // 7. Deduct ticket inventory for limited-slot events unless consuming an active OFFERED hold
+            if ($hasActiveOffer) {
+                $activeWaitlist->trang_thai = 'ACCEPTED';
+                $activeWaitlist->thoi_gian_phan_hoi = $now;
+                $activeWaitlist->save();
+            } elseif (! $event->khong_gioi_han_slot) {
                 if ($event->so_ve_con_lai === null || $event->so_ve_con_lai <= 0) {
                     throw new BusinessException(
                         'SLOT_SOLD_OUT',
@@ -79,9 +97,19 @@ class BookingService
 
                 $event->so_ve_con_lai = $event->so_ve_con_lai - 1;
                 if ($event->so_ve_con_lai === 0 && $event->thoi_diem_het_ve === null) {
-                    $event->thoi_diem_het_ve = now();
+                    $event->thoi_diem_het_ve = $now;
                 }
                 $event->save();
+
+                if ($activeWaitlist && $activeWaitlist->trang_thai === 'WAITING') {
+                    $activeWaitlist->trang_thai = 'CANCELLED';
+                    $activeWaitlist->thoi_gian_phan_hoi = $now;
+                    $activeWaitlist->save();
+                }
+            } elseif ($activeWaitlist && $activeWaitlist->trang_thai === 'WAITING') {
+                $activeWaitlist->trang_thai = 'CANCELLED';
+                $activeWaitlist->thoi_gian_phan_hoi = $now;
+                $activeWaitlist->save();
             }
 
             // 7. Generate UUID v4 & HMAC-SHA256 signature
@@ -172,22 +200,30 @@ class BookingService
             ]);
         }
 
-        // 3. Nếu giới hạn slot, còn vé khả dụng không?
+        // 3. Kiểm tra giao thoa khung giờ với các vé hiệu lực hiện có (Bước 4.d)
+        $conflicts = $this->findScheduleConflicts((int) $user->ma_tai_khoan, $event);
+
+        if ($conflicts['hard'] !== []) {
+            $orderedConflicts = array_merge(
+                $conflicts['hard'],
+                array_values(array_filter(
+                    $conflicts['all'],
+                    fn (array $item): bool => (bool) ($item['khong_gioi_han_slot'] ?? false)
+                ))
+            );
+
+            return array_merge($basePayload, [
+                'co_the_dat' => false,
+                'ly_do_chan' => 'SCHEDULE_CONFLICT_HARD',
+                'su_kien_trung' => $orderedConflicts,
+            ]);
+        }
+
+        // 4. Nếu giới hạn slot, còn vé khả dụng không? (Bước 4.e)
         if (! $isUnlimited && ($event->so_ve_con_lai === null || (int) $event->so_ve_con_lai <= 0)) {
             return array_merge($basePayload, [
                 'co_the_dat' => false,
                 'ly_do_chan' => 'SLOT_SOLD_OUT',
-            ]);
-        }
-
-        // 4. Kiểm tra giao thoa khung giờ với các vé hiệu lực hiện có
-        $conflicts = $this->findScheduleConflicts((int) $user->ma_tai_khoan, $event);
-
-        if ($conflicts['hard'] !== []) {
-            return array_merge($basePayload, [
-                'co_the_dat' => false,
-                'ly_do_chan' => 'SCHEDULE_CONFLICT_HARD',
-                'su_kien_trung' => $conflicts['all'],
             ]);
         }
 
