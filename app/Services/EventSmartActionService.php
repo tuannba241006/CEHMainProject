@@ -201,7 +201,7 @@ class EventSmartActionService
             && $waitlist->trang_thai === 'OFFERED'
             && (
                 ! $waitlist->han_chot_xac_nhan
-                || $now->gte($waitlist->han_chot_xac_nhan)
+                || $now->gt($waitlist->han_chot_xac_nhan)
             )
         ) {
             return $this->action(
@@ -219,7 +219,7 @@ class EventSmartActionService
             $waitlist
             && $waitlist->trang_thai === 'OFFERED'
             && $waitlist->han_chot_xac_nhan
-            && $now->lt($waitlist->han_chot_xac_nhan)
+            && $now->lte($waitlist->han_chot_xac_nhan)
         ) {
             $remainingSeconds = max(
                 0,
@@ -252,11 +252,14 @@ class EventSmartActionService
         }
 
         /*
-         * 6. Sinh vien dang o trong waitlist.
+         * 6. Sinh vien dang o trong waitlist (chi con hieu luc truoc moc T-2h).
          */
         if (
             $waitlist
             && $waitlist->trang_thai === 'WAITING'
+            && $event->trang_thai === 'PUBLISHED'
+            && ! $event->khong_gioi_han_slot
+            && $now->lt($event->thoi_gian_bat_dau->copy()->subHours(2))
         ) {
             return $this->action(
                 'DANG_O_WAITLIST',
