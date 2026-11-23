@@ -64,29 +64,24 @@ export default function ApprovalWorkspace({
     let cancelled = false
     setLoading(true)
     setError(null)
-    eventsService
-      .reviewQueue()
-      .then((res) => {
-        if (!cancelled && res.data && refreshReviewQueue) {
-          void refreshReviewQueue()
-        }
-      })
-      .catch((err) => {
-        console.warn("Review queue API note:", err)
-        if (isAuthError(err)) {
-          return
-        }
-        if (!cancelled && (!approvalCases || approvalCases.length === 0)) {
-          setError(getApiErrorMessage(err))
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+    if (refreshReviewQueue) {
+      void refreshReviewQueue()
+        .catch((err: unknown) => {
+          console.warn("Review queue API note:", err)
+          if (!cancelled && !isAuthError(err) && (!approvalCases || approvalCases.length === 0)) {
+            setError(getApiErrorMessage(err))
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    } else {
+      setLoading(false)
+    }
     return () => {
       cancelled = true
     }
-  }, [refreshReviewQueue, approvalCases])
+  }, [])
 
   const faculty = user.faculty || user.khoa || ""
   const canView = (item: ApprovalCase) =>

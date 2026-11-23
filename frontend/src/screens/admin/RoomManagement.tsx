@@ -11,6 +11,7 @@ import AdminLayout from "./AdminLayout"
 import { OrgLayout } from "../organizer/OrgLayout"
 import FormDialog, { type FieldSpec } from "./FormDialog"
 import { Wrench, AlertTriangle, ShieldCheck, Zap } from "lucide-react"
+import { parseCalendarDate } from "../../utils/date"
 
 interface Props {
   readOnly?: boolean
@@ -74,6 +75,7 @@ export default function RoomManagement({
           trang_thai: (r.trang_thai === "BaoTri" ? "BaoTri" : "KhaDung") as RoomPublic["trang_thai"],
           bao_tri_tu_ngay: r.bao_tri_tu_ngay || null,
           bao_tri_den_ngay: r.bao_tri_den_ngay || null,
+          ly_do_bao_tri: r.ly_do_bao_tri || null,
         }))
         return { data: mapped }
       } catch (err) {
@@ -129,7 +131,13 @@ export default function RoomManagement({
   // UC-ROOM-01.AC.1: Room Fields with Maintenance Configuration
   const roomFields: FieldSpec[] = [
     { name: "ten_phong", label: "Tên phòng", required: true },
-    { name: "suc_chua", label: "Sức chứa", type: "number", required: true, min: 1 },
+    {
+      name: "suc_chua",
+      label: "Sức chứa tối đa (tối thiểu 10 chỗ)",
+      type: "number",
+      required: true,
+      min: 10,
+    },
     {
       name: "co_so",
       label: "Cơ sở",
@@ -140,7 +148,14 @@ export default function RoomManagement({
       ],
     },
     { name: "toa_nha", label: "Tòa nhà", required: true },
-    { name: "vi_tri_tang", label: "Tầng", type: "number", min: 0 },
+    {
+      name: "vi_tri_tang",
+      label: "Tầng (từ 1 đến 20)",
+      type: "number",
+      required: true,
+      min: 1,
+      max: 20,
+    },
     {
       name: "trang_thai",
       label: "Trạng thái phòng",
@@ -149,6 +164,10 @@ export default function RoomManagement({
         { value: "KhaDung", label: "Khả dụng (Hoạt động bình thường)" },
         { value: "BaoTri", label: "Bảo trì phòng (BaoTri)" },
       ],
+    },
+    {
+      name: "ly_do_bao_tri",
+      label: "Lý do bảo trì (bắt buộc khi chọn Bảo trì, tối thiểu 10 ký tự)",
     },
     {
       name: "bao_tri_tu_ngay",
@@ -179,6 +198,9 @@ export default function RoomManagement({
 
     // UC-ROOM-01.AC.1: Maintenance Interval & Conflict Enforcement
     if (trangThai === "BaoTri") {
+      if (!v.ly_do_bao_tri || String(v.ly_do_bao_tri).trim().length < 10) {
+        throw new Error("Lý do bảo trì không được để trống và phải có tối thiểu 10 ký tự.")
+      }
       if (!v.bao_tri_tu_ngay || !v.bao_tri_den_ngay) {
         throw new Error("Vui lòng nhập đầy đủ thời gian bắt đầu và kết thúc bảo trì.")
       }
@@ -248,33 +270,14 @@ export default function RoomManagement({
       unit: string
     }> = []
 
-    // If room is under maintenance covering selectedDate
-    if (room?.trang_thai === "BaoTri") {
-      const tu = room.bao_tri_tu_ngay ? new Date(room.bao_tri_tu_ngay) : null
-      const den = room.bao_tri_den_ngay ? new Date(room.bao_tri_den_ngay) : null
-      const curDateStart = new Date(`${selectedDate}T00:00:00`)
-      const curDateEnd = new Date(`${selectedDate}T23:59:59`)
-
-      const isMaintToday = !tu || !den || (tu <= curDateEnd && den >= curDateStart)
-      if (isMaintToday) {
-        items.push({
-          id: "maint-block",
-          start: 420, // 07:00
-          end: 1320,  // 22:00
-          type: "BAO_TRI",
-          title: "BẢO TRÌ PHÒNG HỘI TRƯỜNG",
-          unit: "P. Quản trị Thiết bị",
-        })
-      }
-    }
-
+    // 1. Process items from scheduleData (which includes both Bookings and Maintenance from backend RoomScheduleResource)
     scheduleData.forEach((s, idx) => {
       const sMin = Math.max(420, Math.min(1320, parseTimeToMinutes(s.thoi_gian_bat_dau)))
       const eMin = Math.max(420, Math.min(1320, parseTimeToMinutes(s.thoi_gian_ket_thuc)))
       if (eMin > sMin) {
-        const type = (s.loai === "BAO_TRI" || s.trang_thai === "BAO_TRI"
+        const type = (s.loai_khoang === "BAO_TRI" || s.loai === "BAO_TRI" || s.trang_thai === "BAO_TRI"
           ? "BAO_TRI"
-          : s.loai === "PENDING_HOLD" || s.trang_thai === "PENDING"
+          : s.loai_khoang === "PENDING_HOLD" || s.loai === "PENDING_HOLD" || s.trang_thai === "PENDING"
           ? "PENDING_HOLD"
           : "CONFIRMED") as "CONFIRMED" | "PENDING_HOLD" | "BAO_TRI"
 
@@ -283,11 +286,42 @@ export default function RoomManagement({
           start: sMin,
           end: eMin,
           type,
-          title: s.ten_su_kien || s.tieu_de || "Sự kiện",
-          unit: s.ten_don_vi_host || "Ban tổ chức",
+          title: s.tieu_de || s.ten_su_kien || (type === "BAO_TRI" ? "Bảo trì phòng" : "Sự kiện"),
+          unit: s.ten_don_vi_host || (type === "BAO_TRI" ? "Bảo trì kỹ thuật" : "Ban tổ chức"),
         })
       }
     })
+
+    // 2. Fallback: If scheduleData was empty or lacked maintenance block, check room's maintenance interval directly
+    const hasMaintFromSchedule = items.some((i) => i.type === "BAO_TRI")
+    if (!hasMaintFromSchedule && room?.trang_thai === "BaoTri") {
+      const tu = room.bao_tri_tu_ngay ? parseCalendarDate(room.bao_tri_tu_ngay) : null
+      const den = room.bao_tri_den_ngay ? parseCalendarDate(room.bao_tri_den_ngay) : null
+      const curDateStart = new Date(`${selectedDate}T00:00:00`)
+      const curDateEnd = new Date(`${selectedDate}T23:59:59`)
+
+      const isMaintToday = !tu || !den || (tu <= curDateEnd && den >= curDateStart)
+      if (isMaintToday) {
+        let sMin = 420
+        let eMin = 1320
+        if (tu && tu >= curDateStart) {
+          sMin = Math.max(420, Math.min(1320, tu.getHours() * 60 + tu.getMinutes()))
+        }
+        if (den && den <= curDateEnd) {
+          eMin = Math.max(420, Math.min(1320, den.getHours() * 60 + den.getMinutes()))
+        }
+        if (eMin > sMin) {
+          items.push({
+            id: "maint-block",
+            start: sMin,
+            end: eMin,
+            type: "BAO_TRI",
+            title: room.ly_do_bao_tri || "Bảo trì phòng hội trường",
+            unit: "Bảo trì kỹ thuật",
+          })
+        }
+      }
+    }
 
     items.sort((a, b) => a.start - b.start)
 
@@ -318,7 +352,7 @@ export default function RoomManagement({
       })
       cursor = item.end
 
-      // Insert 15-minute buffer after event (if not end of day)
+      // Insert 15-minute buffer after event (BAO_TRI does not have buffer per SRS v3.1.3)
       if (item.type !== "BAO_TRI" && cursor < 1320) {
         const bufferEnd = Math.min(1320, cursor + 15)
         blocks.push({
@@ -348,8 +382,12 @@ export default function RoomManagement({
       for (let j = i + 1; j < timelineEvents.length; j++) {
         const a = timelineEvents[i]
         const b = timelineEvents[j]
-        if (a.start < b.end + 15 && a.end + 15 > b.start) {
-          return `Phát hiện xung đột giữa "${a.title}" (${formatMinutes(a.start)}–${formatMinutes(a.end)}) và "${b.title}" (${formatMinutes(b.start)}–${formatMinutes(b.end)}) vi phạm đệm 15 phút.`
+        const isMaint = a.type === "BAO_TRI" || b.type === "BAO_TRI"
+        const buffer = isMaint ? 0 : 15
+        if (a.start < b.end + buffer && a.end + buffer > b.start) {
+          return isMaint
+            ? `Phát hiện xung đột giữa "${a.title}" (${formatMinutes(a.start)}–${formatMinutes(a.end)}) và lịch bảo trì "${b.title}" (${formatMinutes(b.start)}–${formatMinutes(b.end)}).`
+            : `Phát hiện xung đột giữa "${a.title}" (${formatMinutes(a.start)}–${formatMinutes(a.end)}) và "${b.title}" (${formatMinutes(b.start)}–${formatMinutes(b.end)}) vi phạm đệm 15 phút.`
         }
       }
     }
@@ -476,6 +514,11 @@ export default function RoomManagement({
                     : "Chưa thiết lập"}
                 </b>
               </p>
+              {room.ly_do_bao_tri && (
+                <p className="mt-1 text-slate-700">
+                  Lý do bảo trì: <b className="text-rose-900">{room.ly_do_bao_tri}</b>
+                </p>
+              )}
             </div>
           )}
 
@@ -655,7 +698,10 @@ export default function RoomManagement({
                         {ev.title}
                       </p>
                       <p className="text-[11px] text-slate-500">
-                        {ev.unit} · Buffer sau: {formatMinutes(ev.end)}–{formatMinutes(Math.min(1320, ev.end + 15))}
+                        {ev.unit}
+                        {ev.type !== "BAO_TRI" && (
+                          <> · Buffer sau: {formatMinutes(ev.end)}–{formatMinutes(Math.min(1320, ev.end + 15))}</>
+                        )}
                       </p>
                     </div>
                   ))
@@ -733,20 +779,23 @@ export default function RoomManagement({
             dialog === "edit" && room
               ? {
                   ten_phong: room.ten_phong,
-                  suc_chua: room.suc_chua,
+                  suc_chua: Math.max(10, room.suc_chua || 10),
                   co_so: room.co_so,
                   toa_nha: room.toa_nha,
-                  vi_tri_tang: room.vi_tri_tang,
+                  vi_tri_tang: Math.max(1, room.vi_tri_tang || 1),
                   trang_thai: room.trang_thai || "KhaDung",
+                  ly_do_bao_tri: room.ly_do_bao_tri || "",
                   bao_tri_tu_ngay: room.bao_tri_tu_ngay ? room.bao_tri_tu_ngay.slice(0, 16) : "",
                   bao_tri_den_ngay: room.bao_tri_den_ngay ? room.bao_tri_den_ngay.slice(0, 16) : "",
                   xac_nhan_bo_qua_canh_bao: false,
                 }
               : {
                   co_so: "CoSo1",
+                  toa_nha: "Tòa A",
                   vi_tri_tang: 1,
                   suc_chua: 50,
                   trang_thai: "KhaDung",
+                  ly_do_bao_tri: "",
                   bao_tri_tu_ngay: "",
                   bao_tri_den_ngay: "",
                   xac_nhan_bo_qua_canh_bao: false,

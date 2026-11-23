@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react"
+import { useSearchParams } from "react-router"
 import { OrgLayout } from "./OrgLayout"
 import { useUser } from "../../context/UserContext"
 import {
@@ -240,72 +241,129 @@ export default function Participants({ onNavigate, onLogout }: Props) {
     }
   }, [])
 
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const queryEventId = searchParams.get("eventId")
+
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(
+    () => queryEventId || null,
+  )
   const [activeTab, setActiveTab] =
     useState<"participants" | "checkin" | "reconciliation" | "survey" | "certificates" | "staff">(
       "participants",
     )
+
+  useEffect(() => {
+    if (queryEventId && queryEventId !== selectedEventId) {
+      setSelectedEventId(queryEventId)
+    } else if (!queryEventId && selectedEventId) {
+      setSelectedEventId(null)
+    }
+  }, [queryEventId])
+
+  const handleSelectEvent = (id: string) => {
+    setSelectedEventId(id)
+    setSearchParams({ eventId: id })
+    setActiveTab("participants")
+  }
+
+  const handleBackToList = () => {
+    setSelectedEventId(null)
+    setSearchParams({})
+  }
+
   const remote = useApiParticipants(selectedEventId)
-  const events: ParticipantEvent[] =
-    remote.events.length > 0
-      ? remote.events.map((event) => ({
-          id: String(event.ma_su_kien),
-          ma_su_kien: event.ma_su_kien,
-          title: event.ten_su_kien,
-          ten_su_kien: event.ten_su_kien,
-          dien_gia: event.dien_gia,
-          ten_chuyen_de: event.ten_chuyen_de,
-          ten_don_vi_host: event.ten_don_vi_host,
-          danh_sach_ten_dong_to_chuc: event.danh_sach_ten_dong_to_chuc ?? [],
-          ten_phong: event.ten_phong,
-          co_so: (event.co_so as "CoSo1" | "CoSo2") || "CoSo1",
-          thoi_gian_bat_dau: event.thoi_gian_bat_dau,
-          thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
-          khong_gioi_han_slot: event.so_luong_toi_da === null,
-          so_ve_con_lai: event.so_ve_con_lai,
-          so_luong_toi_da: event.so_luong_toi_da,
-          trang_thai: event.trang_thai,
-          dieu_khoan_drl: "Dieu3",
-          diem_drl_du_kien: 5,
-          gio_tinh_nguyen: 0,
-          mo_ta: "",
-          lo_trinh: [],
-          doi_tuong_tham_gia: null,
-          speaker: event.dien_gia || "",
-          topic: event.ten_chuyen_de,
-          description: "",
-          date: event.thoi_gian_bat_dau.slice(0, 10),
-          time: event.thoi_gian_bat_dau.slice(11, 16),
-          endTime: event.thoi_gian_ket_thuc.slice(11, 16),
-          location: `${event.ten_phong} (${event.co_so})`,
-          room: event.ten_phong,
-          capacity: event.so_luong_toi_da ?? 100,
-          registered:
-            (event.so_luong_toi_da ?? 100) - (event.so_ve_con_lai ?? 0),
-          registrationOpen:
-            event.trang_thai === "HAPPENING" ||
-            event.trang_thai === "PUBLISHED" ||
-            event.trang_thai === "APPROVED",
-          isCancelled: event.trang_thai === "CANCELLED",
-          banner: event.anh_bia || "",
-          organizer: event.ten_don_vi_host,
-          benefits: [],
-          schedule: [],
-          don_vi_host: {
-            ma_don_vi: 0,
-            ten_don_vi: event.ten_don_vi_host ?? "",
-            loai_don_vi: "CLB",
-          },
-          ma_don_vi_to_chuc: 0,
-          coHosts: event.danh_sach_ten_dong_to_chuc ?? [],
-          status: event.trang_thai,
-          statusLabel:
-            API_EVENT_STATUS_LABELS[event.trang_thai] || event.trang_thai,
-        }))
-      : demoEvents.map((event) => ({
-          ...event,
-          statusLabel: EVENT_STATUS_LABELS[computeEventStatus(event)],
-        }))
+
+  // Loading skeleton to eliminate demo events flash (BUG-PKG03-20)
+  if (!selectedEventId && remote.eventsLoading) {
+    return (
+      <OrgLayout
+        current="org-participants"
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      >
+        <div className="p-6 lg:p-8 max-w-screen-xl">
+          <div className="mb-6">
+            <h1
+              className="font-display font-bold text-2xl"
+              style={{ color: "#1a1a2e" }}
+            >
+              Người tham gia
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "#64748b" }}>
+              Đang tải danh sách sự kiện đơn vị quản lý...
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm animate-pulse"
+              >
+                <div className="h-28 bg-slate-200 rounded-xl mb-3" />
+                <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-slate-100 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </OrgLayout>
+    )
+  }
+
+  const events: ParticipantEvent[] = remote.events.map((event) => ({
+    id: String(event.ma_su_kien),
+    ma_su_kien: event.ma_su_kien,
+    title: event.ten_su_kien,
+    ten_su_kien: event.ten_su_kien,
+    dien_gia: event.dien_gia,
+    ten_chuyen_de: event.ten_chuyen_de,
+    ten_don_vi_host: event.ten_don_vi_host,
+    danh_sach_ten_dong_to_chuc: event.danh_sach_ten_dong_to_chuc ?? [],
+    ten_phong: event.ten_phong,
+    co_so: (event.co_so as "CoSo1" | "CoSo2") || "CoSo1",
+    thoi_gian_bat_dau: event.thoi_gian_bat_dau,
+    thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
+    khong_gioi_han_slot: event.so_luong_toi_da === null,
+    so_ve_con_lai: event.so_ve_con_lai,
+    so_luong_toi_da: event.so_luong_toi_da,
+    trang_thai: event.trang_thai,
+    dieu_khoan_drl: "Dieu3",
+    diem_drl_du_kien: 5,
+    gio_tinh_nguyen: 0,
+    mo_ta: "",
+    lo_trinh: [],
+    doi_tuong_tham_gia: null,
+    speaker: event.dien_gia || "",
+    topic: event.ten_chuyen_de,
+    description: "",
+    date: event.thoi_gian_bat_dau.slice(0, 10),
+    time: event.thoi_gian_bat_dau.slice(11, 16),
+    endTime: event.thoi_gian_ket_thuc.slice(11, 16),
+    location: `${event.ten_phong} (${event.co_so})`,
+    room: event.ten_phong,
+    capacity: event.so_luong_toi_da ?? 100,
+    registered:
+      (event.so_luong_toi_da ?? 100) - (event.so_ve_con_lai ?? 0),
+    registrationOpen:
+      event.trang_thai === "HAPPENING" ||
+      event.trang_thai === "PUBLISHED" ||
+      event.trang_thai === "APPROVED",
+    isCancelled: event.trang_thai === "CANCELLED",
+    banner: event.anh_bia || "",
+    organizer: event.ten_don_vi_host,
+    benefits: [],
+    schedule: [],
+    don_vi_host: {
+      ma_don_vi: 0,
+      ten_don_vi: event.ten_don_vi_host ?? "",
+      loai_don_vi: "CLB",
+    },
+    ma_don_vi_to_chuc: 0,
+    coHosts: event.danh_sach_ten_dong_to_chuc ?? [],
+    status: event.trang_thai,
+    statusLabel:
+      API_EVENT_STATUS_LABELS[event.trang_thai] || event.trang_thai,
+  }))
 
   // Data scoping cô lập tuyệt đối:
   // - Admin (P.CTSV): CHỈ THẤY các sự kiện thuộc P.CTSV! Tuyệt đối không lẫn lộn sự kiện của các CLB khác.
@@ -390,107 +448,116 @@ export default function Participants({ onNavigate, onLogout }: Props) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {scopedEvents.map((event) => {
-              const eventTickets = tickets.filter((t) => t.eventId === event.id)
-              const attended = eventTickets.filter(
-                (t) => t.status === "attended",
-              ).length
-              const total = eventTickets.filter(
-                (t) => t.status !== "cancelled",
-              ).length
-              return (
-                <div
-                  key={event.id}
-                  className="bg-white rounded-2xl shadow-sm border overflow-hidden"
-                  style={{ borderColor: "#f1f5f9" }}
-                >
-                  <div className="relative h-28 overflow-hidden bg-slate-200">
-                    {event.banner && <img
-                      src={event.banner}
-                      alt={event.title}
-                      className="w-full h-full object-cover"
-                    />}
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.6))",
-                      }}
-                    />
-                    <div className="absolute bottom-2 left-3 right-3">
-                      <span
-                        className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
+                const isUnlimited =
+                  !event.capacity ||
+                  event.capacity <= 0 ||
+                  event.capacity > 99999 ||
+                  Boolean(event.khong_gioi_han_slot)
+                const registeredCount = event.registered || 0
+                const eventTickets = tickets.filter((t) => t.eventId === event.id)
+                const attended = eventTickets.filter(
+                  (t) => t.status === "attended",
+                ).length
+                return (
+                  <div
+                    key={event.id}
+                    className="bg-white rounded-2xl shadow-sm border overflow-hidden"
+                    style={{ borderColor: "#f1f5f9" }}
+                  >
+                    <div className="relative h-28 overflow-hidden bg-slate-200">
+                      {event.banner && <img
+                        src={event.banner}
+                        alt={event.title}
+                        className="w-full h-full object-cover"
+                      />}
+                      <div
+                        className="absolute inset-0"
                         style={{
-                          background: "rgba(255,255,255,0.2)",
-                          color: "white",
-                          backdropFilter: "blur(4px)",
+                          background:
+                            "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.6))",
                         }}
-                      >
-                        {event.statusLabel}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <h3
-                      className="font-display font-semibold text-sm leading-snug mb-1"
-                      style={{ color: "#1a1a2e" }}
-                    >
-                      {event.title}
-                    </h3>
-                    <p className="text-xs mb-1" style={{ color: "#94a3b8" }}>
-                      {new Date(event.date).toLocaleDateString("vi-VN", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}{" "}
-                      · {event.location}
-                    </p>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-xs" style={{ color: "#64748b" }}>
+                      />
+                      <div className="absolute bottom-2 left-3 right-3">
                         <span
-                          className="font-semibold"
+                          className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
                           style={{
-                            fontFamily: "var(--font-mono)",
-                            color: "#4f46e5",
+                            background: "rgba(255,255,255,0.2)",
+                            color: "white",
+                            backdropFilter: "blur(4px)",
                           }}
                         >
-                          {total}
-                        </span>{" "}
-                        đăng ký
-                        {" · "}
-                        <span
-                          className="font-semibold"
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            color: "#059669",
-                          }}
-                        >
-                          {attended}
-                        </span>{" "}
-                        điểm danh
-                      </div>
-                      {total > 0 && (
-                        <span
-                          className="text-xs font-semibold"
-                          style={{ color: "#d97706" }}
-                        >
-                          {Math.round((attended / total) * 100)}%
+                          {event.statusLabel}
                         </span>
-                      )}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        setSelectedEventId(event.id)
-                        setActiveTab("participants")
-                      }}
-                      className="w-full py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
-                      style={{ background: "#4f46e5" }}
-                    >
-                      Xem người tham gia
-                    </button>
+                    <div className="p-4">
+                      <h3
+                        className="font-display font-semibold text-sm leading-snug mb-1"
+                        style={{ color: "#1a1a2e" }}
+                      >
+                        {event.title}
+                      </h3>
+                      <p className="text-xs mb-1" style={{ color: "#94a3b8" }}>
+                        {new Date(event.date).toLocaleDateString("vi-VN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}{" "}
+                        · {event.location}
+                      </p>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs" style={{ color: "#64748b" }}>
+                          <span
+                            className="font-semibold"
+                            style={{
+                              fontFamily: "var(--font-mono)",
+                              color: "#4f46e5",
+                            }}
+                          >
+                            {registeredCount}
+                          </span>{" "}
+                          đăng ký / {isUnlimited ? "Không giới hạn" : `${event.capacity} chỗ`}
+                          {attended > 0 && (
+                            <>
+                              {" · "}
+                              <span
+                                className="font-semibold"
+                                style={{
+                                  fontFamily: "var(--font-mono)",
+                                  color: "#059669",
+                                }}
+                              >
+                                {attended}
+                              </span>{" "}
+                              điểm danh
+                            </>
+                          )}
+                        </div>
+                        {!isUnlimited && event.capacity > 0 && (
+                          <span
+                            className="text-xs font-semibold"
+                            style={{
+                              color:
+                                registeredCount >= event.capacity
+                                  ? "#dc2626"
+                                  : "#4f46e5",
+                            }}
+                          >
+                            {Math.round((registeredCount / event.capacity) * 100)}%
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleSelectEvent(event.id)}
+                        className="w-full py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 cursor-pointer"
+                        style={{ background: "#4f46e5" }}
+                      >
+                        Xem người tham gia
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
           </div>
         )}
         </div>
@@ -563,8 +630,8 @@ export default function Participants({ onNavigate, onLogout }: Props) {
           style={{ color: "#94a3b8" }}
         >
           <button
-            onClick={() => setSelectedEventId(null)}
-            className="hover:underline flex items-center gap-1"
+            onClick={handleBackToList}
+            className="hover:underline flex items-center gap-1 cursor-pointer"
           >
             <svg
               className="w-3.5 h-3.5"

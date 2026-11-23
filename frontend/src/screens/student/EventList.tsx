@@ -45,6 +45,7 @@ const STATUS_COLORS: Record<EventStatus, { bg: string; text: string }> = {
   full: { bg: "#fee2e2", text: "#b91c1c" },
   draft: { bg: "#f1f5f9", text: "#64748b" },
   closed: { bg: "#e0e7ff", text: "#4338ca" },
+  happening: { bg: "#e0f2fe", text: "#0369a1" },
   ended: { bg: "#f1f5f9", text: "#94a3b8" },
 }
 

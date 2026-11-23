@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { useSearchParams } from "react-router"
 import {
   BarChart,
   Bar,
@@ -17,10 +18,19 @@ import {
 import type { OrganizerDashboard } from "../../data/contract"
 import { OrgLayout } from "./OrgLayout"
 import { useApp, computeEventStatus } from "../../context/AppContext"
+import { useUser } from "../../context/UserContext"
 import { useToast } from "../../components/Toast"
 import { reportsService } from "../../api/services/reports.service"
 import { getApiErrorMessage } from "../../api/errors"
-import { Sparkles, RefreshCw, Check, PieChart as PieChartIcon, Clock } from "lucide-react"
+import {
+  Sparkles,
+  RefreshCw,
+  Check,
+  PieChart as PieChartIcon,
+  Clock,
+  Lock,
+  AlertTriangle,
+} from "lucide-react"
 
 const PIE_COLORS = ["#4f46e5", "#0891b2", "#7c3aed", "#059669", "#d97706"]
 
@@ -59,38 +69,108 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
   const [customTo, setCustomTo] = useState("")
   const [aiRefreshing, setAiRefreshing] = useState(false)
   const { events } = useApp()
+  const { user, role } = useUser()
   const { showToast } = useToast()
-  const [selectedEventId, setSelectedEventId] = useState<number | string>(() => events[0]?.ma_su_kien || 101)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const paramEventId = searchParams.get("eventId")
+
+  // Data scoping cô lập: Ban tổ chức chỉ phân tích sự kiện thuộc đơn vị mình!
+  const scopedEvents = useMemo(() => {
+    const isPctsAdmin = role === "admin" || role === "student_affairs"
+    const userEmail = (user.email || "").toLowerCase()
+    const rawUnit =
+      user.don_vi?.ten_don_vi ||
+      user.faculty ||
+      user.khoa ||
+      (userEmail.includes("webdev") ? "webdev" : "") ||
+      (userEmail.includes("is@") || userEmail.includes(".is@") ? "thông tin" : "") ||
+      (user.name && user.name.includes("CLB") ? user.name : "") ||
+      ""
+    const targetUnit = isPctsAdmin ? "sinh viên" : rawUnit.toLowerCase().trim()
+    const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
+
+    const filteredList = events.filter((e) => {
+      const hostName = (
+        e.organizer ||
+        e.don_vi_host?.ten_don_vi ||
+        e.ten_don_vi_host ||
+        ""
+      ).toLowerCase()
+      const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
+      const isHost =
+        (unitId && hostId === unitId) ||
+        (targetUnit && hostName.includes(targetUnit)) ||
+        (targetUnit.includes("webdev") &&
+          (hostName.includes("webdev") ||
+            hostName.includes("devops") ||
+            hostName.includes("ai")))
+      const isCoHost = (
+        e.coHosts ||
+        e.danh_sach_ten_dong_to_chuc ||
+        []
+      ).some((ch: string) => {
+        const c = ch.toLowerCase()
+        return (
+          (targetUnit && c.includes(targetUnit)) ||
+          (targetUnit.includes("webdev") && c.includes("webdev"))
+        )
+      })
+      return isHost || isCoHost
+    })
+
+    return filteredList.length > 0 ? filteredList : events
+  }, [events, role, user])
+
+  const [selectedEventId, setSelectedEventId] = useState<number | string | null>(
+    () => {
+      if (paramEventId) return Number(paramEventId) || paramEventId
+      return events[0]?.ma_su_kien || null
+    },
+  )
   const [organizerAnalytics, setOrganizerAnalytics] = useState<OrganizerDashboard | null>(null)
-  const [sentimentMetrics, setSentimentMetrics] = useState({
-    total: 142,
-    positive: 78,
-    neutral: 15,
-    negative: 7,
-  })
+  const [forbiddenError, setForbiddenError] = useState<string | null>(null)
 
-  // Đảm bảo khi danh sách events load xong, selectedEventId luôn hợp lệ
+  // Đồng bộ selectedEventId với query param và scoped events
   useEffect(() => {
-    if (events.length > 0 && (!selectedEventId || !events.some((e) => e.ma_su_kien === selectedEventId))) {
-      setSelectedEventId(events[0].ma_su_kien)
+    if (paramEventId) {
+      const num = Number(paramEventId) || paramEventId
+      if (num !== selectedEventId) {
+        setSelectedEventId(num)
+      }
+    } else if (scopedEvents.length > 0 && !selectedEventId) {
+      setSelectedEventId(scopedEvents[0].ma_su_kien)
     }
-  }, [events, selectedEventId])
+  }, [scopedEvents, paramEventId])
 
-  // Tải dữ liệu phân tích chỉ số cho sự kiện được chọn
+  // Tải dữ liệu phân tích chỉ số cho sự kiện được chọn với kiểm soát lỗi 403 rõ ràng
   useEffect(() => {
-    if (!selectedEventId) return
+    if (!selectedEventId) {
+      setOrganizerAnalytics(null)
+      setForbiddenError(null)
+      return
+    }
     let active = true
+    setForbiddenError(null)
     reportsService
       .organizerAnalytics(selectedEventId)
       .then((res) => {
         if (active && res.data) {
           setOrganizerAnalytics(res.data)
+          setForbiddenError(null)
         }
       })
-      .catch((err) => {
+      .catch((err: any) => {
         if (active) {
           setOrganizerAnalytics(null)
-          showToast(getApiErrorMessage(err), "error")
+          const status = err?.status || err?.response?.status
+          const msg = getApiErrorMessage(err)
+          if (status === 403 || msg.includes("403") || msg.toLowerCase().includes("quyền")) {
+            setForbiddenError(
+              `Bạn không có quyền truy cập dữ liệu báo cáo của sự kiện #${selectedEventId}. Sự kiện này thuộc quyền quản lý của đơn vị khác.`,
+            )
+          } else {
+            showToast(msg, "error")
+          }
         }
       })
     return () => {
@@ -156,6 +236,13 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
       computeEventStatus(e) === "nearly_full",
   ).length
 
+  const hasSurvey = Boolean(
+    organizerAnalytics &&
+      (organizerAnalytics.diem_noi_dung_tb != null ||
+        organizerAnalytics.diem_dien_gia_tb != null ||
+        organizerAnalytics.diem_to_chuc_tb != null),
+  )
+
   const PRESETS: { v: Preset; l: string }[] = [
     { v: "today", l: "Hôm nay" },
     { v: "7d", l: "7 ngày" },
@@ -185,25 +272,64 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
               Theo dõi tình hình tổ chức và tham gia sự kiện
             </p>
           </div>
-          {events.length > 0 && (
+          {scopedEvents.length > 0 && (
             <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 rounded-2xl border border-slate-200 shadow-sm">
               <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">
                 Xem sự kiện:
               </span>
               <select
-                value={selectedEventId}
-                onChange={(e) => setSelectedEventId(Number(e.target.value) || e.target.value)}
+                value={selectedEventId || ""}
+                onChange={(e) => {
+                  const val = Number(e.target.value) || e.target.value
+                  setSelectedEventId(val)
+                  setSearchParams({ eventId: String(val) })
+                }}
                 className="bg-transparent text-sm font-semibold text-slate-800 outline-none cursor-pointer max-w-[260px] truncate"
               >
-                {events.map((evt) => (
+                {scopedEvents.map((evt) => (
                   <option key={evt.ma_su_kien} value={evt.ma_su_kien}>
                     #{evt.ma_su_kien} — {evt.title}
                   </option>
                 ))}
+                {selectedEventId &&
+                  !scopedEvents.some((e) => e.ma_su_kien === selectedEventId) && (
+                    <option value={selectedEventId}>
+                      #{selectedEventId} (Yêu cầu)
+                    </option>
+                  )}
               </select>
             </div>
           )}
         </div>
+
+        {/* 403 Forbidden Access Denied Alert Banner */}
+        {forbiddenError && (
+          <div className="bg-rose-50 border border-rose-200 rounded-3xl p-6 mb-6 shadow-xs flex flex-col sm:flex-row items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+              <Lock className="w-6 h-6" />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="font-display font-bold text-sm text-rose-900">
+                Từ chối quyền truy cập (HTTP 403 Forbidden)
+              </h3>
+              <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                {forbiddenError}
+              </p>
+            </div>
+            {scopedEvents.length > 0 && (
+              <button
+                onClick={() => {
+                  const first = scopedEvents[0].ma_su_kien
+                  setSelectedEventId(first)
+                  setSearchParams({ eventId: String(first) })
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+              >
+                Xem sự kiện đơn vị bạn (#{scopedEvents[0].ma_su_kien})
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Date range filter */}
         <div
@@ -611,25 +737,16 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
 
           <button
             onClick={() => {
+              if (!selectedEventId) return
               setAiRefreshing(true)
               reportsService
                 .organizerAnalytics(selectedEventId)
                 .then((res) => {
-                  const total =
-                    res.data?.tong_ve_dang_ky ??
-                    res.data?.so_luong_check_in ??
-                    142
-                  const posPct = 75 + Math.floor(Math.random() * 8)
-                  const negPct = 5 + Math.floor(Math.random() * 4)
-                  const neuPct = 100 - posPct - negPct
-                  setSentimentMetrics({
-                    total,
-                    positive: posPct,
-                    neutral: neuPct,
-                    negative: negPct,
-                  })
+                  if (res.data) {
+                    setOrganizerAnalytics(res.data)
+                  }
                   showToast(
-                    `AI đã cập nhật phân tích cảm xúc từ ${total} biểu mẫu khảo sát sự kiện #${selectedEventId}!`,
+                    `Đã cập nhật dữ liệu báo cáo sự kiện #${selectedEventId}!`,
                     "success",
                   )
                 })
@@ -640,164 +757,71 @@ export default function Dashboard({ onNavigate, onLogout }: Props) {
                   setAiRefreshing(false)
                 })
             }}
-            disabled={aiRefreshing}
+            disabled={aiRefreshing || !selectedEventId}
             className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 w-fit cursor-pointer disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${aiRefreshing ? "animate-spin" : ""}`} />
             <span>
               {aiRefreshing
-                ? "Đang phân tích lại..."
+                ? "Đang làm mới..."
                 : "Cập nhật phân tích mới"}
             </span>
           </button>
         </div>
 
-        {/* Sentiment Distribution Bar */}
-        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6">
-          <div className="flex items-center justify-between text-xs font-semibold mb-2">
-            <span className="text-slate-700">
-              Tỷ lệ sắc thái phản hồi ({sentimentMetrics.total} khảo sát):
-            </span>
-            <div className="flex items-center gap-4 text-[11px]">
-              <span className="flex items-center gap-1.5 text-emerald-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />{" "}
-                Tích cực: {sentimentMetrics.positive}% ({Math.round(sentimentMetrics.total * sentimentMetrics.positive / 100)})
-              </span>
-              <span className="flex items-center gap-1.5 text-slate-600">
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> Trung
-                tính: {sentimentMetrics.neutral}% ({Math.round(sentimentMetrics.total * sentimentMetrics.neutral / 100)})
-              </span>
-              <span className="flex items-center gap-1.5 text-rose-600">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Tiêu
-                cực: {sentimentMetrics.negative}% ({Math.round(sentimentMetrics.total * sentimentMetrics.negative / 100)})
-              </span>
+        {/* Real Survey & Feedback Metrics or Empty State */}
+        {hasSurvey ? (
+          <div>
+            {/* Real Survey Rating Scores */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                <span className="text-xs text-slate-500 font-medium">Chất lượng nội dung</span>
+                <div className="text-xl font-bold text-indigo-600 mt-1">
+                  {organizerAnalytics?.diem_noi_dung_tb != null
+                    ? `${Number(organizerAnalytics.diem_noi_dung_tb).toFixed(1)} / 5.0`
+                    : "Chưa có"}
+                </div>
+              </div>
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                <span className="text-xs text-slate-500 font-medium">Đánh giá diễn giả</span>
+                <div className="text-xl font-bold text-emerald-600 mt-1">
+                  {organizerAnalytics?.diem_dien_gia_tb != null
+                    ? `${Number(organizerAnalytics.diem_dien_gia_tb).toFixed(1)} / 5.0`
+                    : "Chưa có"}
+                </div>
+              </div>
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                <span className="text-xs text-slate-500 font-medium">Khâu tổ chức & Hậu cần</span>
+                <div className="text-xl font-bold text-amber-600 mt-1">
+                  {organizerAnalytics?.diem_to_chuc_tb != null
+                    ? `${Number(organizerAnalytics.diem_to_chuc_tb).toFixed(1)} / 5.0`
+                    : "Chưa có"}
+                </div>
+              </div>
+            </div>
+
+            {/* Executive Summary Box */}
+            <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-slate-800 text-xs leading-relaxed mb-6">
+              <div className="flex items-center gap-2 font-bold text-indigo-900 mb-1.5">
+                <Sparkles className="w-4 h-4 text-indigo-700" />
+                <span>Tổng hợp phản hồi người tham gia:</span>
+              </div>
+              <p>
+                Dữ liệu khảo sát thực tế từ người tham gia sự kiện #{selectedEventId}. Các chỉ số chất lượng được ghi nhận trực tiếp qua biểu mẫu phản hồi và tự động tổng hợp theo quy trình UC-REP-01.
+              </p>
             </div>
           </div>
-
-          <div className="h-3 w-full rounded-full overflow-hidden flex bg-slate-200">
-            <div
-              className="bg-emerald-500 h-full transition-all duration-500"
-              style={{ width: `${sentimentMetrics.positive}%` }}
-              title={`Tích cực: ${sentimentMetrics.positive}%`}
-            />
-            <div
-              className="bg-slate-400 h-full transition-all duration-500"
-              style={{ width: `${sentimentMetrics.neutral}%` }}
-              title={`Trung tính: ${sentimentMetrics.neutral}%`}
-            />
-            <div
-              className="bg-rose-500 h-full transition-all duration-500"
-              style={{ width: `${sentimentMetrics.negative}%` }}
-              title={`Tiêu cực: ${sentimentMetrics.negative}%`}
-            />
+        ) : (
+          <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200 text-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <p className="font-semibold text-slate-700 text-sm">Chưa có dữ liệu khảo sát đánh giá</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+              Sự kiện #{selectedEventId || "này"} chưa ghi nhận phản hồi khảo sát nào từ người tham gia. Điểm đánh giá chất lượng (nội dung, diễn giả, tổ chức) sẽ hiển thị tại đây ngay khi người tham dự gửi biểu mẫu đánh giá.
+            </p>
           </div>
-        </div>
-
-        {/* AI Executive Summary Box */}
-        <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 text-slate-800 text-xs leading-relaxed mb-6">
-          <div className="flex items-center gap-2 font-bold text-indigo-900 mb-1.5">
-            <Sparkles className="w-4 h-4 text-indigo-700" />
-            <span>Tóm tắt nhận định của hệ thống:</span>
-          </div>
-          <p>
-            "Sinh viên đánh giá rất cao chất lượng chuyên môn và phong thái
-            truyền đạt của diễn giả. Trải nghiệm tự quét mã Kiosk hội trường
-            được 94% người tham dự khen ngợi vì giảm thời gian xếp hàng. Vấn đề
-            chính cần lưu tâm là hệ thống âm thanh ở khu vực cuối phòng C102 và
-            nhu cầu tăng thời lượng phiên hỏi đáp (Q&A)."
-          </p>
-        </div>
-
-        {/* Two Columns: Highlights vs Improvements */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Top Highlights */}
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
-            <h3 className="font-semibold text-xs text-emerald-900 flex items-center gap-2 mb-3">
-              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">
-                <Check className="w-3.5 h-3.5" />
-              </span>
-              <span>Điểm khen ngợi hàng đầu (Top Highlights)</span>
-            </h3>
-            <ul className="space-y-2.5 text-xs text-slate-700">
-              <li className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-emerald-100/60 shadow-xs">
-                <span className="text-emerald-600 font-bold">1.</span>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">
-                    Diễn giả chia sẻ thực tế & chuyên sâu
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    86 lượt nhắc tích cực · 98% đánh giá 5 sao
-                  </p>
-                </div>
-              </li>
-              <li className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-emerald-100/60 shadow-xs">
-                <span className="text-emerald-600 font-bold">2.</span>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">
-                    Check-in & Check-out qua Kiosk siêu mượt
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    74 lượt nhắc tích cực · Giảm 80% thời gian chờ
-                  </p>
-                </div>
-              </li>
-              <li className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-emerald-100/60 shadow-xs">
-                <span className="text-emerald-600 font-bold">3.</span>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">
-                    Slide bài giảng và source code chia sẻ kịp thời
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    59 lượt nhắc tích cực
-                  </p>
-                </div>
-              </li>
-            </ul>
-          </div>
-
-          {/* Top Improvements */}
-          <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4">
-            <h3 className="font-semibold text-xs text-amber-900 flex items-center gap-2 mb-3">
-              <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs">
-                !
-              </span>
-              <span>Điểm cần cải thiện (Actionable Feedback)</span>
-            </h3>
-            <ul className="space-y-2.5 text-xs text-slate-700">
-              <li className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-amber-100/60 shadow-xs">
-                <span className="text-amber-600 font-bold">1.</span>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">
-                    Tăng thời lượng hỏi đáp (Q&A) thêm 15-20 phút
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    32 lượt đề xuất từ sinh viên năm 3, 4
-                  </p>
-                </div>
-              </li>
-              <li className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-amber-100/60 shadow-xs">
-                <span className="text-amber-600 font-bold">2.</span>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">
-                    Kiểm tra lại loa hàng ghế cuối hội trường C102
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    18 phản hồi báo âm thanh hơi vang nhẹ
-                  </p>
-                </div>
-              </li>
-              <li className="flex items-start gap-2 bg-white/80 p-2.5 rounded-xl border border-amber-100/60 shadow-xs">
-                <span className="text-amber-600 font-bold">3.</span>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">
-                    Điều chỉnh nhiệt độ máy lạnh vừa phải hơn
-                  </p>
-                  <p className="text-[11px] text-slate-500">11 lượt phản hồi</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
+        )}
       </div>
     </OrgLayout>
   )

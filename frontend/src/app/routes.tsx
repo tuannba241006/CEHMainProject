@@ -118,6 +118,7 @@ const legacyPaths: Record<string, string> = {
   "org-scanner": "/staff/scanner",
   "org-settings": "/organizer/settings",
   "faculty-inbox": "/faculty/approvals",
+  "faculty-events": "/faculty/events",
   "affairs-inbox": "/affairs/approvals",
   "affairs-results": "/affairs/drl",
   "affairs-certificates": "/affairs/certificates",
@@ -479,6 +480,14 @@ function OrganizerRoomsRoute() {
   return <RoomManagement readOnly onNavigate={onNavigate} onLogout={onLogout} />
 }
 
+function FacultyEventsRoute() {
+  const navigate = useNavigate()
+  const { logout } = useUser()
+  const onNavigate = useLegacyNavigation()
+  const onLogout = () => void logout().finally(() => navigate("/login"))
+  return <EventsManage onNavigate={onNavigate} onLogout={onLogout} layout="faculty" />
+}
+
 function FacultyRoute() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -695,6 +704,10 @@ export const router = createHashRouter([
           {
             path: "faculty/approvals/:id",
             element: <SuspenseWrap><FacultyRoute /></SuspenseWrap>,
+          },
+          {
+            path: "faculty/events",
+            element: <SuspenseWrap><FacultyEventsRoute /></SuspenseWrap>,
           },
         ],
       },
