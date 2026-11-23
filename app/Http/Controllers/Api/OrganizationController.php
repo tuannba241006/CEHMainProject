@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DonViToChuc;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class OrganizationController extends Controller
 {
@@ -17,7 +18,7 @@ class OrganizationController extends Controller
     {
         $orgs = DonViToChuc::where('hoat_dong', true)
             ->orderBy('ten_don_vi')
-            ->get(['ma_don_vi_to_chuc', 'ten_don_vi', 'loai_don_vi', 'ma_don_vi_cha']);
+            ->get(['ma_don_vi_to_chuc', 'ten_don_vi', 'ma_dinh_danh', 'loai_don_vi', 'ma_don_vi_cha']);
 
         return $this->successResponse($orgs);
     }
@@ -50,11 +51,28 @@ class OrganizationController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'ten_don_vi'        => 'required|string|max:255',
-            'loai_don_vi'       => 'required|string|max:50',
+            'ten_don_vi'        => 'required|string|max:200',
+            'ma_dinh_danh'      => 'nullable|string|min:2|max:50|unique:don_vi_to_chuc,ma_dinh_danh',
+            'loai_don_vi'       => 'required|string|in:CLB,DoanHoi,Khoa,PhongBan',
             'ma_don_vi_cha'     => 'nullable|integer|exists:don_vi_to_chuc,ma_don_vi_to_chuc',
+            'mo_ta'             => 'nullable|string',
+            'logo_url'          => 'nullable|string|max:500',
             'hoat_dong'         => 'boolean',
         ]);
+
+        if (empty($validated['ma_dinh_danh'])) {
+            $base = Str::slug($validated['ten_don_vi'], '_');
+            $code = strtoupper(substr($base, 0, 30));
+            if (empty($code)) {
+                $code = 'DONVI';
+            }
+            $uniqueCode = $code;
+            $counter = 1;
+            while (DonViToChuc::where('ma_dinh_danh', $uniqueCode)->exists()) {
+                $uniqueCode = substr($code, 0, 25) . '_' . $counter++;
+            }
+            $validated['ma_dinh_danh'] = $uniqueCode;
+        }
 
         $org = DonViToChuc::create($validated + ['hoat_dong' => $validated['hoat_dong'] ?? true]);
 
@@ -69,9 +87,12 @@ class OrganizationController extends Controller
         $org = DonViToChuc::findOrFail($id);
 
         $validated = $request->validate([
-            'ten_don_vi'    => 'sometimes|string|max:255',
-            'loai_don_vi'   => 'sometimes|string|max:50',
+            'ten_don_vi'    => 'sometimes|string|max:200',
+            'ma_dinh_danh'  => 'sometimes|nullable|string|min:2|max:50|unique:don_vi_to_chuc,ma_dinh_danh,' . $id . ',ma_don_vi_to_chuc',
+            'loai_don_vi'   => 'sometimes|string|in:CLB,DoanHoi,Khoa,PhongBan',
             'ma_don_vi_cha' => 'nullable|integer|exists:don_vi_to_chuc,ma_don_vi_to_chuc',
+            'mo_ta'         => 'nullable|string',
+            'logo_url'      => 'nullable|string|max:500',
             'hoat_dong'     => 'boolean',
         ]);
 
