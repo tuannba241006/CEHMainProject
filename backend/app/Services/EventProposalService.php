@@ -458,9 +458,9 @@ class EventProposalService
             }
         }
 
-        // Lọc theo trạng thái xác nhận (Mặc định CHO_XAC_NHAN)
-        $status = $filters['trang_thai_xac_nhan'] ?? 'CHO_XAC_NHAN';
-        if (! empty($status)) {
+        // Lọc theo trạng thái xác nhận (Mặc định không lọc nếu không truyền hoặc là 'ALL')
+        $status = $filters['trang_thai_xac_nhan'] ?? null;
+        if (! empty($status) && strtoupper($status) !== 'ALL') {
             $query->where('trang_thai_xac_nhan', $status);
         }
 
