@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { TOPIC_LABELS, type Ticket } from "../../data/mock"
 import {
   useApp,
@@ -10,6 +10,10 @@ import { mapContractEventToLiveEvent } from "../../context/EventDataContext"
 import { useUser } from "../../context/UserContext"
 import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
+import {
+  bookingsService,
+  type BookingPrecheckData,
+} from "../../api/services/bookings.service"
 import { getApiErrorMessage } from "../../api/errors"
 import {
   Calendar,
@@ -19,9 +23,8 @@ import {
   Clock,
   Share2,
   CheckCircle2,
-  ShieldCheck,
-  AlertCircle,
-  ArrowLeft,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react"
 
 const TOPIC_COLORS: Record<string, string> = {
@@ -32,12 +35,38 @@ const TOPIC_COLORS: Record<string, string> = {
   community: "#d97706",
 }
 
+const TOPIC_PALETTE = [
+  "#4f46e5",
+  "#0891b2",
+  "#7c3aed",
+  "#059669",
+  "#d97706",
+  "#db2777",
+]
+
+function getTopicColor(name: string): string {
+  if (TOPIC_COLORS[name]) return TOPIC_COLORS[name]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0
+  }
+  return TOPIC_PALETTE[hash % TOPIC_PALETTE.length]
+}
+
+function formatCountdown(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds))
+  const mins = Math.floor(safe / 60)
+  const secs = safe % 60
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+}
+
 interface Props {
   eventId: string
   isGuest?: boolean
   onBack: () => void
   onRegister: (ticket: Ticket) => void
   onViewTicket: () => void
+  onViewWaitlist?: () => void
   onRequireLogin?: () => void
 }
 
@@ -54,6 +83,7 @@ export default function EventDetail({
   onBack,
   onRegister,
   onViewTicket,
+  onViewWaitlist,
   onRequireLogin,
 }: Props) {
   const {
@@ -66,48 +96,107 @@ export default function EventDetail({
     declineWaitlistOffer,
     tickets,
   } = useApp()
-  const { user } = useUser()
+  const { user, role } = useUser()
   const { showToast } = useToast()
   const [tab, setTab] = useState<typeof TABS[number]>("Giới thiệu")
   const [registering, setRegistering] = useState(false)
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false)
+  const [processingOfferAction, setProcessingOfferAction] = useState(false)
+  const [prechecking, setPrechecking] = useState(false)
   const [showWaitlistRules, setShowWaitlistRules] = useState(false)
+  const [showBookingModal, setShowBookingModal] = useState(false)
+  const [precheckData, setPrecheckData] = useState<BookingPrecheckData | null>(null)
   const [fetchedEvent, setFetchedEvent] = useState<LiveEvent | null>(null)
-  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [loadingDetail, setLoadingDetail] = useState(true)
   const [detailError, setDetailError] = useState<string | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
+  const [offerSecondsLeft, setOfferSecondsLeft] = useState<number | null>(null)
+
+  const reloadDetail = useCallback(() => {
+    setReloadTick((t) => t + 1)
+  }, [])
 
   const cachedEvent = getEvent(eventId)
-  const event = cachedEvent || fetchedEvent
+  const event = fetchedEvent || (!loadingDetail ? cachedEvent : undefined)
 
   useEffect(() => {
-    if (!cachedEvent && eventId) {
-      let cancelled = false
-      setLoadingDetail(true)
-      setDetailError(null)
-      const numId = Number(eventId.replace(/\D/g, "")) || eventId
-      eventsService
-        .publicDetail(numId)
-        .then((res) => {
-          if (!cancelled && res.data) {
-            setFetchedEvent(mapContractEventToLiveEvent(res.data))
-          }
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            setDetailError(getApiErrorMessage(err))
-          }
-        })
-        .finally(() => {
-          if (!cancelled) {
-            setLoadingDetail(false)
-          }
-        })
-      return () => {
-        cancelled = true
-      }
-    }
-  }, [cachedEvent, eventId])
+    setTab("Giới thiệu")
+    setJoiningWaitlist(false)
+    setProcessingOfferAction(false)
+    setShowWaitlistRules(false)
+    setShowBookingModal(false)
+    setPrecheckData(null)
+    setFetchedEvent(null)
+    setOfferSecondsLeft(null)
+  }, [eventId])
 
-  if (loadingDetail) {
+  useEffect(() => {
+    if (!eventId) return
+    let cancelled = false
+    setLoadingDetail(true)
+    setDetailError(null)
+    const numId = Number(eventId.replace(/\D/g, "")) || eventId
+    eventsService
+      .publicDetail(numId)
+      .then((res) => {
+        if (!cancelled && res.data) {
+          setFetchedEvent(mapContractEventToLiveEvent(res.data))
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDetailError(getApiErrorMessage(err))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingDetail(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [eventId, isGuest, user.studentId, reloadTick])
+
+  const backendBtnForTimer = fetchedEvent?.nut_bam_dieu_huong
+  useEffect(() => {
+    if (
+      backendBtnForTimer?.trang_thai_nut === "CO_OFFER_WAITLIST" &&
+      backendBtnForTimer.cho_phep_bam
+    ) {
+      const computeRemaining = (): number => {
+        if (typeof backendBtnForTimer.so_giay_offer_con_lai === "number") {
+          return Math.max(0, backendBtnForTimer.so_giay_offer_con_lai)
+        }
+        if (backendBtnForTimer.han_chot_offer) {
+          const diff = Math.floor(
+            (new Date(backendBtnForTimer.han_chot_offer).getTime() -
+              Date.now()) /
+              1000,
+          )
+          if (Number.isFinite(diff)) return Math.max(0, diff)
+        }
+        return 0
+      }
+
+      setOfferSecondsLeft(computeRemaining())
+      const timer = setInterval(() => {
+        setOfferSecondsLeft((prev) => {
+          if (prev === null) return null
+          return Math.max(0, prev - 1)
+        })
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+    setOfferSecondsLeft(null)
+  }, [
+    backendBtnForTimer?.trang_thai_nut,
+    backendBtnForTimer?.cho_phep_bam,
+    backendBtnForTimer?.han_chot_offer,
+    backendBtnForTimer?.so_giay_offer_con_lai,
+  ])
+
+  if (loadingDetail && !fetchedEvent) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 animate-pulse">
         <div className="h-8 bg-slate-200 rounded-xl w-1/3 mb-4" />
@@ -149,43 +238,71 @@ export default function EventDetail({
     )
     : undefined
 
-  // UC-DISC-02 & UC-BOOK-01: Smart Action Button state machine (13 states from Backend with local fallback)
+  // UC-DISC-02 & UC-BOOK-01: Smart Action Button state machine (authoritative Backend first, local fallback offline)
   const backendBtn = event.nut_bam_dieu_huong
-  let ctaLabel = isGuest
-    ? "Đăng nhập để đăng ký giữ chỗ"
-    : "Đăng ký giữ chỗ ngay"
+  const isHappening = event.trang_thai === "HAPPENING" && status !== "ended"
+  const statusBadgeLabel = isHappening
+    ? "Đang diễn ra"
+    : status === "closed"
+      ? "Đã đóng đăng ký"
+      : EVENT_STATUS_LABELS[status]
+  const statusBadgeClass = isHappening
+    ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+    : status === "open"
+      ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+      : status === "nearly_full"
+        ? "bg-amber-50 text-amber-700 border border-amber-100"
+        : status === "ended" || status === "closed"
+          ? "bg-slate-100 text-slate-600 border border-slate-200"
+          : "bg-rose-50 text-rose-700 border border-rose-100"
+
+  let ctaLabel = isGuest ? "Đăng nhập để đặt vé" : "Đăng ký tham gia ngay"
   let ctaEnabled = true
   let ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+  let showMyTicketsLink = false
 
-  if (!isGuest && activeTicket) {
-    if (activeTicket.status === "DaCheckOut" || activeTicket.trang_thai === "DaCheckOut") {
-      ctaLabel = "Làm khảo sát & Nhận chứng nhận"
-      ctaClass = "bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm"
-    } else if (activeTicket.status === "DaCheckIn" || activeTicket.trang_thai === "DaCheckIn") {
-      ctaLabel = "Đã Check-in · Xem vé / Điểm danh ra"
-      ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-    } else {
-      ctaLabel = "Bạn đã có vé · Xem vé & Điểm danh"
-      ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-    }
-  } else if (backendBtn) {
+  if (backendBtn) {
     ctaLabel = backendBtn.thong_diep_nut
     ctaEnabled = backendBtn.cho_phep_bam
+
+    if (
+      backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST" &&
+      backendBtn.cho_phep_bam &&
+      offerSecondsLeft !== null
+    ) {
+      if (offerSecondsLeft > 0) {
+        ctaLabel = `Bạn có 1 slot đang chờ nhận - Còn ${formatCountdown(offerSecondsLeft)}`
+        ctaEnabled = true
+      } else {
+        ctaLabel = "Suất chờ đã hết hạn, vui lòng tải lại trạng thái"
+        ctaEnabled = false
+      }
+    }
+
     switch (backendBtn.trang_thai_nut) {
       case "CHUA_DANG_NHAP":
         ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
         break
       case "DANG_KY":
-        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+        ctaClass = ctaEnabled
+          ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+          : "bg-slate-200 text-slate-500 cursor-not-allowed"
         break
       case "DA_CO_VE":
-        ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+        if (ctaEnabled) {
+          ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+        } else {
+          ctaClass = "bg-slate-200 text-slate-600 cursor-not-allowed"
+          showMyTicketsLink = true
+        }
         break
       case "DANG_O_WAITLIST":
-        ctaClass = "bg-amber-100 text-amber-800 cursor-default"
+        ctaClass = "bg-amber-100 text-amber-800 cursor-not-allowed"
         break
       case "CO_OFFER_WAITLIST":
-        ctaClass = "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
+        ctaClass = ctaEnabled
+          ? "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
+          : "bg-slate-200 text-slate-500 cursor-not-allowed"
         break
       case "VAO_WAITLIST":
         ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
@@ -200,114 +317,225 @@ export default function EventDetail({
         ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
         break
       case "LAM_FEEDBACK_NHAN_CERT":
-        ctaClass = "bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm"
+        ctaClass = ctaEnabled
+          ? "bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm"
+          : "bg-slate-200 text-slate-500 cursor-not-allowed"
         break
       case "SU_KIEN_DA_HUY":
         ctaClass = "bg-rose-100 text-rose-700 cursor-not-allowed border border-rose-200"
         break
       default:
-        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+        ctaClass = ctaEnabled
+          ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+          : "bg-slate-200 text-slate-500 cursor-not-allowed"
     }
   } else {
-    // Local fallback computation when offline or mock mode
+    // Local fallback computation when offline
     if (event.trang_thai === "CANCELLED") {
       ctaLabel = "Sự kiện đã bị hủy"
       ctaEnabled = false
       ctaClass =
         "bg-rose-100 text-rose-700 cursor-not-allowed border border-rose-200"
-    } else if (!isGuest && activeTicket) {
-      if (activeTicket.status === "DaCheckOut") {
-        ctaLabel = "Làm khảo sát & Nhận chứng nhận"
-        ctaClass = "bg-cyan-600 hover:bg-cyan-700 text-white shadow-sm"
-      } else if (activeTicket.status === "DaCheckIn") {
-        ctaLabel = "Đã Check-in · Xem vé / Điểm danh ra"
-        ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-      } else {
-        ctaLabel = "Bạn đã có vé · Xem vé & Điểm danh"
-        ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-      }
-    } else if (status === "full") {
-      if (waitlistEntry) {
-        ctaLabel =
-          waitlistEntry.trang_thai === "OFFERED"
-            ? "Bạn có suất nhận vé (Sàn 15p) — Mở Ví vé"
-            : `Đang trong hàng chờ FIFO #${waitlistEntry.so_thu_tu}`
-        ctaEnabled = waitlistEntry.trang_thai === "OFFERED"
-        ctaClass =
-          waitlistEntry.trang_thai === "OFFERED"
-            ? "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
-            : "bg-amber-100 text-amber-800 cursor-default"
-      } else {
-        ctaLabel = isGuest
-          ? "Đăng nhập để tham gia hàng đợi chờ"
-          : "Tham gia danh sách chờ FIFO"
-        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
-      }
-    } else if (status === "closed") {
-      ctaLabel = "Hết hạn đăng ký (Trước giờ G 2 tiếng)"
-      ctaEnabled = false
-      ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
     } else if (status === "ended") {
       ctaLabel = "Sự kiện đã kết thúc"
       ctaEnabled = false
       ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
+    } else if (isHappening && !event.khong_gioi_han_slot && !activeTicket) {
+      ctaLabel = "Sự kiện đang diễn ra (Đã đóng đăng ký)"
+      ctaEnabled = false
+      ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
+    } else if (!isGuest && role !== "student") {
+      ctaLabel = "Chỉ tài khoản sinh viên được đăng ký"
+      ctaEnabled = false
+      ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
+    } else if (!isGuest && activeTicket) {
+      if (isHappening) {
+        ctaLabel = "Vào điểm danh / Xem vé"
+        ctaEnabled = true
+        ctaClass = "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+      } else {
+        ctaLabel = "Bạn đã đăng ký vé"
+        ctaEnabled = false
+        ctaClass = "bg-slate-200 text-slate-600 cursor-not-allowed"
+        showMyTicketsLink = true
+      }
+    } else if (status === "closed") {
+      const isSoldOutLimited =
+        !event.khong_gioi_han_slot &&
+        (typeof event.so_ve_con_lai === "number"
+          ? event.so_ve_con_lai <= 0
+          : event.registered >= event.capacity)
+      ctaLabel =
+        isSoldOutLimited && event.trang_thai === "PUBLISHED"
+          ? "Hết vé (Đã đóng danh sách chờ)"
+          : "Đã đóng đăng ký"
+      ctaEnabled = false
+      ctaClass = "bg-slate-200 text-slate-500 cursor-not-allowed"
+    } else if (status === "full") {
+      if (waitlistEntry) {
+        ctaLabel =
+          waitlistEntry.trang_thai === "OFFERED"
+            ? "Bạn có 1 slot đang chờ nhận"
+            : `Bạn đang ở vị trí số ${waitlistEntry.so_thu_tu} trong danh sách chờ`
+        ctaEnabled = waitlistEntry.trang_thai === "OFFERED"
+        ctaClass =
+          waitlistEntry.trang_thai === "OFFERED"
+            ? "bg-amber-500 hover:bg-amber-600 text-white animate-pulse"
+            : "bg-amber-100 text-amber-800 cursor-not-allowed"
+      } else {
+        ctaLabel = isGuest ? "Đăng nhập để đặt vé" : "Tham gia danh sách chờ"
+        ctaClass = "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+      }
+    }
+  }
+
+  function buildLocalPrecheckFallback(targetEvent: LiveEvent): BookingPrecheckData {
+    const newStart = new Date(targetEvent.thoi_gian_bat_dau).getTime()
+    const newEnd = new Date(targetEvent.thoi_gian_ket_thuc).getTime()
+
+    const overlaps = tickets
+      .filter((t) => {
+        if (
+          t.studentId !== user.studentId ||
+          t.status === "cancelled" ||
+          t.trang_thai === "DaHuy" ||
+          String(t.ma_su_kien) === String(targetEvent.ma_su_kien)
+        ) {
+          return false
+        }
+        const exStart = t.thoi_gian_bat_dau
+          ? new Date(t.thoi_gian_bat_dau).getTime()
+          : NaN
+        const exEnd = t.thoi_gian_ket_thuc
+          ? new Date(t.thoi_gian_ket_thuc).getTime()
+          : NaN
+        if (!Number.isFinite(newStart) || !Number.isFinite(newEnd) || !Number.isFinite(exStart) || !Number.isFinite(exEnd)) {
+          return false
+        }
+        return newStart < exEnd && newEnd > exStart
+      })
+      .map((t) => {
+        const matchedEvent = getEvent(String(t.ma_su_kien))
+        return {
+          ma_su_kien: t.ma_su_kien || Number(t.eventId) || 0,
+          ten_su_kien: t.ten_su_kien || t.eventTitle,
+          thoi_gian_bat_dau: t.thoi_gian_bat_dau || "",
+          thoi_gian_ket_thuc: t.thoi_gian_ket_thuc || "",
+          khong_gioi_han_slot: Boolean(matchedEvent?.khong_gioi_han_slot),
+          ten_phong: t.ten_phong,
+        }
+      })
+
+    const hasHardConflict =
+      !targetEvent.khong_gioi_han_slot &&
+      overlaps.some((o) => !o.khong_gioi_han_slot)
+
+    return {
+      co_the_dat: !hasHardConflict,
+      khong_gioi_han_slot: Boolean(targetEvent.khong_gioi_han_slot),
+      ly_do_chan: hasHardConflict ? "SCHEDULE_CONFLICT_HARD" : null,
+      canh_bao_trung_lich_mem:
+        !hasHardConflict && overlaps.length > 0
+          ? "Lưu ý: Sự kiện này trùng khung giờ với sự kiện bạn đã đăng ký. Bạn vẫn có thể đăng ký nhưng vui lòng tự cân nhắc sắp xếp thời gian."
+          : null,
+      su_kien_trung: overlaps,
     }
   }
 
   async function handleCTA() {
-    if (isGuest || (backendBtn && backendBtn.trang_thai_nut === "CHUA_DANG_NHAP")) {
+    if (!ctaEnabled || registering || prechecking || !event) return
+
+    if (
+      (backendBtn && backendBtn.trang_thai_nut === "CHUA_DANG_NHAP") ||
+      (!backendBtn && isGuest)
+    ) {
       if (onRequireLogin) onRequireLogin()
       return
     }
     if (
-      activeTicket ||
-      (backendBtn &&
-        ["DA_CO_VE", "VAO_DIEM_DANH", "LAM_FEEDBACK_NHAN_CERT"].includes(
-          backendBtn.trang_thai_nut,
-        ))
+      backendBtn &&
+      ["DA_CO_VE", "VAO_DIEM_DANH", "LAM_FEEDBACK_NHAN_CERT"].includes(
+        backendBtn.trang_thai_nut,
+      )
     ) {
       onViewTicket()
       return
     }
-    if (
-      (backendBtn && backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST") ||
-      waitlistEntry?.trang_thai === "OFFERED"
-    ) {
+    if (!backendBtn && activeTicket) {
       onViewTicket()
       return
     }
     if (
-      (backendBtn && backendBtn.trang_thai_nut === "VAO_WAITLIST") ||
-      (!backendBtn && status === "full" && !waitlistEntry)
+      backendBtn
+        ? backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST"
+        : waitlistEntry?.trang_thai === "OFFERED"
+    ) {
+      ;(onViewWaitlist || onViewTicket)()
+      return
+    }
+    if (
+      backendBtn
+        ? backendBtn.trang_thai_nut === "VAO_WAITLIST"
+        : status === "full" && !waitlistEntry
     ) {
       setShowWaitlistRules(true)
       return
     }
-    if (!ctaEnabled || registering) return
 
-    // UC-BOOK-01: Check for potential schedule conflict with existing active tickets
-    const conflictingTicket = tickets.find(
-      (t) =>
-        t.studentId === user.studentId &&
-        t.status !== "cancelled" &&
-        t.status !== "DaHuy" &&
-        t.eventId !== event.id &&
-        t.eventDate === event.date,
-    )
-    if (conflictingTicket) {
-      showToast(
-        `Cảnh báo: Bạn đã giữ vé sự kiện "${conflictingTicket.eventTitle}" trong cùng ngày ${event.date}.`,
-        "warning",
-      )
+    // UC-BOOK-01 Bước 2: Gọi API precheck kiểm tra điều kiện & trùng lịch trước khi mở Modal xác nhận
+    setPrechecking(true)
+    let check: BookingPrecheckData
+    try {
+      const res = await bookingsService.precheck(event.ma_su_kien)
+      const data = res?.data
+      if (data && (typeof data.co_the_dat === "boolean" || typeof data.du_dieu_kien === "boolean")) {
+        check = data
+      } else {
+        check = buildLocalPrecheckFallback(event)
+      }
+    } catch {
+      check = buildLocalPrecheckFallback(event)
+    } finally {
+      setPrechecking(false)
     }
 
+    if (check.ly_do_chan === "SLOT_SOLD_OUT") {
+      showToast(
+        "Sự kiện vừa hết vé! Hệ thống đã cập nhật sang danh sách chờ.",
+        "warning",
+      )
+      reloadDetail()
+      return
+    }
+    if (check.ly_do_chan === "REGISTRATION_CLOSED") {
+      showToast("Đã đóng đăng ký cho sự kiện này.", "warning")
+      reloadDetail()
+      return
+    }
+    if (check.ly_do_chan === "ALREADY_REGISTERED") {
+      showToast("Bạn đã đăng ký vé sự kiện này trước đó.", "info")
+      reloadDetail()
+      return
+    }
+
+    setPrecheckData(check)
+    setShowBookingModal(true)
+  }
+
+  async function confirmBookTicket() {
+    if (!event || registering) return
     setRegistering(true)
-    const result = await registerEvent(event!, user)
+    const result = await registerEvent(event, user)
     setRegistering(false)
+    setShowBookingModal(false)
+
     if (result.success && result.ticket) {
+      reloadDetail()
       onRegister(result.ticket)
     } else {
       showToast(result.error ?? "Đăng ký thất bại", "error")
+      // Đồng bộ lại ngay Smart Action Button trên màn hình (vd EX.2 hết vé -> Tham gia danh sách chờ)
+      reloadDetail()
     }
   }
 
@@ -373,9 +601,15 @@ export default function EventDetail({
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span
                 className="px-3 py-1 rounded-full text-xs font-semibold text-white"
-                style={{ background: TOPIC_COLORS[event.topic] || "#4f46e5" }}
+                style={{
+                  background: getTopicColor(
+                    event.ten_chuyen_de || String(event.topic),
+                  ),
+                }}
               >
-                {TOPIC_LABELS[event.topic]}
+                {event.ten_chuyen_de ||
+                  TOPIC_LABELS[event.topic] ||
+                  String(event.topic || "Chuyên đề")}
               </span>
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
                 {event.organizer}
@@ -386,14 +620,9 @@ export default function EventDetail({
                 </span>
               )}
               <span
-                className={`px-3 py-1 rounded-full text-xs font-semibold ${status === "open"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                  : status === "nearly_full"
-                    ? "bg-amber-50 text-amber-700 border border-amber-100"
-                    : "bg-rose-50 text-rose-700 border border-rose-100"
-                  }`}
+                className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadgeClass}`}
               >
-                {EVENT_STATUS_LABELS[status]}
+                {statusBadgeLabel}
               </span>
             </div>
 
@@ -426,50 +655,56 @@ export default function EventDetail({
             />
           </div>
 
-          {/* Already registered banner (if user already registered) */}
-          {activeTicket && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m4.5 12.75 6 6 9-13.5"
-                    />
-                  </svg>
+          {/* Already registered banner (hidden when event ended & ineligible) */}
+          {activeTicket &&
+            status !== "ended" &&
+            backendBtn?.trang_thai_nut !== "SU_KIEN_DA_KET_THUC" && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m4.5 12.75 6 6 9-13.5"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-sm text-emerald-900">
+                      Bạn đã đăng ký thành công sự kiện này
+                    </h4>
+                    <p className="text-xs text-emerald-700 mt-0.5">
+                      Mã vé:{" "}
+                      <span className="font-mono font-bold">
+                        {activeTicket.id}
+                      </span>{" "}
+                      · Trạng thái:{" "}
+                      {activeTicket.trang_thai === "DaCheckOut" ||
+                      activeTicket.status === "DaCheckOut"
+                        ? "Đã check-out"
+                        : activeTicket.trang_thai === "DaCheckIn" ||
+                            activeTicket.status === "DaCheckIn"
+                          ? "Đã check-in"
+                          : "Chưa check-in"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-display font-bold text-sm text-emerald-900">
-                    Bạn đã đăng ký thành công sự kiện này
-                  </h4>
-                  <p className="text-xs text-emerald-700 mt-0.5">
-                    Mã vé:{" "}
-                    <span className="font-mono font-bold">
-                      {activeTicket.id}
-                    </span>{" "}
-                    · Trạng thái:{" "}
-                    {activeTicket.status === "pending"
-                      ? "Chưa check-in"
-                      : "Đã check-in"}
-                  </p>
-                </div>
-              </div>
 
-              <button
-                onClick={onViewTicket}
-                className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold text-xs hover:bg-emerald-700 transition-colors flex-shrink-0 cursor-pointer"
-              >
-                Xem vé ngay
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={onViewTicket}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold text-xs hover:bg-emerald-700 transition-colors flex-shrink-0 cursor-pointer"
+                >
+                  Xem vé ngay
+                </button>
+              </div>
+            )}
 
           {/* Web Tabbed Content */}
           <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
@@ -520,12 +755,13 @@ export default function EventDetail({
                       <p className="text-sm font-bold text-slate-900 mt-1">
                         {event.ten_don_vi_host || event.organizer}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {event.danh_sach_ten_dong_to_chuc &&
-                          event.danh_sach_ten_dong_to_chuc.length > 0
-                          ? `Đồng tổ chức: ${event.danh_sach_ten_dong_to_chuc.join(", ")}`
-                          : "Phối hợp cùng Phòng Công tác Sinh viên"}
-                      </p>
+                      {event.danh_sach_ten_dong_to_chuc &&
+                        event.danh_sach_ten_dong_to_chuc.length > 0 && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Đồng tổ chức:{" "}
+                            {event.danh_sach_ten_dong_to_chuc.join(", ")}
+                          </p>
+                        )}
                     </div>
 
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
@@ -541,22 +777,38 @@ export default function EventDetail({
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100">
-                      <p className="text-xs font-semibold text-indigo-700">
-                        Chỉ tiêu rèn luyện (DRL)
-                      </p>
-                      <p className="text-sm font-bold text-indigo-900 mt-1">
-                        {event.dieu_khoan_drl === "Dieu4"
-                          ? "Cộng Điều 4"
-                          : "Cộng Điều 3"}
-                        : +{event.diem_drl_du_kien || 5} điểm
-                      </p>
-                      <p className="text-xs text-indigo-600 mt-0.5">
-                        {event.gio_tinh_nguyen
-                          ? `Cộng thêm ${event.gio_tinh_nguyen} giờ tình nguyện`
-                          : "Cấp chứng nhận số sau khi đối soát đạt 70%"}
-                      </p>
-                    </div>
+                    {event.dieu_khoan_drl === "KhongCo" ? (
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                        <p className="text-xs font-semibold text-slate-500">
+                          Chỉ tiêu rèn luyện (DRL)
+                        </p>
+                        <p className="text-sm font-bold text-slate-800 mt-1">
+                          Không cộng điểm rèn luyện
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {event.gio_tinh_nguyen > 0
+                            ? `Cộng ${event.gio_tinh_nguyen} giờ tình nguyện xã hội`
+                            : "Hoạt động giao lưu / ngoại khóa"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100">
+                        <p className="text-xs font-semibold text-indigo-700">
+                          Chỉ tiêu rèn luyện (DRL)
+                        </p>
+                        <p className="text-sm font-bold text-indigo-900 mt-1">
+                          {event.dieu_khoan_drl === "Dieu4"
+                            ? "Cộng Điều 4"
+                            : "Cộng Điều 3"}
+                          : +{event.diem_drl_du_kien ?? 0} điểm
+                        </p>
+                        <p className="text-xs text-indigo-600 mt-0.5">
+                          {event.gio_tinh_nguyen > 0
+                            ? `Cộng thêm ${event.gio_tinh_nguyen} giờ tình nguyện`
+                            : "Cấp chứng nhận số sau khi đối soát đạt 70%"}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -629,17 +881,28 @@ export default function EventDetail({
                     ))}
                   </div>
 
-                  <div className="mt-4 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100">
-                    <p className="text-xs font-bold text-indigo-900">
-                      Quy tắc công nhận điểm rèn luyện:
-                    </p>
-                    <p className="text-xs text-indigo-700 mt-1 leading-relaxed">
-                      Sinh viên cần hoàn thành cả 2 lượt Check-in khi vào và
-                      Check-out khi kết thúc sự kiện. Thời lượng tham gia tối
-                      thiểu 70% để được tự động xét công nhận điểm rèn luyện và
-                      cấp chứng nhận số.
-                    </p>
-                  </div>
+                  {event.dieu_khoan_drl === "KhongCo" ? (
+                    <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                      <p className="text-xs font-bold text-slate-800">
+                        Thông tin điểm rèn luyện:
+                      </p>
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                        Sự kiện này không áp dụng xét công nhận điểm rèn luyện.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100">
+                      <p className="text-xs font-bold text-indigo-900">
+                        Quy tắc công nhận điểm rèn luyện:
+                      </p>
+                      <p className="text-xs text-indigo-700 mt-1 leading-relaxed">
+                        Sinh viên cần hoàn thành cả 2 lượt Check-in khi vào và
+                        Check-out khi kết thúc sự kiện. Thời lượng tham gia tối
+                        thiểu 70% để được tự động xét công nhận điểm rèn luyện và
+                        cấp chứng nhận số.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -652,14 +915,9 @@ export default function EventDetail({
             {/* Status & capacity */}
             <div className="flex items-center justify-between gap-2 mb-4">
               <span
-                className={`px-3 py-1 rounded-full text-xs font-bold ${status === "open"
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                  : status === "nearly_full"
-                    ? "bg-amber-50 text-amber-700 border border-amber-100"
-                    : "bg-rose-50 text-rose-700 border border-rose-100"
-                  }`}
+                className={`px-3 py-1 rounded-full text-xs font-bold ${statusBadgeClass}`}
               >
-                {EVENT_STATUS_LABELS[status]}
+                {statusBadgeLabel}
               </span>
               {event.khong_gioi_han_slot ? (
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">
@@ -722,10 +980,16 @@ export default function EventDetail({
                 <Award className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-slate-800">
-                    +5 Điểm rèn luyện
+                    {event.dieu_khoan_drl === "KhongCo"
+                      ? "Không cộng điểm rèn luyện"
+                      : `+${event.diem_drl_du_kien ?? 0} Điểm rèn luyện (${event.dieu_khoan_drl === "Dieu4" ? "Điều 4" : "Điều 3"})`}
                   </p>
                   <p className="text-slate-500 mt-0.5">
-                    Kèm Chứng nhận số sau sự kiện
+                    {event.gio_tinh_nguyen > 0
+                      ? `Cộng ${event.gio_tinh_nguyen} giờ tình nguyện xã hội`
+                      : event.dieu_khoan_drl === "KhongCo"
+                        ? "Hoạt động giao lưu / ngoại khóa"
+                        : "Kèm Chứng nhận số sau sự kiện"}
                   </p>
                 </div>
               </div>
@@ -745,84 +1009,138 @@ export default function EventDetail({
               </div>
             </div>
 
-            {/* Waitlist Info Panel for Full Events (UC-BOOK-02) */}
-            {status === "full" && (
-              <div className="mb-4 p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-xs space-y-2.5">
-                <div className="flex items-center gap-2 text-amber-900 font-bold">
-                  <Clock className="w-4 h-4 text-amber-700 shrink-0" />
-                  <span>Hàng đợi danh sách chờ (FIFO)</span>
-                </div>
-                <p className="text-amber-800 leading-relaxed">
-                  Vé chính thức đã phát hết. Khi có sinh viên hủy vé trước{" "}
-                  <b>T-4h</b>, hệ thống tự động gửi Offer cho sinh viên xếp đầu
-                  hàng đợi với Claim Window tối thiểu 15 phút.
-                </p>
+            {/* Waitlist Info Panel for Full PUBLISHED Events (UC-BOOK-02) */}
+            {event.trang_thai === "PUBLISHED" &&
+              (status === "full" ||
+                (backendBtn &&
+                  [
+                    "VAO_WAITLIST",
+                    "DANG_O_WAITLIST",
+                    "CO_OFFER_WAITLIST",
+                  ].includes(backendBtn.trang_thai_nut))) && (() => {
+                const isOffered = backendBtn
+                  ? backendBtn.trang_thai_nut === "CO_OFFER_WAITLIST"
+                  : waitlistEntry?.trang_thai === "OFFERED"
+                const isWaiting = backendBtn
+                  ? backendBtn.trang_thai_nut === "DANG_O_WAITLIST"
+                  : waitlistEntry?.trang_thai === "WAITING"
+                const canJoinWaitlist = backendBtn
+                  ? backendBtn.trang_thai_nut === "VAO_WAITLIST"
+                  : !isGuest && role === "student" && !activeTicket && status === "full"
 
-                {waitlistEntry ? (
-                  <div className="mt-2 pt-2.5 border-t border-amber-200/80 space-y-2">
-                    {waitlistEntry.trang_thai === "OFFERED" ? (
-                      <div className="space-y-2">
+                if (!isOffered && !isWaiting && !canJoinWaitlist) {
+                  return null
+                }
+
+                const effectiveOfferId =
+                  waitlistEntry?.id ?? backendBtn?.ma_hang_doi ?? null
+                const waitlistPosition =
+                  backendBtn?.so_thu_tu_waitlist ?? waitlistEntry?.so_thu_tu
+                const offerDeadline =
+                  backendBtn?.han_chot_offer ?? waitlistEntry?.han_chot_xac_nhan
+
+                return (
+                  <div className="mb-4 p-4 rounded-2xl bg-amber-50/90 border border-amber-200 text-xs space-y-2.5">
+                    <div className="flex items-center gap-2 text-amber-900 font-bold">
+                      <Clock className="w-4 h-4 text-amber-700 shrink-0" />
+                      <span>Hàng đợi danh sách chờ (FIFO)</span>
+                    </div>
+                    <p className="text-amber-800 leading-relaxed">
+                      Vé chính thức đã phát hết. Khi có sinh viên hủy vé trước{" "}
+                      <b>T-4h</b>, hệ thống tự động gửi Offer cho sinh viên xếp
+                      đầu hàng đợi với Claim Window tối thiểu 15 phút.
+                    </p>
+
+                    {isOffered ? (
+                      <div className="mt-2 pt-2.5 border-t border-amber-200/80 space-y-2">
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping flex-shrink-0" />
                           <p className="font-bold text-amber-950">
                             Suất nhận vé ưu tiên đã sẵn sàng!
+                            {offerSecondsLeft !== null &&
+                              ` (Còn ${formatCountdown(offerSecondsLeft)})`}
                           </p>
                         </div>
                         <p className="text-[11px] text-amber-800">
                           Hạn chót xác nhận:{" "}
                           <b>
-                            {waitlistEntry.han_chot_xac_nhan
-                              ? new Date(
-                                waitlistEntry.han_chot_xac_nhan,
-                              ).toLocaleTimeString("vi-VN", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                              : "Trong vòng 45 phút"}
+                            {offerDeadline
+                              ? new Date(offerDeadline).toLocaleTimeString(
+                                  "vi-VN",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  },
+                                )
+                              : "Trong vòng 60 phút"}
                           </b>
                           . Sau thời gian này vé sẽ chuyển cho người kế tiếp.
                         </p>
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            onClick={async () => {
-                              const result = await claimWaitlistOffer(
-                                waitlistEntry.id,
-                              )
-                              showToast(
-                                result.success
-                                  ? "Đã nhận vé thành công từ hàng chờ!"
-                                  : result.error || "Không thể nhận vé.",
-                                result.success ? "success" : "error",
-                              )
-                              if (result.success) onViewTicket()
-                            }}
-                            className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
-                          >
-                            Xác nhận nhận vé
-                          </button>
-                          <button
-                            onClick={async () => {
-                              const result = await declineWaitlistOffer(
-                                waitlistEntry.id,
-                              )
-                              showToast(
-                                result.success
-                                  ? "Đã từ chối suất giữ chỗ."
-                                  : result.error || "Không thể từ chối.",
-                                result.success ? "info" : "error",
-                              )
-                            }}
-                            className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold text-xs"
-                          >
-                            Từ chối
-                          </button>
-                        </div>
+                        {effectiveOfferId && (
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (processingOfferAction) return
+                                setProcessingOfferAction(true)
+                                try {
+                                  const result =
+                                    await claimWaitlistOffer(effectiveOfferId)
+                                  showToast(
+                                    result.success
+                                      ? "Đã nhận vé thành công từ hàng chờ!"
+                                      : result.error || "Không thể nhận vé.",
+                                    result.success ? "success" : "error",
+                                  )
+                                  reloadDetail()
+                                  if (result.success) {
+                                    onViewTicket()
+                                  }
+                                } finally {
+                                  setProcessingOfferAction(false)
+                                }
+                              }}
+                              disabled={
+                                offerSecondsLeft === 0 || processingOfferAction
+                              }
+                              className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs shadow-xs cursor-pointer"
+                            >
+                              {processingOfferAction
+                                ? "Đang xử lý..."
+                                : "Xác nhận nhận vé"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={processingOfferAction}
+                              onClick={async () => {
+                                if (processingOfferAction) return
+                                setProcessingOfferAction(true)
+                                try {
+                                  const result =
+                                    await declineWaitlistOffer(effectiveOfferId)
+                                  showToast(
+                                    result.success
+                                      ? "Đã từ chối suất giữ chỗ."
+                                      : result.error || "Không thể từ chối.",
+                                    result.success ? "info" : "error",
+                                  )
+                                  reloadDetail()
+                                } finally {
+                                  setProcessingOfferAction(false)
+                                }
+                              }}
+                              className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 font-semibold text-xs cursor-pointer"
+                            >
+                              Tôi không tham gia nữa
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="space-y-2">
+                    ) : isWaiting ? (
+                      <div className="mt-2 pt-2.5 border-t border-amber-200/80 space-y-2">
                         <div className="flex items-center justify-between text-amber-950">
                           <span>
-                            Vị trí của bạn: <b>#{waitlistEntry.so_thu_tu}</b>
+                            Vị trí của bạn: <b>#{waitlistPosition}</b>
                           </span>
                           <span className="text-[11px] text-amber-800 bg-amber-200/70 px-2.5 py-0.5 rounded-full font-semibold">
                             Đang chờ slot trống
@@ -830,64 +1148,60 @@ export default function EventDetail({
                         </div>
                         <p className="text-[11px] text-amber-700">
                           Hệ thống sẽ gửi email và thông báo đẩy khi có người
-                          hủy vé. Hàng đợi đóng tại mốc T-2h.
+                          hủy vé. Hàng đợi tự động đóng tại mốc T-2h.
                         </p>
-                        <button
-                          onClick={async () => {
-                            if (
-                              !confirm(
-                                "Bạn có chắc chắn muốn rút khỏi hàng chờ cho sự kiện này?",
-                              )
-                            )
-                              return
-                            const result = await declineWaitlistOffer(
-                              waitlistEntry.id,
-                            )
-                            showToast(
-                              result.success
-                                ? "Đã rút khỏi hàng chờ."
-                                : result.error || "Không thể hủy.",
-                              result.success ? "info" : "error",
-                            )
-                          }}
-                          className="w-full py-1.5 rounded-lg border border-amber-300 text-amber-800 hover:bg-amber-100 text-[11px] font-medium"
-                        >
-                          Rút khỏi hàng chờ
-                        </button>
                       </div>
+                    ) : (
+                      <p className="text-[11px] text-amber-700 font-medium">
+                        Hàng đợi tự động đóng trước giờ G 2 tiếng (T-2h). Nhấn
+                        nút bên dưới để lấy số thứ tự FIFO.
+                      </p>
                     )}
                   </div>
-                ) : (
-                  <p className="text-[11px] text-amber-700 font-medium">
-                    Hàng đợi tự động đóng trước giờ G 2 tiếng (T-2h). Nhấn nút
-                    bên dưới để lấy số thứ tự FIFO.
-                  </p>
-                )}
-              </div>
-            )}
+                )
+              })()}
 
             {/* Big CTA Action Button */}
             <button
               onClick={handleCTA}
-              disabled={(!isGuest && !ctaEnabled) || registering}
-              className={`w-full py-3.5 rounded-2xl font-display font-bold text-sm transition-all cursor-pointer ${ctaClass}`}
+              disabled={!ctaEnabled || registering || prechecking}
+              className={`w-full py-3.5 rounded-2xl font-display font-bold text-sm transition-all ${
+                !ctaEnabled || registering || prechecking
+                  ? "cursor-not-allowed"
+                  : "cursor-pointer"
+              } ${ctaClass}`}
             >
-              {registering ? "Đang xử lý đăng ký..." : ctaLabel}
+              {prechecking
+                ? "Đang kiểm tra điều kiện..."
+                : registering
+                  ? "Đang xử lý đăng ký..."
+                  : ctaLabel}
             </button>
 
-            {/* Share Event Button (Guest & Student - SRS RBAC Row 9) */}
+            {/* SRS UC-DISC-02: Link "Vé của tôi" đi kèm nút Disabled "Bạn đã đăng ký vé" */}
+            {showMyTicketsLink && (
+              <button
+                type="button"
+                onClick={onViewTicket}
+                className="w-full mt-2 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span>Vé của tôi →</span>
+              </button>
+            )}
+
+            {/* Share Event Button (Guest & Student - SRS UC-DISC-02.AC.1 OpenGraph SSR URL) */}
             <button
               type="button"
               onClick={() => {
-                const url = window.location.href
+                const url = `${window.location.origin}/events/${event.ma_su_kien}/share`
                 if (navigator.clipboard) {
                   navigator.clipboard.writeText(url)
                   showToast(
-                    "Đã sao chép liên kết sự kiện vào bộ nhớ tạm!",
+                    "Đã sao chép liên kết chia sẻ OpenGraph vào bộ nhớ tạm!",
                     "success",
                   )
                 } else {
-                  showToast(`Liên kết: ${url}`, "info")
+                  showToast(`Liên kết chia sẻ: ${url}`, "info")
                 }
               }}
               className="w-full mt-2.5 py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
@@ -926,7 +1240,9 @@ export default function EventDetail({
       {showWaitlistRules && (
         <div
           className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setShowWaitlistRules(false)}
+          onClick={() => {
+            if (!joiningWaitlist) setShowWaitlistRules(false)
+          }}
         >
           <div
             className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl"
@@ -956,10 +1272,10 @@ export default function EventDetail({
               <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 flex items-start gap-2.5">
                 <span className="font-bold text-amber-700 text-sm">2.</span>
                 <p>
-                  <b>Kiểm tra trùng lịch tự động</b>: Nếu tại thời điểm cấp
-                  Offer bạn đã có vé sự kiện khác cùng giờ, hệ thống sẽ gán{" "}
-                  <code>SKIPPED_CONFLICT</code> và chuyển slot cho người kế
-                  tiếp.
+                  <b>Kiểm tra trùng lịch tự động</b>: Lưu ý rằng nếu đến lượt
+                  được Offer mà bạn đang giữ vé của sự kiện giới hạn slot khác
+                  trùng giờ, lượt của bạn sẽ bị bỏ qua và hệ thống sẽ chuyển
+                  slot cho người kế tiếp.
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5">
@@ -981,26 +1297,190 @@ export default function EventDetail({
 
             <div className="flex gap-3 mt-6">
               <button
+                type="button"
+                disabled={joiningWaitlist}
                 onClick={() => setShowWaitlistRules(false)}
-                className="flex-1 py-3 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                className="flex-1 py-3 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
               >
                 Hủy bỏ
               </button>
               <button
+                type="button"
+                disabled={joiningWaitlist}
                 onClick={async () => {
-                  const result = await joinWaitlist(event, user)
-                  setShowWaitlistRules(false)
-                  showToast(
-                    result.success
-                      ? `Đã vào hàng chờ ở vị trí #${result.entry?.so_thu_tu}.`
-                      : result.error || "Không thể tham gia hàng chờ.",
-                    result.success ? "success" : "error",
-                  )
+                  if (joiningWaitlist) return
+                  setJoiningWaitlist(true)
+                  try {
+                    const result = await joinWaitlist(event, user)
+                    setShowWaitlistRules(false)
+                    reloadDetail()
+                    showToast(
+                      result.success
+                        ? `Bạn đã được xếp vào danh sách chờ ở vị trí số ${result.entry?.so_thu_tu}.`
+                        : result.error || "Không thể tham gia hàng chờ.",
+                      result.success
+                        ? "success"
+                        : result.errorCode === "TICKETS_AVAILABLE"
+                          ? "warning"
+                          : "error",
+                    )
+                  } finally {
+                    setJoiningWaitlist(false)
+                  }
                 }}
-                className="flex-1 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition-colors"
+                className="flex-1 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white font-bold text-xs shadow-sm transition-colors"
               >
-                Xác nhận lấy số thứ tự FIFO
+                {joiningWaitlist
+                  ? "Đang xử lý..."
+                  : "Xác nhận vào danh sách chờ"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UC-BOOK-01 Bước 2–3: Modal Xem lại thông tin & Xác nhận đặt vé */}
+      {showBookingModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => !registering && setShowBookingModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 mb-1.5">
+                  Xác nhận đăng ký tham dự
+                </span>
+                <h2 className="font-display font-bold text-lg text-slate-900 leading-snug">
+                  {event.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => !registering && setShowBookingModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center cursor-pointer shrink-0"
+                title="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2 text-xs mb-4">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Thời gian:</span>
+                <span className="font-semibold text-slate-800 text-right">
+                  {dateFormatted} · {event.time} - {event.endTime}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Địa điểm:</span>
+                <span className="font-semibold text-slate-800 text-right">
+                  {event.room} ({event.location})
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Loại vé:</span>
+                <span className="font-semibold text-slate-800 text-right">
+                  {event.khong_gioi_han_slot
+                    ? "Sự kiện mở tự do (Không giới hạn slot)"
+                    : "Sự kiện giới hạn slot (Vé điện tử HMAC-SHA256)"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Sinh viên:</span>
+                <span className="font-semibold text-slate-800 text-right">
+                  {user.name} ({user.studentId})
+                </span>
+              </div>
+            </div>
+
+            {/* Hard Block khi trùng 2 sự kiện giới hạn slot (UC-BOOK-01.EX.1) */}
+            {precheckData?.ly_do_chan === "SCHEDULE_CONFLICT_HARD" && (
+              <div className="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-rose-800">
+                  <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Không thể đăng ký do trùng lịch giới hạn slot!</span>
+                </div>
+                <p className="leading-relaxed">
+                  Bạn đang giữ vé của sự kiện giới hạn slot{" "}
+                  <b>
+                    '{(precheckData.su_kien_trung?.find((ev) => !ev.khong_gioi_han_slot) ?? precheckData.su_kien_trung?.[0])?.ten_su_kien || "khác"}'
+                  </b>{" "}
+                  diễn ra trùng khung giờ. Để tránh chiếm chỗ ảo, vui lòng hủy vé
+                  sự kiện cũ (trước mốc T-4h) nếu muốn tham gia sự kiện này.
+                </p>
+              </div>
+            )}
+
+            {/* Soft Warning màu vàng khi 1 trong 2 sự kiện là mở tự do (UC-BOOK-01 Bước 2) */}
+            {precheckData?.ly_do_chan !== "SCHEDULE_CONFLICT_HARD" &&
+              precheckData?.canh_bao_trung_lich_mem && (
+                <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-900 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-amber-800">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Cảnh báo trùng khung giờ (Cảnh báo mềm)</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    {precheckData.canh_bao_trung_lich_mem}
+                  </p>
+                  {precheckData.su_kien_trung &&
+                    precheckData.su_kien_trung.length > 0 && (
+                      <ul className="list-disc pl-4 pt-1 text-[11px] text-amber-800 space-y-0.5">
+                        {precheckData.su_kien_trung.map((ev) => (
+                          <li key={ev.ma_su_kien}>
+                            <b>{ev.ten_su_kien}</b> (
+                            {new Date(ev.thoi_gian_bat_dau).toLocaleTimeString(
+                              "vi-VN",
+                              { hour: "2-digit", minute: "2-digit" },
+                            )}{" "}
+                            –{" "}
+                            {new Date(ev.thoi_gian_ket_thuc).toLocaleTimeString(
+                              "vi-VN",
+                              { hour: "2-digit", minute: "2-digit" },
+                            )}
+                            )
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                </div>
+              )}
+
+            <div className="flex gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowBookingModal(false)}
+                disabled={registering}
+                className="flex-1 py-3 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                {precheckData?.ly_do_chan === "SCHEDULE_CONFLICT_HARD"
+                  ? "Đóng"
+                  : "Hủy bỏ"}
+              </button>
+              {precheckData?.ly_do_chan === "SCHEDULE_CONFLICT_HARD" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBookingModal(false)
+                    onViewTicket()
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                >
+                  Mở Vé của tôi
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={confirmBookTicket}
+                  disabled={registering}
+                  className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer"
+                >
+                  {registering ? "Đang giữ vé..." : "Xác nhận đặt vé"}
+                </button>
+              )}
             </div>
           </div>
         </div>

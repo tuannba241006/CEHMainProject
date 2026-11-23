@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react"
+import { useLocation } from "react-router"
+import { QRCodeSVG } from "qrcode.react"
 import type { Ticket } from "../../data/mock"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
@@ -59,6 +61,9 @@ export default function MyTickets({
   } = useApp()
   const { user } = useUser()
   const { showToast } = useToast()
+  const location = useLocation()
+  const newlyBookedTicket =
+    (location.state as { newTicket?: Ticket } | null)?.newTicket || null
 
   const userIdentifier = user?.studentId || user?.email || user?.ma_tai_khoan
   useEffect(() => {
@@ -69,6 +74,9 @@ export default function MyTickets({
   const [tab, setTab] = useState<"upcoming" | "waitlist" | "history">(
     initialTab,
   )
+  const [processingWaitlistId, setProcessingWaitlistId] = useState<number | null>(null)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [offerSyncMs, setOfferSyncMs] = useState(() => Date.now())
   const [showQR, setShowQR] = useState<Ticket | null>(null)
   const [showCancelModal, setShowCancelModal] = useState<Ticket | null>(null)
   const [cancelling, setCancelling] = useState(false)
@@ -107,7 +115,38 @@ export default function MyTickets({
   const upcoming = myTickets.filter((t) => t.status === "pending")
   const history = myTickets.filter((t) => t.status !== "pending")
   const list = tab === "upcoming" ? upcoming : history
-  const waitlist = getStudentWaitlistEntries(user.studentId)
+  const waitlistPriority: Record<string, number> = {
+    OFFERED: 0,
+    WAITING: 1,
+  }
+  const allWaitlistEntries = getStudentWaitlistEntries(user.studentId)
+  const waitlist = [
+    ...allWaitlistEntries.filter((w) =>
+      ["WAITING", "OFFERED"].includes(w.trang_thai),
+    ),
+  ].sort(
+    (a, b) =>
+      (waitlistPriority[a.trang_thai] ?? 2) -
+      (waitlistPriority[b.trang_thai] ?? 2),
+  )
+  const historyWaitlist = allWaitlistEntries.filter(
+    (w) => !["WAITING", "OFFERED"].includes(w.trang_thai),
+  )
+  const hasOfferedWaitlist = waitlist.some((w) => w.trang_thai === "OFFERED")
+  const offerSyncKey = waitlist
+    .map((w) => `${w.id}:${w.trang_thai}:${w.so_giay_con_lai ?? ""}`)
+    .join(",")
+
+  useEffect(() => {
+    const syncAt = Date.now()
+    setOfferSyncMs(syncAt)
+    if (!hasOfferedWaitlist) return
+    setNowMs(syncAt)
+    const timer = setInterval(() => {
+      setNowMs(Date.now())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [hasOfferedWaitlist, offerSyncKey])
 
   async function handleCancel() {
     if (!showCancelModal || cancelling) return
@@ -137,6 +176,36 @@ export default function MyTickets({
         <span>/</span>
         <span className="text-slate-900 font-semibold">Vé của tôi</span>
       </nav>
+
+      {/* Newly booked ticket confirmation banner (UC-BOOK-01 Bước 6) */}
+      {newlyBookedTicket && (
+        <div className="mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-display font-bold text-sm text-emerald-950">
+                Đặt vé thành công: {newlyBookedTicket.eventTitle}
+              </h2>
+              <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
+                Vé điện tử kèm mã QR HMAC-SHA256 đã được lưu vào Ví vé và đưa vào
+                hàng đợi gửi tới email của bạn. Mã vé:{" "}
+                <span className="font-mono font-bold">
+                  {newlyBookedTicket.ma_ve_uuid || newlyBookedTicket.id}
+                </span>
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowQR(newlyBookedTicket)}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shrink-0 cursor-pointer transition-colors"
+          >
+            Mở mã QR check-in
+          </button>
+        </div>
+      )}
 
       {/* Page Header */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs mb-8">
@@ -177,7 +246,7 @@ export default function MyTickets({
                 ? upcoming.length
                 : t === "waitlist"
                   ? waitlist.length
-                  : history.length
+                  : history.length + historyWaitlist.length
             const label =
               t === "upcoming"
                 ? "Sắp diễn ra"
@@ -224,7 +293,44 @@ export default function MyTickets({
               </p>
             </div>
           ) : (
-            waitlist.map((entry) => (
+            waitlist.map((entry) => {
+              const wlStatusLabel: Record<string, { badge: string; desc: string }> = {
+                OFFERED: {
+                  badge: "Có suất chờ xác nhận",
+                  desc: "Bạn đang có suất ưu tiên chờ xác nhận.",
+                },
+                WAITING: {
+                  badge: `Hàng đợi #${entry.so_thu_tu}`,
+                  desc: `Đang chờ slot trống (Thứ tự FIFO #${entry.so_thu_tu}). Khi có sinh viên hủy vé trước T-4h, hệ thống tự động kiểm tra trùng lịch và gửi suất nhận vé ưu tiên cho bạn. Hàng đợi tự động đóng tại mốc T-2h.`,
+                },
+                ACCEPTED: {
+                  badge: "Đã nhận vé",
+                  desc: "Bạn đã xác nhận nhận vé từ danh sách chờ.",
+                },
+                DECLINED: {
+                  badge: "Đã từ chối",
+                  desc: "Bạn đã từ chối suất nhận vé.",
+                },
+                EXPIRED: {
+                  badge: "Hết hạn xác nhận",
+                  desc: "Suất nhận vé đã hết thời hạn xác nhận.",
+                },
+                SKIPPED_CONFLICT: {
+                  badge: "Bỏ qua do trùng lịch",
+                  desc: "Lượt chờ bị bỏ qua vì trùng khung giờ với sự kiện giới hạn slot bạn đang giữ vé.",
+                },
+                CLOSED_WAITLIST: {
+                  badge: "Hàng đợi đã đóng (T-2h)",
+                  desc: "Danh sách chờ đã đóng trước giờ sự kiện 2 tiếng.",
+                },
+                CANCELLED: {
+                  badge: "Sự kiện đã hủy",
+                  desc: "Danh sách chờ đã đóng do sự kiện bị hủy.",
+                },
+              }
+              const meta = wlStatusLabel[entry.trang_thai] || wlStatusLabel.WAITING
+
+              return (
               <article
                 key={entry.id}
                 className={`rounded-3xl border p-6 shadow-sm ${
@@ -234,10 +340,14 @@ export default function MyTickets({
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">
-                    {entry.trang_thai === "OFFERED"
-                      ? "Có suất chờ xác nhận"
-                      : `Hàng đợi #${entry.so_thu_tu}`}
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      entry.trang_thai === "OFFERED" || entry.trang_thai === "WAITING"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {meta.badge}
                   </span>
                   <span className="font-mono text-xs text-slate-400">
                     #{entry.id}
@@ -252,86 +362,131 @@ export default function MyTickets({
                 </p>
                 {entry.trang_thai === "OFFERED" ? (
                   <>
-                    <div className="mt-4 p-3 rounded-xl bg-white/70 border border-amber-200">
-                      <p className="text-xs font-semibold text-amber-900">
-                        Hạn xác nhận:{" "}
-                        {entry.han_chot_xac_nhan
-                          ? new Date(entry.han_chot_xac_nhan).toLocaleString(
-                              "vi-VN",
+                    {(() => {
+                      const remainingSec =
+                        typeof entry.so_giay_con_lai === "number"
+                          ? Math.max(
+                              0,
+                              entry.so_giay_con_lai -
+                                Math.max(0, Math.floor((nowMs - offerSyncMs) / 1000)),
                             )
-                          : "Theo server_time"}
-                      </p>
-                      <p className="text-xs text-amber-700 mt-1">
-                        Quá hạn hoặc phát hiện trùng lịch, suất sẽ chuyển cho
-                        người kế tiếp.
-                      </p>
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={async () => {
-                          const result = await claimWaitlistOffer(entry.id)
-                          showToast(
-                            result.success
-                              ? "Đã nhận vé từ danh sách chờ."
-                              : result.error || "Không thể nhận vé.",
-                            result.success ? "success" : "error",
-                          )
-                          if (result.success) setTab("upcoming")
-                        }}
-                        className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold"
-                      >
-                        Xác nhận nhận vé
-                      </button>
-                      <button
-                        onClick={async () => {
-                          const result = await declineWaitlistOffer(entry.id)
-                          showToast(
-                            result.success
-                              ? "Đã từ chối suất giữ chỗ."
-                              : result.error || "Không thể từ chối suất.",
-                            result.success ? "info" : "error",
-                          )
-                        }}
-                        className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold"
-                      >
-                        Từ chối
-                      </button>
-                    </div>
+                          : entry.han_chot_xac_nhan
+                            ? Math.max(
+                                0,
+                                Math.floor(
+                                  (new Date(entry.han_chot_xac_nhan).getTime() -
+                                    nowMs) /
+                                    1000,
+                                ),
+                              )
+                            : null
+                      const countdownText =
+                        remainingSec !== null
+                          ? `${String(Math.floor(remainingSec / 60)).padStart(2, "0")}:${String(remainingSec % 60).padStart(2, "0")}`
+                          : null
+                      const isExpired = remainingSec === 0
+                      const isProcessing = processingWaitlistId === entry.id
+
+                      return (
+                        <>
+                          <div className="mt-4 p-3 rounded-xl bg-white/70 border border-amber-200 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                                <span>
+                                  {isExpired
+                                    ? "Suất giữ chỗ đã hết hạn"
+                                    : countdownText !== null
+                                      ? `Còn ${countdownText} để xác nhận`
+                                      : "Suất nhận vé ưu tiên đã sẵn sàng"}
+                                </span>
+                              </p>
+                              <span className="text-[11px] font-semibold text-amber-800">
+                                {entry.han_chot_xac_nhan
+                                  ? new Date(
+                                      entry.han_chot_xac_nhan,
+                                    ).toLocaleTimeString("vi-VN", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })
+                                  : ""}
+                              </span>
+                            </div>
+                            <p className="text-xs text-amber-700">
+                              Quá hạn hoặc phát hiện trùng lịch, suất sẽ chuyển
+                              cho người kế tiếp.
+                            </p>
+                          </div>
+                          <div className="flex gap-2 mt-4">
+                            <button
+                              type="button"
+                              disabled={isExpired || isProcessing}
+                              onClick={async () => {
+                                if (isProcessing || isExpired) return
+                                setProcessingWaitlistId(entry.id)
+                                try {
+                                  const result =
+                                    await claimWaitlistOffer(entry.id)
+                                  showToast(
+                                    result.success
+                                      ? "Đã nhận vé từ danh sách chờ."
+                                      : result.error || "Không thể nhận vé.",
+                                    result.success ? "success" : "error",
+                                  )
+                                  if (result.success) setTab("upcoming")
+                                } finally {
+                                  setProcessingWaitlistId(null)
+                                }
+                              }}
+                              className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-bold cursor-pointer"
+                            >
+                              {isProcessing
+                                ? "Đang xử lý..."
+                                : "Xác nhận nhận vé"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={async () => {
+                                if (isProcessing) return
+                                setProcessingWaitlistId(entry.id)
+                                try {
+                                  const result =
+                                    await declineWaitlistOffer(entry.id)
+                                  showToast(
+                                    result.success
+                                      ? "Đã từ chối suất giữ chỗ."
+                                      : result.error || "Không thể từ chối suất.",
+                                    result.success ? "info" : "error",
+                                  )
+                                } finally {
+                                  setProcessingWaitlistId(null)
+                                }
+                              }}
+                              className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-50 text-xs font-semibold cursor-pointer"
+                            >
+                              Tôi không tham gia nữa
+                            </button>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </>
                 ) : (
                   <div className="mt-4 space-y-3">
-                    <p className="p-3 rounded-xl bg-slate-50 text-xs text-slate-600 leading-relaxed">
-                      Trạng thái:{" "}
-                      <b>
-                        Đang chờ slot trống (Thứ tự FIFO #{entry.so_thu_tu})
-                      </b>
-                      . Hệ thống tự động kiểm tra trùng lịch và gửi thông báo
-                      khi có người hủy vé. Hàng đợi đóng tại mốc T-2h.
-                    </p>
-                    <button
-                      onClick={async () => {
-                        if (
-                          !confirm(
-                            "Bạn có chắc chắn muốn rút khỏi hàng chờ cho sự kiện này?",
-                          )
-                        )
-                          return
-                        const result = await declineWaitlistOffer(entry.id)
-                        showToast(
-                          result.success
-                            ? "Đã rút khỏi hàng chờ."
-                            : result.error || "Không thể hủy.",
-                          result.success ? "info" : "error",
-                        )
-                      }}
-                      className="w-full py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer"
+                    <p
+                      className={`p-3 rounded-xl text-xs leading-relaxed border ${
+                        entry.trang_thai === "WAITING"
+                          ? "bg-amber-50/70 border-amber-200/60 text-amber-900"
+                          : "bg-slate-50 border-slate-200 text-slate-600"
+                      }`}
                     >
-                      Rút khỏi hàng chờ
-                    </button>
+                      {meta.desc}
+                    </p>
                   </div>
                 )}
               </article>
-            ))
+            )})
           )}
         </div>
       )}
@@ -358,13 +513,13 @@ export default function MyTickets({
 
       {/* Ticket List View */}
       {tab !== "waitlist" &&
-        (ticketsLoading && list.length === 0 ? (
+        (ticketsLoading && list.length === 0 && (tab !== "history" || historyWaitlist.length === 0) ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6 animate-pulse">
             <div className="w-12 h-12 rounded-full bg-slate-200 mx-auto mb-3" />
             <div className="h-4 bg-slate-200 rounded-md w-3/4 mx-auto mb-2" />
             <div className="h-3 bg-slate-100 rounded-md w-1/2 mx-auto" />
           </div>
-        ) : list.length === 0 ? (
+        ) : list.length === 0 && (tab !== "history" || historyWaitlist.length === 0) ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-6">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto mb-4">
               <svg
@@ -538,6 +693,48 @@ export default function MyTickets({
           </div>
         ))}
 
+      {tab === "history" && historyWaitlist.length > 0 && (
+        <div className="mt-8">
+          <h2 className="font-display font-bold text-base text-slate-900 mb-4">
+            Lịch sử Danh sách chờ ({historyWaitlist.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {historyWaitlist.map((entry) => {
+              const historyLabels: Record<string, string> = {
+                ACCEPTED: "Đã nhận vé",
+                DECLINED: "Đã từ chối",
+                EXPIRED: "Hết hạn xác nhận",
+                SKIPPED_CONFLICT: "Bỏ qua do trùng lịch",
+                CLOSED_WAITLIST: "Hàng đợi đã đóng (T-2h)",
+                CANCELLED: "Sự kiện đã hủy",
+              }
+              return (
+                <article
+                  key={`hist-wl-${entry.id}`}
+                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                      {historyLabels[entry.trang_thai] || entry.trang_thai}
+                    </span>
+                    <span className="font-mono text-xs text-slate-400">
+                      #{entry.id}
+                    </span>
+                  </div>
+                  <h3 className="font-display font-bold text-base text-navy mt-3">
+                    {entry.ten_su_kien}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1.5">
+                    {entry.ten_phong} ·{" "}
+                    {new Date(entry.thoi_gian_bat_dau).toLocaleString("vi-VN")}
+                  </p>
+                </article>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Centered Web QR Code Modal */}
       {showQR && (
         <div
@@ -564,8 +761,19 @@ export default function MyTickets({
             <p className="text-xs text-slate-500 mb-6">{showQR.eventTitle}</p>
 
             <div className="flex justify-center mb-6">
-              <div className="p-4 bg-slate-50 border-2 border-slate-200 rounded-3xl shadow-inner">
-                <MiniQR seed={hashCode(showQR.id)} />
+              <div className="p-4 bg-white border-2 border-slate-200 rounded-3xl shadow-inner">
+                <QRCodeSVG
+                  value={
+                    showQR.payload_qr ||
+                    showQR.qrCode ||
+                    showQR.ma_ve_uuid ||
+                    showQR.id
+                  }
+                  size={180}
+                  level="M"
+                  includeMargin
+                  aria-label="Mã QR vé điện tử"
+                />
               </div>
             </div>
 
@@ -1124,64 +1332,5 @@ function Rating({
         ))}
       </div>
     </div>
-  )
-}
-
-function hashCode(str: string) {
-  let h = 0
-  for (let i = 0; i < str.length; i++)
-    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-
-function MiniQR({ seed }: { seed: number }) {
-  return (
-    <svg width={180} height={180} viewBox="0 0 180 180">
-      {[
-        [0, 0],
-        [126, 0],
-        [0, 126],
-      ].map(([x, y], i) => (
-        <g key={i}>
-          <rect
-            x={x + 2}
-            y={y + 2}
-            width={52}
-            height={52}
-            fill="none"
-            stroke="#1a1a2e"
-            strokeWidth={6}
-            rx={4}
-          />
-          <rect
-            x={x + 16}
-            y={y + 16}
-            width={24}
-            height={24}
-            fill="#1a1a2e"
-            rx={2}
-          />
-        </g>
-      ))}
-      {Array.from({ length: 200 }, (_, i) => {
-        const v = Math.sin(seed + i * 7.3 + 1)
-        if (v * 0.5 + 0.5 < 0.45) return null
-        const col = (i % 16) * 10 + 20
-        const row = Math.floor(i / 16) * 10 + 20
-        if (col < 70 && (row < 70 || row > 110)) return null
-        if (col > 110 && row < 70) return null
-        return (
-          <rect
-            key={i}
-            x={col}
-            y={row}
-            width={8}
-            height={8}
-            fill="#1a1a2e"
-            rx={1}
-          />
-        )
-      })}
-    </svg>
   )
 }

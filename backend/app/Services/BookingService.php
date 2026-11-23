@@ -3,11 +3,15 @@
 namespace App\Services;
 
 use App\Exceptions\BusinessException;
+use App\Mail\TicketBookedMailable;
 use App\Models\DangKy;
+use App\Models\HangDoiWaitlist;
 use App\Models\SuKien;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class BookingService
@@ -63,8 +67,25 @@ class BookingService
             // 5. Hard Block for schedule conflict between 2 limited-slot events
             $this->checkScheduleConflict($userId, $event);
 
-            // 6. Deduct ticket inventory for limited-slot events
-            if (! $event->khong_gioi_han_slot) {
+            // 6. Lock any active waitlist entry for this student & event (Lock order: ... -> dang_ky -> hang_doi_waitlist)
+            $activeWaitlist = HangDoiWaitlist::query()
+                ->where('ma_su_kien', $eventId)
+                ->where('ma_tai_khoan', $userId)
+                ->whereIn('trang_thai', ['WAITING', 'OFFERED'])
+                ->lockForUpdate()
+                ->first();
+
+            $now = now();
+            $hasActiveOffer = $activeWaitlist
+                && $activeWaitlist->trang_thai === 'OFFERED'
+                && (! $activeWaitlist->han_chot_xac_nhan || $now->lte($activeWaitlist->han_chot_xac_nhan));
+
+            // 7. Deduct ticket inventory for limited-slot events unless consuming an active OFFERED hold
+            if ($hasActiveOffer) {
+                $activeWaitlist->trang_thai = 'ACCEPTED';
+                $activeWaitlist->thoi_gian_phan_hoi = $now;
+                $activeWaitlist->save();
+            } elseif (! $event->khong_gioi_han_slot) {
                 if ($event->so_ve_con_lai === null || $event->so_ve_con_lai <= 0) {
                     throw new BusinessException(
                         'SLOT_SOLD_OUT',
@@ -76,9 +97,19 @@ class BookingService
 
                 $event->so_ve_con_lai = $event->so_ve_con_lai - 1;
                 if ($event->so_ve_con_lai === 0 && $event->thoi_diem_het_ve === null) {
-                    $event->thoi_diem_het_ve = now();
+                    $event->thoi_diem_het_ve = $now;
                 }
                 $event->save();
+
+                if ($activeWaitlist && $activeWaitlist->trang_thai === 'WAITING') {
+                    $activeWaitlist->trang_thai = 'CANCELLED';
+                    $activeWaitlist->thoi_gian_phan_hoi = $now;
+                    $activeWaitlist->save();
+                }
+            } elseif ($activeWaitlist && $activeWaitlist->trang_thai === 'WAITING') {
+                $activeWaitlist->trang_thai = 'CANCELLED';
+                $activeWaitlist->thoi_gian_phan_hoi = $now;
+                $activeWaitlist->save();
             }
 
             // 7. Generate UUID v4 & HMAC-SHA256 signature
@@ -107,8 +138,104 @@ class BookingService
 
             $ticket->load(['suKien.phongHoiTruong', 'chungNhan']);
 
+            // 9. Queue electronic ticket & QR confirmation email after commit (UC-BOOK-01 Bước 5)
+            if (! empty($user->email)) {
+                DB::afterCommit(function () use ($ticket, $user) {
+                    try {
+                        Mail::to($user->email)->queue(new TicketBookedMailable($ticket, $user));
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to queue ticket confirmation email', [
+                            'ma_dang_ky' => $ticket->ma_dang_ky,
+                            'ma_tai_khoan' => $user->ma_tai_khoan,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                });
+            }
+
             return $ticket;
         });
+    }
+
+    /**
+     * Precheck booking eligibility & personal schedule overlaps (UC-BOOK-01 Bước 2, OpenAPI BookingPrecheck).
+     *
+     * @return array<string, mixed>
+     */
+    public function precheckBooking(User $user, int $eventId): array
+    {
+        $event = SuKien::query()
+            ->with('phongHoiTruong')
+            ->findOrFail($eventId);
+
+        $isUnlimited = (bool) $event->khong_gioi_han_slot;
+
+        $basePayload = [
+            'co_the_dat' => true,
+            'khong_gioi_han_slot' => $isUnlimited,
+            'ly_do_chan' => null,
+            'canh_bao_trung_lich_mem' => null,
+            'su_kien_trung' => [],
+        ];
+
+        // 1. Sinh viên đã có vé hiệu lực tại sự kiện này chưa?
+        $existingTicket = DangKy::query()
+            ->where('ma_su_kien', $eventId)
+            ->where('ma_tai_khoan', $user->ma_tai_khoan)
+            ->where('trang_thai', '!=', 'DaHuy')
+            ->exists();
+
+        if ($existingTicket) {
+            return array_merge($basePayload, [
+                'co_the_dat' => false,
+                'ly_do_chan' => 'ALREADY_REGISTERED',
+            ]);
+        }
+
+        // 2. Sự kiện có đang mở cổng & còn trong hạn T-2h / chưa kết thúc không?
+        if ($this->getRegistrationClosureReason($event) !== null) {
+            return array_merge($basePayload, [
+                'co_the_dat' => false,
+                'ly_do_chan' => 'REGISTRATION_CLOSED',
+            ]);
+        }
+
+        // 3. Kiểm tra giao thoa khung giờ với các vé hiệu lực hiện có (Bước 4.d)
+        $conflicts = $this->findScheduleConflicts((int) $user->ma_tai_khoan, $event);
+
+        if ($conflicts['hard'] !== []) {
+            $orderedConflicts = array_merge(
+                $conflicts['hard'],
+                array_values(array_filter(
+                    $conflicts['all'],
+                    fn (array $item): bool => (bool) ($item['khong_gioi_han_slot'] ?? false)
+                ))
+            );
+
+            return array_merge($basePayload, [
+                'co_the_dat' => false,
+                'ly_do_chan' => 'SCHEDULE_CONFLICT_HARD',
+                'su_kien_trung' => $orderedConflicts,
+            ]);
+        }
+
+        // 4. Nếu giới hạn slot, còn vé khả dụng không? (Bước 4.e)
+        if (! $isUnlimited && ($event->so_ve_con_lai === null || (int) $event->so_ve_con_lai <= 0)) {
+            return array_merge($basePayload, [
+                'co_the_dat' => false,
+                'ly_do_chan' => 'SLOT_SOLD_OUT',
+            ]);
+        }
+
+        if ($conflicts['all'] !== []) {
+            return array_merge($basePayload, [
+                'co_the_dat' => true,
+                'canh_bao_trung_lich_mem' => 'Lưu ý: Sự kiện này trùng khung giờ với sự kiện bạn đã đăng ký. Bạn vẫn có thể đăng ký nhưng vui lòng tự cân nhắc sắp xếp thời gian.',
+                'su_kien_trung' => $conflicts['all'],
+            ]);
+        }
+
+        return $basePayload;
     }
 
     /**
@@ -116,59 +243,43 @@ class BookingService
      */
     protected function validateRegistrationEligibility(SuKien $event): void
     {
+        $reason = $this->getRegistrationClosureReason($event);
+        if ($reason !== null) {
+            throw new BusinessException('REGISTRATION_CLOSED', $reason, null, 409);
+        }
+    }
+
+    /**
+     * Return closure error message if event is outside registration window, or null when open.
+     */
+    protected function getRegistrationClosureReason(SuKien $event): ?string
+    {
         $now = now();
 
-        // Unlimited slot events allow PUBLISHED or HAPPENING
         if ($event->khong_gioi_han_slot) {
             if (! in_array($event->trang_thai, ['PUBLISHED', 'HAPPENING'], true)) {
-                throw new BusinessException(
-                    'REGISTRATION_CLOSED',
-                    'Sự kiện không ở trạng thái cho phép đăng ký.',
-                    null,
-                    409
-                );
+                return 'Sự kiện không ở trạng thái cho phép đăng ký.';
             }
 
             if ($event->thoi_gian_ket_thuc && $now->gte(Carbon::parse($event->thoi_gian_ket_thuc))) {
-                throw new BusinessException(
-                    'REGISTRATION_CLOSED',
-                    'Sự kiện đã kết thúc, không thể đăng ký.',
-                    null,
-                    409
-                );
+                return 'Sự kiện đã kết thúc, không thể đăng ký.';
             }
         } else {
-            // Limited slot events only allow PUBLISHED
             if ($event->trang_thai !== 'PUBLISHED') {
-                throw new BusinessException(
-                    'REGISTRATION_CLOSED',
-                    'Sự kiện không ở trạng thái cho phép đăng ký.',
-                    null,
-                    409
-                );
+                return 'Sự kiện không ở trạng thái cho phép đăng ký.';
             }
 
-            // Cutoff at T - 2h
             $cutoff = Carbon::parse($event->thoi_gian_bat_dau)->subHours(2);
             if ($now->gte($cutoff)) {
-                throw new BusinessException(
-                    'REGISTRATION_CLOSED',
-                    'Đã đóng đăng ký: danh sách tham dự được chốt từ 2 giờ trước khi sự kiện bắt đầu.',
-                    null,
-                    409
-                );
+                return 'Đã đóng đăng ký: danh sách tham dự được chốt từ 2 giờ trước khi sự kiện bắt đầu.';
             }
         }
 
-        // Check if event has reached open registration time
         if ($event->ngay_cong_bo && $now->lt(Carbon::parse($event->ngay_cong_bo))) {
-            throw new BusinessException(
-                'REGISTRATION_CLOSED',
-                'Chưa đến thời gian mở đăng ký sự kiện.',
-                null,
-                409
-            );
+            return 'Chưa đến thời gian mở đăng ký sự kiện.';
         }
+
+        return null;
     }
 
     /**
@@ -176,10 +287,44 @@ class BookingService
      */
     protected function checkScheduleConflict(int $userId, SuKien $newEvent): void
     {
+        $conflicts = $this->findScheduleConflicts($userId, $newEvent);
+        if ($conflicts['hard'] === []) {
+            return;
+        }
+
+        $firstHard = $conflicts['hard'][0];
+
+        $details = [
+            'su_kien_trung' => [
+                'ma_su_kien' => $firstHard['ma_su_kien'],
+                'ten_su_kien' => $firstHard['ten_su_kien'],
+                'thoi_gian_bat_dau' => $firstHard['thoi_gian_bat_dau'],
+                'thoi_gian_ket_thuc' => $firstHard['thoi_gian_ket_thuc'],
+                'ten_phong' => $firstHard['ten_phong'],
+            ],
+        ];
+
+        throw new BusinessException(
+            'SCHEDULE_CONFLICT_HARD',
+            sprintf(
+                "Không thể đăng ký! Bạn đang giữ vé của sự kiện giới hạn slot '%s' diễn ra trùng khung giờ. Để tránh chiếm chỗ ảo, vui lòng hủy vé sự kiện cũ (trước mốc T-4h) nếu muốn tham gia sự kiện này.",
+                $firstHard['ten_su_kien']
+            ),
+            $details,
+            409
+        );
+    }
+
+    /**
+     * Find overlapping active tickets and classify hard vs soft conflicts.
+     *
+     * @return array{all: array<int, array<string, mixed>>, hard: array<int, array<string, mixed>>}
+     */
+    protected function findScheduleConflicts(int $userId, SuKien $newEvent): array
+    {
         $newStart = Carbon::parse($newEvent->thoi_gian_bat_dau);
         $newEnd = Carbon::parse($newEvent->thoi_gian_ket_thuc);
 
-        // Retrieve student's active tickets
         $activeTickets = DangKy::query()
             ->where('ma_tai_khoan', $userId)
             ->where('trang_thai', '!=', 'DaHuy')
@@ -187,41 +332,39 @@ class BookingService
             ->with(['suKien.phongHoiTruong'])
             ->get();
 
+        $all = [];
+        $hard = [];
+
         foreach ($activeTickets as $ticket) {
             $otherEvent = $ticket->suKien;
-            if (! $otherEvent) {
+            if (! $otherEvent || $otherEvent->trang_thai === 'CANCELLED') {
                 continue;
             }
 
             $otherStart = Carbon::parse($otherEvent->thoi_gian_bat_dau);
             $otherEnd = Carbon::parse($otherEvent->thoi_gian_ket_thuc);
 
-            // Time intersection check: Start_new < End_other && End_new > Start_other
             if ($newStart->lt($otherEnd) && $newEnd->gt($otherStart)) {
-                // Hard Block only when BOTH events are limited slot (khong_gioi_han_slot = 0)
-                if (! $newEvent->khong_gioi_han_slot && ! $otherEvent->khong_gioi_han_slot) {
-                    $phong = $otherEvent->phongHoiTruong;
-                    $details = [
-                        'su_kien_trung' => [
-                            'ma_su_kien' => (int) $otherEvent->ma_su_kien,
-                            'ten_su_kien' => (string) $otherEvent->ten_su_kien,
-                            'thoi_gian_bat_dau' => $otherStart->setTimezone('+07:00')->toIso8601String(),
-                            'thoi_gian_ket_thuc' => $otherEnd->setTimezone('+07:00')->toIso8601String(),
-                            'ten_phong' => (string) ($phong?->ten_phong ?? ''),
-                        ],
-                    ];
+                $item = [
+                    'ma_su_kien' => (int) $otherEvent->ma_su_kien,
+                    'ten_su_kien' => (string) $otherEvent->ten_su_kien,
+                    'thoi_gian_bat_dau' => $otherStart->copy()->setTimezone('+07:00')->toIso8601String(),
+                    'thoi_gian_ket_thuc' => $otherEnd->copy()->setTimezone('+07:00')->toIso8601String(),
+                    'khong_gioi_han_slot' => (bool) $otherEvent->khong_gioi_han_slot,
+                    'ten_phong' => (string) ($otherEvent->phongHoiTruong?->ten_phong ?? ''),
+                ];
 
-                    throw new BusinessException(
-                        'SCHEDULE_CONFLICT_HARD',
-                        sprintf(
-                            "Không thể đăng ký! Bạn đang giữ vé của sự kiện giới hạn slot '%s' diễn ra trùng khung giờ.",
-                            $otherEvent->ten_su_kien
-                        ),
-                        $details,
-                        409
-                    );
+                $all[] = $item;
+
+                if (! $newEvent->khong_gioi_han_slot && ! $otherEvent->khong_gioi_han_slot) {
+                    $hard[] = $item;
                 }
             }
         }
+
+        return [
+            'all' => $all,
+            'hard' => $hard,
+        ];
     }
 }

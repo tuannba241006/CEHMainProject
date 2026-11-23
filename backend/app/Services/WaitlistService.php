@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Exceptions\BusinessException;
+use App\Mail\TicketBookedMailable;
+use App\Mail\WaitlistOfferMailable;
 use App\Models\DangKy;
 use App\Models\HangDoiWaitlist;
 use App\Models\SuKien;
@@ -11,6 +13,8 @@ use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class WaitlistService
@@ -33,7 +37,21 @@ class WaitlistService
                 ->first();
 
             if (! $lockedStudent) {
-                throw new ModelNotFoundException('Không tìm thấy tài khoản sinh viên.');
+                throw new BusinessException(
+                    'NOT_FOUND',
+                    'Không tìm thấy tài khoản sinh viên.',
+                    null,
+                    404
+                );
+            }
+
+            if (! $lockedStudent->isSinhVien()) {
+                throw new BusinessException(
+                    'FORBIDDEN',
+                    'Chỉ tài khoản sinh viên mới được quyền tham gia danh sách chờ.',
+                    null,
+                    403
+                );
             }
 
             $event = SuKien::query()
@@ -41,24 +59,66 @@ class WaitlistService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $event) {
-                throw new ModelNotFoundException('Không tìm thấy sự kiện.');
+            if (! $event || ! in_array($event->trang_thai, ['PUBLISHED', 'HAPPENING', 'COMPLETED', 'CANCELLED'], true)) {
+                throw new BusinessException(
+                    'NOT_FOUND',
+                    'Không tìm thấy sự kiện.',
+                    null,
+                    404
+                );
             }
 
-            if ($event->khong_gioi_han_slot || $event->so_ve_con_lai > 0) {
+            $now = now();
+            if ($event->ngay_cong_bo && $now->lt($event->ngay_cong_bo)) {
+                throw new BusinessException(
+                    'WAITLIST_CLOSED',
+                    'Chưa đến thời gian mở đăng ký sự kiện.',
+                    null,
+                    409
+                );
+            }
+
+            if ($event->trang_thai === 'CANCELLED') {
+                throw new BusinessException(
+                    'WAITLIST_CLOSED',
+                    'Sự kiện đã bị hủy, hàng đợi danh sách chờ đã đóng.',
+                    null,
+                    409
+                );
+            }
+
+            if ($event->trang_thai === 'COMPLETED' || ($event->thoi_gian_ket_thuc && $now->gte($event->thoi_gian_ket_thuc))) {
+                throw new BusinessException(
+                    'WAITLIST_CLOSED',
+                    'Sự kiện đã kết thúc, hàng đợi danh sách chờ đã đóng.',
+                    null,
+                    409
+                );
+            }
+
+            if ($event->khong_gioi_han_slot) {
                 throw new BusinessException(
                     'TICKETS_AVAILABLE',
-                    'Sự kiện còn suất tham dự. Vui lòng đặt vé trực tiếp.',
+                    'Sự kiện mở tự do không sử dụng danh sách chờ. Vui lòng đặt vé trực tiếp.',
                     null,
                     409
                 );
             }
 
             $cutoff = $event->thoi_gian_bat_dau->copy()->subHours(2);
-            if ($event->trang_thai !== 'PUBLISHED' || now()->gte($cutoff)) {
+            if ($event->trang_thai !== 'PUBLISHED' || $now->gte($cutoff)) {
                 throw new BusinessException(
                     'WAITLIST_CLOSED',
                     'Hàng đợi danh sách chờ đã đóng (dưới 2 giờ trước khi sự kiện diễn ra).',
+                    null,
+                    409
+                );
+            }
+
+            if ((int) $event->so_ve_con_lai > 0) {
+                throw new BusinessException(
+                    'TICKETS_AVAILABLE',
+                    'Sự kiện vừa có vé trống! Vui lòng đặt vé ngay.',
                     null,
                     409
                 );
@@ -257,10 +317,12 @@ class WaitlistService
             }
 
             $now = now();
+            $cutoff = $event->thoi_gian_bat_dau->copy()->subHours(2);
             $entry->trang_thai = 'DECLINED';
             $entry->thoi_gian_phan_hoi = $now;
             $entry->save();
-            $this->offerNext((int) $event->ma_su_kien, $now);
+
+            $this->releaseSlotAfterOfferExit($event, $now, $cutoff);
 
             return $entry->fresh(['suKien.phongHoiTruong']);
         });
@@ -305,17 +367,37 @@ class WaitlistService
             }
 
             $now = now();
+            $cutoff = $event->thoi_gian_bat_dau->copy()->subHours(2);
             if ($entry->han_chot_xac_nhan && $now->gt($entry->han_chot_xac_nhan)) {
-                $cutoff = $event->thoi_gian_bat_dau->copy()->subHours(2);
                 if ($now->lt($cutoff)) {
                     $entry->trang_thai = 'EXPIRED';
                     $entry->save();
                     $this->offerNext((int) $event->ma_su_kien, $now);
+
+                    return ['ticket' => null, 'entry' => $entry, 'error' => [
+                        'code' => 'OFFER_EXPIRED',
+                        'message' => 'Suất vé giữ chỗ đã hết thời hạn xác nhận và được chuyển cho người kế tiếp.',
+                    ]];
                 }
 
                 return ['ticket' => null, 'entry' => $entry, 'error' => [
                     'code' => 'OFFER_EXPIRED',
-                    'message' => 'Suất vé giữ chỗ đã hết thời hạn xác nhận và được chuyển cho người kế tiếp.',
+                    'message' => 'Suất vé giữ chỗ đã hết thời hạn xác nhận (đã chạm mốc đóng đăng ký trước 2 giờ).',
+                ]];
+            }
+
+            $alreadyRegistered = $activeTickets->contains(
+                fn (DangKy $t) => (int) $t->ma_su_kien === (int) $event->ma_su_kien
+            );
+            if ($alreadyRegistered) {
+                $entry->trang_thai = 'CANCELLED';
+                $entry->thoi_gian_phan_hoi = $now;
+                $entry->save();
+                $this->releaseSlotAfterOfferExit($event, $now, $cutoff);
+
+                return ['ticket' => null, 'entry' => $entry, 'error' => [
+                    'code' => 'ALREADY_REGISTERED',
+                    'message' => 'Bạn đã đăng ký vé tham dự sự kiện này trước đó.',
                 ]];
             }
 
@@ -325,7 +407,7 @@ class WaitlistService
                 $entry->thoi_gian_phan_hoi = $now;
                 $entry->save();
                 $this->notifyConflict($entry, $event, $conflict);
-                $this->offerNext((int) $event->ma_su_kien, $now);
+                $this->releaseSlotAfterOfferExit($event, $now, $cutoff);
 
                 return ['ticket' => null, 'entry' => $entry, 'error' => [
                     'code' => 'OFFER_SKIPPED_CONFLICT',
@@ -363,10 +445,26 @@ class WaitlistService
                 'Nhận vé tham dự thành công',
                 "Bạn đã xác nhận suất tham dự sự kiện '{$event->ten_su_kien}'.",
                 'VE_MOI',
-                '/my-tickets'
+                '/student/tickets'
             );
 
-            return ['ticket' => $ticket->load(['suKien.phongHoiTruong', 'chungNhan']), 'entry' => $entry, 'error' => null];
+            $ticket->load(['suKien.phongHoiTruong', 'chungNhan']);
+
+            if (! empty($student->email)) {
+                DB::afterCommit(function () use ($ticket, $student) {
+                    try {
+                        Mail::to($student->email)->queue(new TicketBookedMailable($ticket, $student));
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to queue waitlist claimed ticket email', [
+                            'ma_dang_ky' => $ticket->ma_dang_ky,
+                            'ma_tai_khoan' => $student->ma_tai_khoan,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                });
+            }
+
+            return ['ticket' => $ticket, 'entry' => $entry, 'error' => null];
         });
     }
 
@@ -425,7 +523,7 @@ class WaitlistService
                         'Danh sách chờ đã đóng',
                         "Danh sách chờ sự kiện '{$event->ten_su_kien}' đã được chốt.",
                         'WAITLIST_DONG',
-                        '/my-tickets'
+                        '/student/tickets'
                     );
                 }
 
@@ -436,6 +534,24 @@ class WaitlistService
         }
 
         return $closedEvents;
+    }
+
+    /**
+     * Release an offered slot back to the next FIFO waiter before cutoff,
+     * or directly to public inventory once the T-2h cutoff has been reached.
+     */
+    protected function releaseSlotAfterOfferExit(SuKien $event, Carbon $now, Carbon $cutoff): void
+    {
+        if ($now->gte($cutoff)) {
+            if (! $event->khong_gioi_han_slot) {
+                $event->so_ve_con_lai = (int) $event->so_ve_con_lai + 1;
+                $event->save();
+            }
+
+            return;
+        }
+
+        $this->offerNext((int) $event->ma_su_kien, $now);
     }
 
     /** Window is sufficient when the cutoff is exactly 15 minutes away or later. */
@@ -489,7 +605,7 @@ class WaitlistService
     {
         foreach ($tickets as $ticket) {
             $otherEvent = $ticket->suKien;
-            if (! $otherEvent || $otherEvent->khong_gioi_han_slot || $otherEvent->ma_su_kien === $event->ma_su_kien) {
+            if (! $otherEvent || $otherEvent->trang_thai === 'CANCELLED' || $otherEvent->khong_gioi_han_slot || $otherEvent->ma_su_kien === $event->ma_su_kien) {
                 continue;
             }
 
@@ -505,13 +621,32 @@ class WaitlistService
     protected function notifyOffer(HangDoiWaitlist $entry, SuKien $event, Carbon $deadline): void
     {
         $formattedDeadline = $deadline->copy()->setTimezone('+07:00')->format('H:i d/m/Y');
+        $minutesLeft = max(1, (int) ceil(now()->diffInSeconds($deadline, false) / 60));
+
         $this->notificationService->sendNotification(
             (int) $entry->ma_tai_khoan,
             'Bạn nhận được suất tham dự sự kiện',
-            "Suất tham dự sự kiện '{$event->ten_su_kien}' đã sẵn sàng cho bạn. Vui lòng xác nhận trước {$formattedDeadline} (+07:00).",
+            "Suất tham dự sự kiện '{$event->ten_su_kien}' đã sẵn sàng cho bạn (còn {$minutesLeft} phút). Vui lòng xác nhận trước {$formattedDeadline} (+07:00).",
             'CLAIM_SLOT',
-            '/my-tickets'
+            '/student/tickets'
         );
+
+        $student = User::query()->find($entry->ma_tai_khoan);
+        if ($student && ! empty($student->email)) {
+            DB::afterCommit(function () use ($entry, $event, $student, $deadline, $minutesLeft) {
+                try {
+                    Mail::to($student->email)->queue(
+                        new WaitlistOfferMailable($entry, $event, $student, $deadline, $minutesLeft)
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to queue waitlist offer email', [
+                        'waitlist_id' => $entry->id,
+                        'ma_tai_khoan' => $student->ma_tai_khoan,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            });
+        }
     }
 
     protected function notifyConflict(HangDoiWaitlist $entry, SuKien $event, DangKy $conflict): void
@@ -521,7 +656,7 @@ class WaitlistService
             'Không thể nhận suất tham dự',
             "Bạn đã bị bỏ qua trong hàng chờ sự kiện '{$event->ten_su_kien}' vì lịch trùng với sự kiện '{$conflict->suKien?->ten_su_kien}'.",
             'HE_THONG',
-            '/my-tickets'
+            '/student/tickets'
         );
     }
 

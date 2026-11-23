@@ -1,3 +1,4 @@
+import { QRCodeSVG } from "qrcode.react"
 import type { Ticket } from "../../data/mock"
 import { parseCalendarDate } from "../../utils/date"
 
@@ -111,10 +112,16 @@ export default function TicketConfirm({
             </div>
           </div>
 
-          {/* Mini QR Pattern */}
+          {/* Real SCANNABLE HMAC-SHA256 QR Code */}
           <div className="p-6 pt-0 flex flex-col items-center">
             <div className="p-3 bg-white border border-slate-200 rounded-2xl shadow-xs mb-2">
-              <MiniQR seed={hashCode(ticket.id)} />
+              <QRCodeSVG
+                value={ticket.payload_qr || ticket.qrCode || ticket.ma_ve_uuid || ticket.id}
+                size={150}
+                level="M"
+                includeMargin
+                aria-label="Mã QR vé điện tử"
+              />
             </div>
             <p className="text-[11px] text-slate-400">
               Xuất trình mã này cho Ban tổ chức khi đến sự kiện
@@ -139,64 +146,5 @@ export default function TicketConfirm({
         </div>
       </div>
     </div>
-  )
-}
-
-function hashCode(str: string) {
-  let h = 0
-  for (let i = 0; i < str.length; i++)
-    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0
-  return Math.abs(h)
-}
-
-function MiniQR({ seed }: { seed: number }) {
-  return (
-    <svg width={140} height={140} viewBox="0 0 180 180">
-      {[
-        [0, 0],
-        [126, 0],
-        [0, 126],
-      ].map(([x, y], i) => (
-        <g key={i}>
-          <rect
-            x={x + 2}
-            y={y + 2}
-            width={52}
-            height={52}
-            fill="none"
-            stroke="#1a1a2e"
-            strokeWidth={6}
-            rx={4}
-          />
-          <rect
-            x={x + 16}
-            y={y + 16}
-            width={24}
-            height={24}
-            fill="#1a1a2e"
-            rx={2}
-          />
-        </g>
-      ))}
-      {Array.from({ length: 200 }, (_, i) => {
-        const v = Math.sin(seed + i * 7.3 + 1)
-        if (v * 0.5 + 0.5 < 0.45) return null
-        const col = (i % 16) * 10 + 20
-        const row = Math.floor(i / 16) * 10 + 20
-        if (col < 70 && (row < 70 || row > 110)) return null
-        if (col > 110 && row < 70) return null
-        return (
-          <rect
-            key={i}
-            x={col}
-            y={row}
-            width={8}
-            height={8}
-            fill="#1a1a2e"
-            rx={1}
-          />
-        )
-      })}
-    </svg>
   )
 }

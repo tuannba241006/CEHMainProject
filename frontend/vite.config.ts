@@ -25,6 +25,14 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "^/events/[0-9]+/share/?$": {
+        target:
+          process.env.VITE_BACKEND_URL ||
+          process.env.VITE_MOCK_URL ||
+          "http://localhost:8000",
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   build: {

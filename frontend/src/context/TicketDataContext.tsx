@@ -22,7 +22,7 @@ import {
   type ManualOverrideData,
   type ManualOverridePayload,
 } from "../api/services/attendance.service"
-import { getApiErrorMessage, isAuthError } from "../api/errors"
+import { getApiErrorMessage, isApiError, isAuthError } from "../api/errors"
 import { useEventData, type LiveEvent } from "./EventDataContext"
 
 export type ManualOverrideInput = Omit<ManualOverridePayload, "ma_dang_ky"> & {
@@ -158,7 +158,7 @@ export interface TicketDataContextType {
   joinWaitlist: (
     event: LiveEvent,
     user: UserData,
-  ) => Promise<{ success: boolean; entry?: WaitlistEntry; error?: string }>
+  ) => Promise<{ success: boolean; entry?: WaitlistEntry; error?: string; errorCode?: string }>
   claimWaitlistOffer: (
     id: number,
   ) => Promise<{ success: boolean; ticket?: Ticket; error?: string }>
@@ -216,26 +216,31 @@ export function mapContractTicketToUiTicket(
   else if (ct.trang_thai === "DaCheckOut") legacyStatus = "attended"
   else if (ct.trang_thai === "DaHuy") legacyStatus = "cancelled"
 
-  const qr = buildQrPayload(
-    ct.ma_ve_uuid,
-    user?.ma_tai_khoan || 1,
-    ct.ma_su_kien,
-  )
-
   const existingTicket = TICKETS.find(
     (t) => t.ma_dang_ky === ct.ma_dang_ky,
   )
 
+  const resolvedHmac =
+    (ct as unknown as { chu_ky_hmac?: string }).chu_ky_hmac ||
+    existingTicket?.chu_ky_hmac ||
+    "a8f5f167f44f4964e6c998dee827110c849f8a12c3e4b5a6c7d8e9f012345678"
+
+  const qr = buildQrPayload(
+    ct.ma_ve_uuid,
+    user?.ma_tai_khoan || 1,
+    ct.ma_su_kien,
+    resolvedHmac,
+  )
+
+  const resolvedPayloadQr =
+    (ct as unknown as { payload_qr?: string }).payload_qr ||
+    existingTicket?.payload_qr ||
+    qr
+
   return {
     ...ct,
-    chu_ky_hmac:
-      (ct as unknown as { chu_ky_hmac?: string }).chu_ky_hmac ||
-      existingTicket?.chu_ky_hmac ||
-      "a8f5f167f44f4964e6c998dee827110c849f8a12c3e4b5a6c7d8e9f012345678",
-    payload_qr:
-      (ct as unknown as { payload_qr?: string }).payload_qr ||
-      existingTicket?.payload_qr ||
-      qr,
+    chu_ky_hmac: resolvedHmac,
+    payload_qr: resolvedPayloadQr,
     yeu_cau_wake_lock: true,
 
     id: existingTicket?.id || `TKT-${ct.ma_dang_ky}`,
@@ -250,7 +255,7 @@ export function mapContractTicketToUiTicket(
     status: legacyStatus,
     checkinTime: ct.thoi_gian_check_in || existingTicket?.checkinTime,
     checkoutTime: ct.thoi_gian_check_out || existingTicket?.checkoutTime,
-    qrCode: existingTicket?.qrCode || qr,
+    qrCode: resolvedPayloadQr || existingTicket?.qrCode || qr,
     registeredAt:
       ct.thoi_gian_dang_ky ||
       existingTicket?.registeredAt ||
@@ -296,21 +301,37 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
         )
         setTickets(mapped)
         try {
-          const wlRes = await waitlistService.mine()
-          console.log("REFRESH TICKETS - waitlist result:", wlRes)
-          if (wlRes.data && Array.isArray(wlRes.data)) {
-            const mappedWl = wlRes.data.map((w: any) => ({
+          const [activeWlRes, historyWlRes] = await Promise.allSettled([
+            waitlistService.mine({ tab: "active", limit: 100 }),
+            waitlistService.mine({ tab: "history", limit: 100 }),
+          ])
+          const rawWl: WaitlistEntry[] = []
+          const seenIds = new Set<number>()
+          for (const res of [activeWlRes, historyWlRes]) {
+            if (res.status === "fulfilled" && Array.isArray(res.value?.data)) {
+              for (const item of res.value.data) {
+                if (!seenIds.has(item.id)) {
+                  seenIds.add(item.id)
+                  rawWl.push(item)
+                }
+              }
+            }
+          }
+          if (
+            activeWlRes.status === "fulfilled" ||
+            historyWlRes.status === "fulfilled"
+          ) {
+            const mappedWl = rawWl.map((w) => ({
               ...w,
               studentId: w.studentId || currentUser?.studentId || user.studentId,
               ho_ten: w.ho_ten || currentUser?.name || user.name,
-              ma_tai_khoan: w.ma_tai_khoan || currentUser?.ma_tai_khoan || user.ma_tai_khoan,
+              ma_tai_khoan:
+                w.ma_tai_khoan || currentUser?.ma_tai_khoan || user.ma_tai_khoan,
             }))
-            console.log("REFRESH TICKETS - mapped waitlist:", mappedWl)
             setWaitlistEntries(mappedWl)
           }
-        } catch (wlErr) {
-          console.error("REFRESH TICKETS - waitlist error:", wlErr)
-          // Fallback for waitlist
+        } catch {
+          // Waitlist refresh non-fatal fallback
         }
       } catch (err) {
         if (isAuthError(err)) {
@@ -326,6 +347,10 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setTicketsError(null)
+    if (!authenticated) {
+      setTickets([])
+      setWaitlistEntries([])
+    }
   }, [authenticated, role])
 
   useEffect(() => {
@@ -369,46 +394,52 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     try {
       bookingResult = await bookingsService.book(event.ma_su_kien, uuid)
     } catch (err: unknown) {
+      if (isApiError(err) && err.status === 409) {
+        void refreshTickets(user)
+      }
       return { success: false, error: getApiErrorMessage(err) }
     }
 
-    const serverTicket = (bookingResult as any)?.data as
-      | { ma_dang_ky?: number; ma_ve_uuid?: string }
-      | undefined
-    const assignedId = serverTicket?.ma_dang_ky || Date.now()
-    const finalUuid = serverTicket?.ma_ve_uuid || uuid
-    const baseTicket = TICKETS[0] || ({} as Ticket)
-    const qr = buildQrPayload(
-      finalUuid,
-      user.ma_tai_khoan || 1,
-      event.ma_su_kien,
-    )
-    const newTicket: Ticket = {
-      ...baseTicket,
-      id: `TKT-${assignedId}`,
-      ma_dang_ky: assignedId,
-      ma_ve_uuid: finalUuid,
-      ma_su_kien: event.ma_su_kien,
-      ten_su_kien: event.ten_su_kien,
-      eventId: event.id,
-      eventTitle: event.title,
-      eventDate: event.date,
-      eventTime: event.time,
-      eventLocation: event.location,
-      studentId: user.studentId,
-      studentName: user.name,
-      faculty: user.faculty || "Công nghệ Thông tin",
-      status: "pending",
-      trang_thai: "DaDangKy",
-      qrCode: qr,
-      payload_qr: qr,
-      registeredAt: new Date().toLocaleString("vi-VN"),
+    const serverTicket = (bookingResult as any)?.data as ContractTicket | undefined
+    let newTicket: Ticket
+
+    if (serverTicket && serverTicket.ma_dang_ky) {
+      newTicket = mapContractTicketToUiTicket(serverTicket, user)
+    } else {
+      const assignedId = Date.now()
+      const baseTicket = TICKETS[0] || ({} as Ticket)
+      const qr = buildQrPayload(
+        uuid,
+        user.ma_tai_khoan || 1,
+        event.ma_su_kien,
+      )
+      newTicket = {
+        ...baseTicket,
+        id: `TKT-${assignedId}`,
+        ma_dang_ky: assignedId,
+        ma_ve_uuid: uuid,
+        ma_su_kien: event.ma_su_kien,
+        ten_su_kien: event.ten_su_kien,
+        eventId: event.id,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventTime: `${event.time} - ${event.endTime}`,
+        eventLocation: event.location,
+        studentId: user.studentId,
+        studentName: user.name,
+        faculty: user.faculty || "Công nghệ Thông tin",
+        status: "pending",
+        trang_thai: "DaDangKy",
+        qrCode: qr,
+        payload_qr: qr,
+        registeredAt: new Date().toLocaleString("vi-VN"),
+      }
     }
 
     setTickets((prev) => [newTicket, ...prev])
     setEvents((prev) =>
       prev.map((e) =>
-        e.id === event.id
+        e.id === event.id && !e.khong_gioi_han_slot
           ? {
               ...e,
               registered: e.registered + 1,
@@ -417,6 +448,7 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
           : e,
       ),
     )
+    void refreshTickets(user)
     return { success: true, ticket: newTicket }
   }
 
@@ -426,6 +458,9 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
     try {
       await ticketsService.cancel(numericId, reason, crypto.randomUUID())
     } catch (err: unknown) {
+      if (isApiError(err) && err.status === 409) {
+        void refreshTickets(user)
+      }
       return { success: false, error: getApiErrorMessage(err) }
     }
     setTickets((prev) =>
@@ -436,55 +471,87 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
 
   async function joinWaitlist(event: LiveEvent, user: UserData) {
     const uuid = crypto.randomUUID()
+    let joinRes
     try {
-      await waitlistService.join(event.ma_su_kien, uuid)
+      joinRes = await waitlistService.join(event.ma_su_kien, uuid)
     } catch (err: unknown) {
-      return { success: false, error: getApiErrorMessage(err) }
+      return {
+        success: false,
+        error: getApiErrorMessage(err),
+        errorCode: isApiError(err) ? err.code : undefined,
+      }
     }
-    const entry: WaitlistEntry = {
-      id: Date.now(),
-      ma_su_kien: event.ma_su_kien,
-      ten_su_kien: event.ten_su_kien,
-      thoi_gian_bat_dau: event.thoi_gian_bat_dau,
-      thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
-      ten_phong: event.ten_phong,
-      co_so: event.co_so,
-      so_thu_tu: waitlistEntries.length + 1,
-      trang_thai: "WAITING",
-      thoi_gian_dang_ky: new Date().toISOString(),
-      studentId: user.studentId,
-      ho_ten: user.name,
-      ma_tai_khoan: user.ma_tai_khoan || 1,
-    }
-    setWaitlistEntries((prev) => [...prev, entry])
+    const serverEntry = joinRes?.data
+    const entry: WaitlistEntry = serverEntry
+      ? {
+          ...serverEntry,
+          studentId: serverEntry.studentId || user.studentId,
+          ho_ten: serverEntry.ho_ten || user.name,
+          ma_tai_khoan: serverEntry.ma_tai_khoan || user.ma_tai_khoan || 1,
+        }
+      : {
+          id: Date.now(),
+          ma_su_kien: event.ma_su_kien,
+          ten_su_kien: event.ten_su_kien,
+          thoi_gian_bat_dau: event.thoi_gian_bat_dau,
+          thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
+          ten_phong: event.ten_phong,
+          co_so: event.co_so,
+          so_thu_tu: waitlistEntries.length + 1,
+          trang_thai: "WAITING",
+          thoi_gian_dang_ky: new Date().toISOString(),
+          studentId: user.studentId,
+          ho_ten: user.name,
+          ma_tai_khoan: user.ma_tai_khoan || 1,
+        }
+    setWaitlistEntries((prev) => {
+      const exists = prev.some((w) => w.id === entry.id)
+      return exists ? prev.map((w) => (w.id === entry.id ? entry : w)) : [entry, ...prev]
+    })
     return { success: true, entry }
   }
 
   async function claimWaitlistOffer(id: number) {
-    const entry = waitlistEntries.find((w) => w.id === id)
-    if (!entry) return { success: false, error: "Không tìm thấy suất chờ." }
     const uuid = crypto.randomUUID()
     try {
       const res = await waitlistService.claim(id, uuid)
       if (res.data) {
-        const mapped = mapContractTicketToUiTicket(res.data as unknown as ContractTicket)
+        const mapped = mapContractTicketToUiTicket(res.data as unknown as ContractTicket, user)
         setTickets((prev) => [mapped, ...prev])
       }
     } catch (err: unknown) {
+      if (isApiError(err) && err.status === 409) {
+        void refreshTickets(user)
+      }
       return { success: false, error: getApiErrorMessage(err) }
     }
-    setWaitlistEntries((prev) => prev.filter((w) => w.id !== id))
+    setWaitlistEntries((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, trang_thai: "ACCEPTED" } : w)),
+    )
+    void refreshTickets(user)
     return { success: true }
   }
 
   async function declineWaitlistOffer(id: number) {
     const uuid = crypto.randomUUID()
+    let updatedEntry: WaitlistEntry | undefined
     try {
-      await waitlistService.decline(id, uuid)
+      const res = await waitlistService.decline(id, uuid)
+      updatedEntry = res.data
     } catch (err: unknown) {
+      if (isApiError(err) && err.status === 409) {
+        void refreshTickets(user)
+      }
       return { success: false, error: getApiErrorMessage(err) }
     }
-    setWaitlistEntries((prev) => prev.filter((w) => w.id !== id))
+    setWaitlistEntries((prev) =>
+      prev.map((w) =>
+        w.id === id
+          ? { ...w, ...(updatedEntry || {}), trang_thai: updatedEntry?.trang_thai || "DECLINED" }
+          : w,
+      ),
+    )
+    void refreshTickets(user)
     return { success: true }
   }
 

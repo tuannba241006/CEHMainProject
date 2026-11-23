@@ -1,6 +1,10 @@
-import { useState } from "react"
-import { TOPIC_LABELS, type Topic } from "../../data/mock"
-import type { WaitlistEntry } from "../../data/contract"
+import { useState, useEffect, useCallback } from "react"
+import { TOPIC_LABELS } from "../../data/mock"
+import type {
+  WaitlistEntry,
+  Topic as ContractTopic,
+  OrganizationSummary,
+} from "../../data/contract"
 import { useUser } from "../../context/UserContext"
 import {
   useApp,
@@ -8,20 +12,19 @@ import {
   type LiveEvent,
   type EventStatus,
 } from "../../context/AppContext"
+import { mapContractEventToLiveEvent } from "../../context/EventDataContext"
+import { eventsService } from "../../api/services/events.service"
+import { organizationsService } from "../../api/services/organizations.service"
+import type { PaginationMeta } from "../../api/services/auth.service"
+import { getApiErrorMessage } from "../../api/errors"
 
 import {
-  Search,
-  Calendar,
-  MapPin,
-  User as UserIcon,
-  Clock,
-  Sparkles,
-  Ticket,
-  CheckCircle2,
-  Check,
-  Filter,
-  X,
+  Building2,
+  Award,
+  Users,
   GraduationCap,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 
 export { TOPIC_LABELS }
@@ -34,6 +37,8 @@ interface Props {
   onOpenRegister?: () => void
 }
 
+type OrgOption = OrganizationSummary & { ma_don_vi_to_chuc?: number }
+
 const STATUS_COLORS: Record<EventStatus, { bg: string; text: string }> = {
   open: { bg: "#dcfce7", text: "#15803d" },
   nearly_full: { bg: "#fef9c3", text: "#a16207" },
@@ -44,71 +49,192 @@ const STATUS_COLORS: Record<EventStatus, { bg: string; text: string }> = {
   ended: { bg: "#f1f5f9", text: "#94a3b8" },
 }
 
-const TOPIC_COLORS: Record<Topic, string> = {
-  academic: "#4f46e5",
-  skill: "#0891b2",
-  culture: "#7c3aed",
-  sport: "#059669",
-  community: "#d97706",
+const TOPIC_PALETTE = [
+  "#4f46e5",
+  "#0891b2",
+  "#7c3aed",
+  "#059669",
+  "#d97706",
+  "#db2777",
+]
+
+function getTopicColor(name: string, index?: number): string {
+  if (typeof index === "number") {
+    return TOPIC_PALETTE[index % TOPIC_PALETTE.length]
+  }
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0
+  }
+  return TOPIC_PALETTE[hash % TOPIC_PALETTE.length]
 }
 
 export default function EventList({
   onSelectEvent,
-  onNavigate,
   isGuest = false,
   onOpenLogin,
   onOpenRegister,
 }: Props) {
-  const { user } = useUser()
+  const { user, role } = useUser()
   const {
     events,
     getUserActiveTicket,
     computeStatus,
     getStudentWaitlistEntries,
-    loading,
-    error,
-    refetch,
+    refreshTickets,
   } = useApp()
-  const [search, setSearch] = useState("")
-  const [topic, setTopic] = useState<Topic | "all">("all")
-  const [statusFilter, setStatusFilter] = useState<EventStatus | "all" | "unlimited">("all")
-  const [dateFilter, setDateFilter] = useState("")
-  const [locationFilter, setLocationFilter] = useState("")
 
-  const filtered = events.filter((e) => {
-    const status = computeStatus(e)
-    const matchSearch =
-      e.title.toLowerCase().includes(search.toLowerCase()) ||
-      e.speaker.toLowerCase().includes(search.toLowerCase())
-    const matchTopic = topic === "all" || e.topic === topic
-    const matchStatus =
-      statusFilter === "all" ||
-      (statusFilter === "unlimited"
-        ? Boolean(e.khong_gioi_han_slot)
-        : status === statusFilter)
-    const matchDate = !dateFilter || e.date === dateFilter
-    const matchLocation =
-      !locationFilter ||
-      e.location.toLowerCase().includes(locationFilter.toLowerCase())
-    return (
-      matchSearch && matchTopic && matchStatus && matchDate && matchLocation
-    )
-  })
+  useEffect(() => {
+    if (!isGuest && role === "student" && refreshTickets) {
+      void refreshTickets(user)
+    }
+  }, [isGuest, role, user.studentId, refreshTickets])
+
+  const [topics, setTopics] = useState<ContractTopic[]>([])
+  const [organizations, setOrganizations] = useState<OrgOption[]>([])
+
+  const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [topicId, setTopicId] = useState("")
+  const [orgId, setOrgId] = useState("")
+  const [drlRule, setDrlRule] = useState<"" | "Dieu3" | "Dieu4" | "KhongCo">("")
+  const [slotType, setSlotType] = useState<"" | "limited" | "unlimited">("")
+  const [statusMode, setStatusMode] = useState<
+    "" | "con_cho" | "PUBLISHED" | "HAPPENING" | "COMPLETED"
+  >("")
+  const [tuNgay, setTuNgay] = useState("")
+  const [denNgay, setDenNgay] = useState("")
+  const [sort, setSort] = useState<"bat_dau_asc" | "bat_dau_desc" | "moi_cong_bo">(
+    "bat_dau_asc",
+  )
+  const [page, setPage] = useState(1)
+
+  const [pagedEvents, setPagedEvents] = useState<LiveEvent[]>([])
+  const [meta, setMeta] = useState<PaginationMeta | null>(null)
+  const [serverStats, setServerStats] = useState<{
+    openCount: number | null
+    totalCount: number | null
+  }>({ openCount: null, totalCount: null })
+  const [listLoading, setListLoading] = useState(true)
+  const [listError, setListError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  useEffect(() => {
+    let ignore = false
+    Promise.allSettled([
+      organizationsService.topics(),
+      organizationsService.publicList(),
+      eventsService.listPublic({ con_cho: "true", limit: 1 }),
+      eventsService.listPublic({ limit: 1 }),
+    ]).then(([topicsRes, orgsRes, openRes, totalRes]) => {
+      if (ignore) return
+      if (topicsRes.status === "fulfilled" && Array.isArray(topicsRes.value.data)) {
+        setTopics(topicsRes.value.data)
+      }
+      if (orgsRes.status === "fulfilled" && Array.isArray(orgsRes.value.data)) {
+        setOrganizations(orgsRes.value.data as OrgOption[])
+      }
+      setServerStats({
+        openCount:
+          openRes.status === "fulfilled"
+            ? (openRes.value.meta?.tong_so_ban_ghi ?? openRes.value.meta?.total ?? null)
+            : null,
+        totalCount:
+          totalRes.status === "fulfilled"
+            ? (totalRes.value.meta?.tong_so_ban_ghi ?? totalRes.value.meta?.total ?? null)
+            : null,
+      })
+    })
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  const fetchFilteredEvents = useCallback(async () => {
+    setListLoading(true)
+    setListError(null)
+    try {
+      const query: Record<string, string | number | undefined> = {
+        page,
+        limit: 12,
+        sort,
+      }
+      if (debouncedSearch) query.q = debouncedSearch
+      if (topicId) query.ma_chuyen_de = Number(topicId)
+      if (orgId) query.ma_don_vi_to_chuc = Number(orgId)
+      if (drlRule) query.dieu_khoan_drl = drlRule
+      if (slotType === "unlimited") query.khong_gioi_han_slot = "true"
+      else if (slotType === "limited") query.khong_gioi_han_slot = "false"
+
+      if (statusMode === "con_cho") {
+        query.con_cho = "true"
+      } else if (statusMode) {
+        query.trang_thai = statusMode
+      }
+
+      if (tuNgay) query.tu_ngay = tuNgay
+      if (denNgay) query.den_ngay = denNgay
+
+      const res = await eventsService.listPublic(query)
+      const cards = Array.isArray(res.data) ? res.data : []
+      setPagedEvents(cards.map(mapContractEventToLiveEvent))
+      setMeta(res.meta ?? null)
+    } catch (err) {
+      setListError(getApiErrorMessage(err))
+    } finally {
+      setListLoading(false)
+    }
+  }, [
+    page,
+    sort,
+    debouncedSearch,
+    topicId,
+    orgId,
+    drlRule,
+    slotType,
+    statusMode,
+    tuNgay,
+    denNgay,
+  ])
+
+  useEffect(() => {
+    void fetchFilteredEvents()
+  }, [fetchFilteredEvents])
 
   const activeFiltersCount =
-    (topic !== "all" ? 1 : 0) +
-    (statusFilter !== "all" ? 1 : 0) +
-    (dateFilter ? 1 : 0) +
-    (locationFilter ? 1 : 0) +
-    (search ? 1 : 0)
+    (topicId ? 1 : 0) +
+    (orgId ? 1 : 0) +
+    (drlRule ? 1 : 0) +
+    (slotType ? 1 : 0) +
+    (statusMode ? 1 : 0) +
+    (tuNgay ? 1 : 0) +
+    (denNgay ? 1 : 0) +
+    (search.trim() ? 1 : 0)
 
   function resetFilters() {
     setSearch("")
-    setTopic("all")
-    setStatusFilter("all")
-    setDateFilter("")
-    setLocationFilter("")
+    setDebouncedSearch("")
+    setTopicId("")
+    setOrgId("")
+    setDrlRule("")
+    setSlotType("")
+    setStatusMode("")
+    setTuNgay("")
+    setDenNgay("")
+    setSort("bat_dau_asc")
+    setPage(1)
   }
+
+  const totalRecords = meta?.tong_so_ban_ghi ?? meta?.total ?? pagedEvents.length
+  const currentPage = meta?.trang_hien_tai ?? meta?.current_page ?? page
+  const totalPages = meta?.tong_so_trang ?? meta?.last_page ?? 1
 
   return (
     <div className="min-h-full pb-16">
@@ -160,13 +286,12 @@ export default function EventList({
             <div className="flex items-center gap-3">
               <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3.5 shadow-xs text-center min-w-[120px]">
                 <div className="text-2xl font-display font-bold text-indigo-600">
-                  {
+                  {serverStats.openCount ??
                     events.filter(
                       (e) =>
                         computeStatus(e) === "open" ||
                         computeStatus(e) === "nearly_full",
-                    ).length
-                  }
+                    ).length}
                 </div>
                 <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mt-0.5">
                   Đang mở đăng ký
@@ -174,7 +299,7 @@ export default function EventList({
               </div>
               <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3.5 shadow-xs text-center min-w-[120px]">
                 <div className="text-2xl font-display font-bold text-emerald-600">
-                  {events.length}
+                  {serverStats.totalCount ?? totalRecords}
                 </div>
                 <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mt-0.5">
                   Tổng sự kiện
@@ -184,10 +309,11 @@ export default function EventList({
           </div>
 
           {/* Web Search & Filtering Toolbar */}
-          <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm">
+          <div className="mt-8 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3">
+            {/* Row 1: Keyword, Topic, Organization, Status */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
               {/* Search input */}
-              <div className="relative sm:col-span-2 lg:col-span-5">
+              <div className="relative sm:col-span-2 lg:col-span-4">
                 <svg
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
                   fill="none"
@@ -204,7 +330,7 @@ export default function EventList({
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Tìm kiếm theo tên sự kiện, diễn giả..."
+                  placeholder="Tìm kiếm tên sự kiện, mô tả, diễn giả..."
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all bg-slate-50/50 focus:bg-white"
                 />
               </div>
@@ -212,66 +338,194 @@ export default function EventList({
               {/* Topic dropdown */}
               <div className="lg:col-span-3">
                 <select
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value as Topic | "all")}
+                  value={topicId}
+                  onChange={(e) => {
+                    setTopicId(e.target.value)
+                    setPage(1)
+                  }}
+                  aria-label="Lọc theo chuyên đề"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
                 >
-                  <option value="all">Tất cả chủ đề</option>
-                  {(Object.keys(TOPIC_LABELS) as Topic[]).map((t) => (
-                    <option key={t} value={t}>
-                      {TOPIC_LABELS[t]}
+                  <option value="">Tất cả chuyên đề</option>
+                  {topics.map((t) => (
+                    <option key={t.ma_chuyen_de} value={String(t.ma_chuyen_de)}>
+                      {t.ten_chuyen_de}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Status dropdown */}
-              <div className="lg:col-span-2">
+              {/* Organization / Faculty dropdown */}
+              <div className="lg:col-span-3">
                 <select
-                  value={statusFilter}
-                  onChange={(e) =>
-                    setStatusFilter(e.target.value as EventStatus | "all" | "unlimited")
-                  }
+                  value={orgId}
+                  onChange={(e) => {
+                    setOrgId(e.target.value)
+                    setPage(1)
+                  }}
+                  aria-label="Lọc theo Khoa / Đơn vị tổ chức"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
                 >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="open">Đang mở (Còn chỗ)</option>
-                  <option value="unlimited">Mở tự do</option>
-                  <option value="nearly_full">Sắp hết chỗ</option>
-                  <option value="full">Đã hết chỗ</option>
+                  <option value="">Tất cả Khoa / Đơn vị tổ chức</option>
+                  {organizations.map((org) => {
+                    const id = org.ma_don_vi_to_chuc ?? org.ma_don_vi
+                    return (
+                      <option key={id} value={String(id)}>
+                        {org.ten_don_vi}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
 
-              {/* Date Filter */}
+              {/* Status / Availability dropdown */}
+              <div className="lg:col-span-2">
+                <select
+                  value={statusMode}
+                  onChange={(e) => {
+                    setStatusMode(
+                      e.target.value as
+                        | ""
+                        | "con_cho"
+                        | "PUBLISHED"
+                        | "HAPPENING"
+                        | "COMPLETED",
+                    )
+                    setPage(1)
+                  }}
+                  aria-label="Lọc theo trạng thái"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
+                >
+                  <option value="">Đang mở & Sắp tới</option>
+                  <option value="con_cho">Còn chỗ mở đăng ký</option>
+                  <option value="PUBLISHED">Sắp diễn ra (PUBLISHED)</option>
+                  <option value="HAPPENING">Đang diễn ra (HAPPENING)</option>
+                  <option value="COMPLETED">Đã kết thúc (COMPLETED)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 2: DRL Rule, Slot Type, Date Range (tu_ngay - den_ngay), Sort */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+              {/* DRL Rule */}
+              <div className="lg:col-span-3">
+                <select
+                  value={drlRule}
+                  onChange={(e) => {
+                    setDrlRule(
+                      e.target.value as "" | "Dieu3" | "Dieu4" | "KhongCo",
+                    )
+                    setPage(1)
+                  }}
+                  aria-label="Lọc theo điều khoản ĐRL"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
+                >
+                  <option value="">Tất cả điều khoản ĐRL</option>
+                  <option value="Dieu3">Điều 3 (ĐRL Học thuật / Chính trị)</option>
+                  <option value="Dieu4">Điều 4 (ĐRL Văn hóa / Cộng đồng)</option>
+                  <option value="KhongCo">Không cộng ĐRL</option>
+                </select>
+              </div>
+
+              {/* Slot Type */}
+              <div className="lg:col-span-2">
+                <select
+                  value={slotType}
+                  onChange={(e) => {
+                    setSlotType(e.target.value as "" | "limited" | "unlimited")
+                    setPage(1)
+                  }}
+                  aria-label="Lọc theo loại sự kiện"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
+                >
+                  <option value="">Tất cả loại slot</option>
+                  <option value="limited">Giới hạn slot</option>
+                  <option value="unlimited">Mở tự do</option>
+                </select>
+              </div>
+
+              {/* Date Range: Từ ngày - Đến ngày */}
               <div className="lg:col-span-2">
                 <input
                   type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
+                  value={tuNgay}
+                  onChange={(e) => {
+                    const nextFrom = e.target.value
+                    setTuNgay(nextFrom)
+                    if (denNgay && nextFrom && denNgay < nextFrom) {
+                      setDenNgay(nextFrom)
+                    }
+                    setPage(1)
+                  }}
+                  title="Từ ngày"
+                  aria-label="Từ ngày"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
                 />
+              </div>
+              <div className="lg:col-span-2">
+                <input
+                  type="date"
+                  value={denNgay}
+                  min={tuNgay || undefined}
+                  onChange={(e) => {
+                    setDenNgay(e.target.value)
+                    setPage(1)
+                  }}
+                  title="Đến ngày"
+                  aria-label="Đến ngày"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
+                />
+              </div>
+
+              {/* Sort */}
+              <div className="lg:col-span-3">
+                <select
+                  value={sort}
+                  onChange={(e) => {
+                    setSort(
+                      e.target.value as
+                        | "bat_dau_asc"
+                        | "bat_dau_desc"
+                        | "moi_cong_bo",
+                    )
+                    setPage(1)
+                  }}
+                  aria-label="Sắp xếp"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-500 bg-white text-slate-700 font-medium cursor-pointer"
+                >
+                  <option value="bat_dau_asc">Sắp diễn ra gần nhất</option>
+                  <option value="bat_dau_desc">Thời gian muộn nhất trước</option>
+                  <option value="moi_cong_bo">Mới công bố</option>
+                </select>
               </div>
             </div>
 
             {/* Secondary filter chips row */}
-            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-xs font-semibold text-slate-400 mr-1">
-                  Chủ đề:
+                  Chuyên đề:
                 </span>
                 <Chip
                   label="Tất cả"
-                  active={topic === "all"}
-                  onClick={() => setTopic("all")}
+                  active={!topicId}
+                  onClick={() => {
+                    setTopicId("")
+                    setPage(1)
+                  }}
                   color="#4f46e5"
                 />
-                {(Object.keys(TOPIC_LABELS) as Topic[]).map((t) => (
+                {topics.map((t, idx) => (
                   <Chip
-                    key={t}
-                    label={TOPIC_LABELS[t]}
-                    active={topic === t}
-                    onClick={() => setTopic(topic === t ? "all" : t)}
-                    color={TOPIC_COLORS[t]}
+                    key={t.ma_chuyen_de}
+                    label={t.ten_chuyen_de}
+                    active={topicId === String(t.ma_chuyen_de)}
+                    onClick={() => {
+                      const nextId = String(t.ma_chuyen_de)
+                      setTopicId(topicId === nextId ? "" : nextId)
+                      setPage(1)
+                    }}
+                    color={getTopicColor(t.ten_chuyen_de, idx)}
                   />
                 ))}
               </div>
@@ -310,12 +564,12 @@ export default function EventList({
               Danh sách sự kiện
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Hiển thị {filtered.length} sự kiện phù hợp
+              Hiển thị {pagedEvents.length} / {totalRecords} sự kiện phù hợp
             </p>
           </div>
         </div>
 
-        {loading ? (
+        {listLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
@@ -329,20 +583,20 @@ export default function EventList({
               </div>
             ))}
           </div>
-        ) : error ? (
+        ) : listError ? (
           <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center max-w-lg mx-auto my-8">
             <p className="text-sm font-semibold text-rose-800">
               Không thể tải dữ liệu sự kiện từ máy chủ
             </p>
-            <p className="text-xs text-rose-600 mt-1">{error}</p>
+            <p className="text-xs text-rose-600 mt-1">{listError}</p>
             <button
-              onClick={() => void refetch?.()}
+              onClick={() => void fetchFilteredEvents()}
               className="mt-4 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
             >
               Thử lại
             </button>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : pagedEvents.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center max-w-md mx-auto my-8">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-4">
               <svg
@@ -373,30 +627,74 @@ export default function EventList({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((event) => {
-              const activeWaitlist =
-                !isGuest && user?.studentId
-                  ? getStudentWaitlistEntries(user.studentId).find(
-                      (w) =>
-                        w.ma_su_kien === event.ma_su_kien &&
-                        ["WAITING", "OFFERED"].includes(w.trang_thai),
-                    )
-                  : undefined
-              return (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  isRegistered={
-                    !isGuest && !!getUserActiveTicket(event.id, user.studentId)
-                  }
-                  waitlistEntry={activeWaitlist}
-                  isGuest={isGuest}
-                  onSelect={() => onSelectEvent(event.id)}
-                />
-              )
-            })}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pagedEvents.map((event) => {
+                const activeWaitlist =
+                  !isGuest && user?.studentId
+                    ? getStudentWaitlistEntries(user.studentId).find(
+                        (w) =>
+                          w.ma_su_kien === event.ma_su_kien &&
+                          ["WAITING", "OFFERED"].includes(w.trang_thai),
+                      )
+                    : undefined
+                return (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    isRegistered={
+                      !isGuest && role === "student" && !!getUserActiveTicket(event.id, user.studentId)
+                    }
+                    waitlistEntry={role === "student" ? activeWaitlist : undefined}
+                    isGuest={isGuest}
+                    canJoinWaitlistView={isGuest || role === "student"}
+                    onSelect={() => onSelectEvent(event.id)}
+                  />
+                )
+              })}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-8 flex flex-wrap items-center justify-between gap-4 bg-white rounded-2xl border border-slate-200 px-5 py-3.5 shadow-xs">
+                <p className="text-xs text-slate-500 font-medium">
+                  Trang <span className="font-bold text-slate-800">{currentPage}</span> /{" "}
+                  <span className="font-bold text-slate-800">{totalPages}</span> · Tổng{" "}
+                  <span className="font-bold text-slate-800">{totalRecords}</span> sự kiện
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Trước</span>
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-8 h-8 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                        p === currentPage
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <span>Sau</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -408,18 +706,30 @@ function EventCard({
   isRegistered,
   waitlistEntry,
   isGuest,
+  canJoinWaitlistView = true,
   onSelect,
 }: {
   event: LiveEvent
   isRegistered: boolean
   waitlistEntry?: WaitlistEntry
   isGuest: boolean
+  canJoinWaitlistView?: boolean
   onSelect: () => void
   key?: React.Key
 }) {
   const { computeStatus } = useApp()
   const status = computeStatus(event)
-  const sc = STATUS_COLORS[status]
+  const isHappening = event.trang_thai === "HAPPENING" && status !== "ended"
+  const isWaitlistOpen =
+    canJoinWaitlistView && status === "full" && event.trang_thai === "PUBLISHED"
+  const sc = isHappening
+    ? { bg: "#e0e7ff", text: "#4338ca" }
+    : STATUS_COLORS[status]
+  const statusBadgeLabel = isHappening
+    ? "Đang diễn ra"
+    : status === "closed"
+      ? "Đã đóng đăng ký"
+      : EVENT_STATUS_LABELS[status]
   const pct = Math.round((event.registered / event.capacity) * 100)
   const dateObj = new Date(event.date)
   const dateStr = dateObj.toLocaleDateString("vi-VN", {
@@ -447,20 +757,26 @@ function EventCard({
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span
-              className="px-2.5 py-0.8 rounded-full text-xs font-semibold text-white shadow-xs backdrop-blur-xs"
-              style={{ background: TOPIC_COLORS[event.topic] || "#4f46e5" }}
+              className="px-2.5 py-0.5 rounded-full text-xs font-semibold text-white shadow-xs backdrop-blur-xs"
+              style={{
+                background: getTopicColor(
+                  event.ten_chuyen_de || String(event.topic),
+                ),
+              }}
             >
-              {TOPIC_LABELS[event.topic]}
+              {event.ten_chuyen_de ||
+                TOPIC_LABELS[event.topic] ||
+                "Chuyên đề"}
             </span>
             {event.khong_gioi_han_slot && (
-              <span className="px-2.5 py-0.8 rounded-full text-xs font-bold bg-sky-500 text-white shadow-xs">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500 text-white shadow-xs">
                 Mở tự do
               </span>
             )}
           </div>
           <span
             className={`px-2.5 py-0.8 rounded-full text-xs font-semibold shadow-xs ${
-              status === "full" && !isRegistered
+              isWaitlistOpen && !isRegistered
                 ? waitlistEntry?.trang_thai === "OFFERED"
                   ? "bg-amber-500 text-white animate-pulse"
                   : waitlistEntry
@@ -469,18 +785,18 @@ function EventCard({
                 : ""
             }`}
             style={
-              status === "full" && !isRegistered
+              isWaitlistOpen && !isRegistered
                 ? undefined
                 : { background: sc.bg, color: sc.text }
             }
           >
-            {status === "full" && !isRegistered
+            {isWaitlistOpen && !isRegistered
               ? waitlistEntry?.trang_thai === "OFFERED"
-                ? "Có suất nhận vé (Hạn 15p)"
+                ? "Có suất nhận vé ưu tiên"
                 : waitlistEntry
                   ? `Hàng chờ FIFO #${waitlistEntry.so_thu_tu}`
                   : "Hết vé · Hàng chờ FIFO mở"
-              : EVENT_STATUS_LABELS[status]}
+              : statusBadgeLabel}
           </span>
         </div>
 
@@ -501,7 +817,7 @@ function EventCard({
               />
             </svg>
             <span className="font-medium">
-              {dateStr} · {event.time}
+              {dateStr} · {event.time} - {event.endTime}
             </span>
           </div>
           {isRegistered && (
@@ -519,7 +835,7 @@ function EventCard({
               Hàng chờ #{waitlistEntry.so_thu_tu}
             </span>
           )}
-          {!isRegistered && !waitlistEntry && status === "full" && (
+          {!isRegistered && !waitlistEntry && isWaitlistOpen && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-600/90 text-white shadow-xs">
               Hàng chờ FIFO mở
             </span>
@@ -530,9 +846,41 @@ function EventCard({
       {/* Card body */}
       <div className="p-5 flex-1 flex flex-col justify-between bg-white">
         <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            {event.dieu_khoan_drl && event.dieu_khoan_drl !== "KhongCo" ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <Award className="w-3 h-3" />
+                <span>
+                  +{event.diem_drl_du_kien} ĐRL ·{" "}
+                  {event.dieu_khoan_drl === "Dieu4" ? "Điều 4" : "Điều 3"}
+                </span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500">
+                Không cộng ĐRL
+              </span>
+            )}
+          </div>
+
           <h3 className="font-display font-bold text-base text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug mb-2">
             {event.title}
           </h3>
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium mb-1.5">
+            <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-indigo-500" />
+            <span className="truncate">{event.ten_don_vi_host}</span>
+          </div>
+
+          {event.danh_sach_ten_dong_to_chuc &&
+            event.danh_sach_ten_dong_to_chuc.length > 0 && (
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1.5">
+                <Users className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
+                <span className="truncate">
+                  Đồng tổ chức: {event.danh_sach_ten_dong_to_chuc.join(", ")}
+                </span>
+              </div>
+            )}
+
           <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-1.5">
             <svg
               className="w-3.5 h-3.5 flex-shrink-0 text-slate-400"
@@ -563,10 +911,7 @@ function EventCard({
                 d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
               />
             </svg>
-            <span className="truncate">
-              {event.room ? event.room + ", " : ""}
-              {event.location}
-            </span>
+            <span className="truncate">{event.location}</span>
           </div>
         </div>
 
@@ -577,7 +922,13 @@ function EventCard({
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">
                 Mở tự do
               </span>
-              <span className="text-slate-500 text-xs font-medium">Không giới hạn slot</span>
+              <span className="text-slate-500 text-xs font-medium">
+                {status === "ended"
+                  ? "Đã kết thúc"
+                  : status === "closed"
+                    ? "Đã đóng"
+                    : "Không giới hạn slot"}
+              </span>
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -587,18 +938,26 @@ function EventCard({
                 </span>
                 <span
                   className={`font-semibold text-xs ${
-                    pct >= 100
-                      ? "text-amber-700"
-                      : pct >= 90
-                        ? "text-rose-600"
-                        : pct >= 70
-                          ? "text-amber-600"
-                          : "text-emerald-600"
+                    status === "closed" || status === "ended"
+                      ? "text-slate-500"
+                      : pct >= 100
+                        ? "text-amber-700"
+                        : pct >= 90
+                          ? "text-rose-600"
+                          : pct >= 70
+                            ? "text-amber-600"
+                            : "text-emerald-600"
                   }`}
                 >
-                  {event.capacity - event.registered > 0
-                    ? "Còn " + (event.capacity - event.registered) + " chỗ"
-                    : "Hết vé · Có hàng chờ FIFO"}
+                  {status === "ended"
+                    ? "Đã kết thúc"
+                    : isHappening
+                      ? "Đang diễn ra (Đóng ĐK)"
+                      : status === "closed"
+                        ? "Đã đóng đăng ký"
+                        : event.capacity - event.registered > 0
+                          ? "Còn " + (event.capacity - event.registered) + " chỗ"
+                          : "Hết vé · Có hàng chờ FIFO"}
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -654,11 +1013,13 @@ function EventCard({
                 ? "Có suất nhận vé — Mở Ví vé →"
                 : waitlistEntry
                   ? `Trong hàng chờ FIFO #${waitlistEntry.so_thu_tu} →`
-                  : status === "full"
+                  : isWaitlistOpen
                     ? "Hết vé · Đăng ký hàng chờ FIFO →"
-                    : isGuest
+                    : status === "ended" || status === "closed" || isHappening
                       ? "Xem chi tiết sự kiện →"
-                      : "Xem chi tiết & Đăng ký →"}
+                      : isGuest
+                        ? "Xem chi tiết sự kiện →"
+                        : "Xem chi tiết & Đăng ký →"}
           </div>
         </div>
       </div>

@@ -53,15 +53,18 @@ class EventShareController extends Controller
             $imageUrl = asset('images/default-event-og.png');
         }
 
-        $shareUrl = route('v1.events.public.share', [
+        $shareUrl = route('web.events.public.share', [
             'id' => $event->ma_su_kien,
         ]);
+
+        $detailUrl = url('/events/'.$event->ma_su_kien);
 
         return response()->view('events.share', [
             'event' => $event,
             'description' => $description,
             'imageUrl' => $imageUrl,
             'shareUrl' => $shareUrl,
+            'detailUrl' => $detailUrl,
         ])->header('Content-Type', 'text/html; charset=UTF-8');
     }
 }

@@ -162,12 +162,15 @@ $eventRoutes = function () {
 
     // PKG-05: Concurrency ticket booking (UC-BOOK-01, FR-14)
     Route::middleware(['auth:sanctum,web', 'role:SinhVien', 'password.changed'])->group(function () {
-        Route::post('/{id}/book', [BookingController::class, 'bookTicket'])->name('events.book');
-    });
+        Route::post('/{id}/book', [BookingController::class, 'bookTicket'])
+            ->whereNumber('id')
+            ->middleware('throttle:10,1')
+            ->name('events.book');
 
-    // Gap 3 Endpoint 1: booking-check (all authenticated users)
-    Route::middleware(['auth:sanctum,web', 'role:SinhVien,ToChuc,Admin', 'password.changed'])->group(function () {
-        Route::get('/{id}/booking-check', [BookingController::class, 'precheck'])->whereNumber('id')->name('events.booking.precheck');
+        // UC-BOOK-01 Bước 2: Kiểm tra trước điều kiện đặt vé & trùng lịch (chỉ SinhVien)
+        Route::get('/{id}/booking-check', [BookingController::class, 'precheck'])
+            ->whereNumber('id')
+            ->name('events.booking.precheck');
     });
 };
 
@@ -292,7 +295,7 @@ Route::prefix('v1')->group(function () use ($authRoutes, $adminRoutes, $roomRout
     Route::prefix('organizer')->name('v1.')->group($organizerRoutes);
     Route::prefix('tickets')->name('v1.tickets.')->group($ticketRoutes);
     Route::prefix('notifications')->name('v1.notifications.')->group($notificationRoutes);
-    $waitlistRoutes();
+    Route::name('v1.')->group($waitlistRoutes);
     $attendanceRoutes();
     $feedbackAndCertificateRoutes();
     $drlAndAnalyticsRoutes();
