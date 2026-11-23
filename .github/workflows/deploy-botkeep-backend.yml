@@ -1,0 +1,45 @@
+name: Deploy backend for Botkeep
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-botkeep-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: botkeep-backend-production
+  cancel-in-progress: true
+
+jobs:
+  split-and-publish:
+    name: Split backend and publish to botkeep-php branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Subtree split and push to botkeep-php
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          split_commit="$(git subtree split --prefix=backend HEAD)"
+          echo "Split commit: ${split_commit}"
+
+          auth_header="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c http.extraheader="AUTHORIZATION: basic ${auth_header}" \
+            push "https://github.com/${GITHUB_REPOSITORY}.git" \
+            "${split_commit}:refs/heads/botkeep-php" --force

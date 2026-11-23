@@ -5,7 +5,7 @@ import { useApp } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { useUser } from "../../context/UserContext"
 import type { RoomPublic, Topic, OrganizationSummary, AgendaItem } from "../../data/contract"
-import { formatCalendarDate } from "../../utils/date"
+import { formatCalendarDate, parseCalendarDate } from "../../utils/date"
 import { eventsService } from "../../api/services/events.service"
 import { getApiErrorMessage, getValidationErrors } from "../../api/errors"
 import { organizationsService } from "../../api/services/organizations.service"
@@ -79,6 +79,70 @@ export function parseTimeToMinutes(timeStr: string): number {
   const parts = timeStr.split(":").map(Number)
   if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return -1
   return parts[0] * 60 + parts[1]
+}
+
+function getRoomMaintenanceInfo(
+  room: RoomPublic,
+  eventDate?: string,
+  startTime?: string,
+  endTime?: string,
+): { isConflict: boolean; suffix: string; detail?: string } {
+  if (room.trang_thai !== "BaoTri") {
+    return { isConflict: false, suffix: "" }
+  }
+
+  // Nếu bảo trì nhưng không có ngày bắt đầu / kết thúc cụ thể
+  if (!room.bao_tri_tu_ngay || !room.bao_tri_den_ngay) {
+    return {
+      isConflict: true,
+      suffix: " [ĐANG BẢO TRÌ]",
+      detail: "Phòng đang bảo trì vô thời hạn",
+    }
+  }
+
+  const maintFrom = parseCalendarDate(room.bao_tri_tu_ngay)
+  const maintTo = parseCalendarDate(room.bao_tri_den_ngay)
+
+  if (!maintFrom || !maintTo) {
+    return {
+      isConflict: true,
+      suffix: " [ĐANG BẢO TRÌ]",
+      detail: "Phòng đang trong trạng thái bảo trì",
+    }
+  }
+
+  const fmt = (d: Date) =>
+    `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+  const rangeStr = `${fmt(maintFrom)} - ${fmt(maintTo)}`
+
+  // Nếu người dùng đã chọn ngày tổ chức và giờ bắt đầu/kết thúc sự kiện
+  if (eventDate && startTime && endTime) {
+    const sTime = startTime.length === 5 ? `${startTime}:00` : startTime
+    const eTime = endTime.length === 5 ? `${endTime}:00` : endTime
+    const eventStart = new Date(`${eventDate}T${sTime}`)
+    const eventEnd = new Date(`${eventDate}T${eTime}`)
+
+    if (!Number.isNaN(eventStart.getTime()) && !Number.isNaN(eventEnd.getTime())) {
+      // Overlap: maintFrom < eventEnd && maintTo > eventStart (SRS v3.1.3 & UC-ROOM-02)
+      const isOverlap = maintFrom < eventEnd && maintTo > eventStart
+      if (isOverlap) {
+        return {
+          isConflict: true,
+          suffix: ` [TRÙNG LỊCH BẢO TRÌ: ${rangeStr}]`,
+          detail: `Từ ${rangeStr}`,
+        }
+      }
+
+      // Khung giờ sự kiện nằm ngoài khoảng bảo trì -> Khả dụng bình thường!
+      return { isConflict: false, suffix: "" }
+    }
+  }
+
+  // Chưa chọn đủ ngày giờ sự kiện -> hiển thị thông báo khoảng bảo trì nhưng không vô hiệu hóa
+  return {
+    isConflict: false,
+    suffix: ` (Lịch bảo trì: ${rangeStr})`,
+  }
 }
 
 export default function EventForm({ onNavigate, onLogout }: Props) {
@@ -390,6 +454,17 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
     }
 
     if (!form.room) e.room = "Vui lòng chọn phòng từ danh mục."
+    if (selectedRoom) {
+      const maint = getRoomMaintenanceInfo(
+        selectedRoom,
+        form.eventDate,
+        form.startTime,
+        form.endTime,
+      )
+      if (maint.isConflict) {
+        e.room = `Phòng đang trong lịch bảo trì tại khung giờ này${maint.detail ? ` (${maint.detail})` : ""}. Vui lòng chọn phòng hoặc thời gian khác.`
+      }
+    }
 
     if (form.unlimited === "false") {
       if (
@@ -909,17 +984,43 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                     className={inputClass(!!errors.room)}
                   >
                     <option value="">Chọn phòng từ danh mục</option>
-                    {roomList.map((room) => (
-                      <option
-                        key={room.ma_phong}
-                        value={room.ma_phong}
-                        disabled={room.trang_thai === "BaoTri"}
-                      >
-                        {room.ten_phong} · {room.co_so} · {room.suc_chua} chỗ
-                        {room.trang_thai === "BaoTri" ? " [ĐANG BẢO TRÌ]" : ""}
-                      </option>
-                    ))}
+                    {roomList.map((room) => {
+                      const maint = getRoomMaintenanceInfo(
+                        room,
+                        form.eventDate,
+                        form.startTime,
+                        form.endTime,
+                      )
+                      return (
+                        <option
+                          key={room.ma_phong}
+                          value={room.ma_phong}
+                          disabled={maint.isConflict}
+                        >
+                          {room.ten_phong} · {room.co_so} · {room.suc_chua} chỗ
+                          {maint.suffix}
+                        </option>
+                      )
+                    })}
                   </select>
+                  {(() => {
+                    const selectedRoom = roomList.find(
+                      (item) => String(item.ma_phong) === form.room,
+                    )
+                    if (!selectedRoom) return null
+                    const maint = getRoomMaintenanceInfo(
+                      selectedRoom,
+                      form.eventDate,
+                      form.startTime,
+                      form.endTime,
+                    )
+                    if (!maint.isConflict) return null
+                    return (
+                      <p className="mt-1 text-xs text-rose-600 font-medium">
+                        ⚠️ {selectedRoom.ten_phong} đang có lịch bảo trì tại khung giờ đã chọn ({maint.detail}). Vui lòng chọn phòng hoặc khung giờ khác.
+                      </p>
+                    )
+                  })()}
                 </FormField>
               </div>
             </Section>
