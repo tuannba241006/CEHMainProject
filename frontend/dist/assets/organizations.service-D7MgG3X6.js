@@ -1,1 +1,0 @@
-import{s as a}from"./index-DTH9afxG.js";const s={publicList:()=>a.get("/organizations"),topics:()=>a.get("/topics"),uploadImage:(t,i="poster")=>{const o=new FormData;return o.append("file",t),o.append("loai",i),a.post("/uploads/images",o)}};export{s as o};
