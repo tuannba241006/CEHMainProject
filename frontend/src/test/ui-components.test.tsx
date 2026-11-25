@@ -70,8 +70,8 @@ describe("UI Components & Mapping Hydration (DEF-P2-02)", () => {
       danh_sach_ten_dong_to_chuc: ["Khoa HTTT"],
       ten_phong: "Hội trường E",
       co_so: "CoSo1",
-      thoi_gian_bat_dau: "2026-11-20T08:30:00+07:00",
-      thoi_gian_ket_thuc: "2026-11-20T11:30:00+07:00",
+      thoi_gian_bat_dau: "2026-12-20T08:30:00+07:00",
+      thoi_gian_ket_thuc: "2026-12-20T11:30:00+07:00",
       khong_gioi_han_slot: false,
       so_ve_con_lai: 15,
       so_luong_toi_da: 100,
@@ -85,7 +85,7 @@ describe("UI Components & Mapping Hydration (DEF-P2-02)", () => {
     expect(live.title).toBe("Workshop AI 2026")
     expect(live.capacity).toBe(100)
     expect(live.registered).toBe(85)
-    expect(live.date).toBe("2026-11-20")
+    expect(live.date).toBe("2026-12-20")
     expect(live.registrationOpen).toBe(true)
     expect(live.status).toBe("nearly_full")
   })
