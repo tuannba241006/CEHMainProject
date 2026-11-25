@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CreateInternalUserRequest;
+use App\Http\Resources\TicketResource;
 use App\Http\Resources\UserResource;
+use App\Models\DangKy;
 use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
@@ -195,5 +197,24 @@ class AdminUserController extends Controller
             'Đã gán quyền Ban tổ chức thành công.',
             200
         );
+    }
+
+    /**
+     * UC-ADM-01: Get tickets for a specific student (CTSV / Admin support)
+     * GET /api/v1/admin/users/{id}/tickets
+     */
+    public function studentTickets(int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+        $tickets = DangKy::with(['suKien.phongHoiTruong', 'chungNhan'])
+            ->where('ma_tai_khoan', $user->ma_tai_khoan)
+            ->orderByDesc('thoi_gian_dang_ky')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => TicketResource::collection($tickets),
+            'server_time' => now()->setTimezone('+07:00')->toIso8601String(),
+        ], 200);
     }
 }

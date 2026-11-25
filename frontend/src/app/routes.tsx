@@ -712,6 +712,18 @@ export const router = createHashRouter([
         ],
       },
       {
+        element: (
+          <ProtectedRoute
+            roles={["student_affairs", "admin", "faculty_manager", "organizer"]}
+          />
+        ),
+        errorElement: <RouteErrorBoundary />,
+        children: [
+          { path: "affairs/drl", element: <AffairsRoute mode="results" /> },
+          { path: "affairs/results", element: <AffairsRoute mode="results" /> },
+        ],
+      },
+      {
         element: <ProtectedRoute roles={["student_affairs", "admin"]} />,
         errorElement: <RouteErrorBoundary />,
         children: [
@@ -723,7 +735,6 @@ export const router = createHashRouter([
             path: "affairs/approvals/:id",
             element: <AffairsRoute mode="approvals" />,
           },
-          { path: "affairs/drl", element: <AffairsRoute mode="results" /> },
           {
             path: "affairs/certificates",
             element: <AffairsRoute mode="certificates" />,

@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react"
 import { useApp } from "../../context/AppContext"
 import { useUser } from "../../context/UserContext"
+import { useToast } from "../../components/Toast"
+import { getApiErrorMessage } from "../../api/errors"
 import {
   CertificateBadge,
   CertificatePreview,
@@ -31,6 +33,7 @@ interface Props {
 
 export default function Achievements({ onBack, onVerify }: Props) {
   const { user } = useUser()
+  const { showToast } = useToast()
   const { attendanceRecords, certificates } = useApp()
   const [preview, setPreview] = useState<Certificate | null>(null)
   const [remoteCertificates, setRemoteCertificates] = useState<Certificate[] | null>(null)
@@ -68,8 +71,11 @@ export default function Achievements({ onBack, onVerify }: Props) {
     try {
       const blob = await certificatesService.download(certId)
       triggerFileDownload(blob, `chung-nhan-${certId}.pdf`, "application/pdf")
-    } catch (err) {
+      showToast("Tải Giấy chứng nhận thành công.", "success")
+    } catch (err: any) {
       console.error("Failed to download certificate:", err)
+      const msg = getApiErrorMessage(err) || "Không thể tải Giấy chứng nhận số."
+      showToast(msg, "error")
     }
   }
 
@@ -77,24 +83,32 @@ export default function Achievements({ onBack, onVerify }: Props) {
     if (!remoteTickets || remoteTickets.length === 0) return []
     return remoteTickets
       .filter((t) => t.trang_thai === "DaCheckOut" || t.thoi_gian_check_in)
-      .map((t) => ({
-        id: `AT-TCK-${t.ma_dang_ky}`,
-        eventId: `EVT${t.ma_su_kien}`,
-        title: t.ten_su_kien,
-        studentId: user.studentId,
-        studentName: user.name,
-        checkin: t.thoi_gian_check_in ? new Date(t.thoi_gian_check_in).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "08:30",
-        checkout: t.thoi_gian_check_out ? new Date(t.thoi_gian_check_out).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "11:30",
-        validMinutes: 150,
-        participationRatio: t.ti_le_drl || 100,
-        proposedPoints: t.diem_drl_du_kien || 5,
-        officialPoints: t.ti_le_drl >= 80 ? t.diem_drl_du_kien : 0,
-        certificateEligible: t.ti_le_drl >= 80,
-        status: (t.ti_le_drl >= 80 ? "recognized" : "pending") as "recognized" | "pending",
-        approvedBy: "Phòng Công tác Sinh viên (P.CTSV)",
-        approvedAt: t.thoi_gian_check_out ? new Date(t.thoi_gian_check_out).toLocaleDateString("vi-VN") : "16/09/2026",
-        ruleVersion: "DK-2026.1",
-      }))
+      .map((t) => {
+        const rawRate = Number(t.ti_le_drl) || 0
+        const ratePercent = rawRate > 1 ? rawRate : rawRate * 100
+        const basePoints = t.diem_drl_du_kien || 5
+        const isFull = ratePercent >= 60
+        const isPartial = ratePercent >= 30 && ratePercent < 60
+        const points = isFull ? basePoints : isPartial ? Math.round(basePoints * 0.5 * 10) / 10 : 0
+        return {
+          id: `AT-TCK-${t.ma_dang_ky}`,
+          eventId: `EVT${t.ma_su_kien}`,
+          title: t.ten_su_kien,
+          studentId: user.studentId,
+          studentName: user.name,
+          checkin: t.thoi_gian_check_in ? new Date(t.thoi_gian_check_in).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "08:30",
+          checkout: t.thoi_gian_check_out ? new Date(t.thoi_gian_check_out).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "11:30",
+          validMinutes: 150,
+          participationRatio: ratePercent,
+          proposedPoints: basePoints,
+          officialPoints: points,
+          certificateEligible: isFull,
+          status: (ratePercent >= 30 ? "recognized" : "pending") as "recognized" | "pending",
+          approvedBy: "Phòng Công tác Sinh viên (P.CTSV)",
+          approvedAt: t.thoi_gian_check_out ? new Date(t.thoi_gian_check_out).toLocaleDateString("vi-VN") : "16/09/2026",
+          ruleVersion: "DK-2026.1",
+        }
+      })
   }, [remoteTickets, user.studentId, user.name])
 
   const myResults =

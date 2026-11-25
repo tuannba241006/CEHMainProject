@@ -1,5 +1,5 @@
 import { api } from "../client"
-import type { Organization, Topic, User } from "../../data/contract"
+import type { Organization, Topic, User, Ticket } from "../../data/contract"
 import type { ApiEnvelope } from "./auth.service"
 
 export interface CreateInternalUserPayload {
@@ -23,6 +23,8 @@ export const adminService = {
     api.put<ApiEnvelope<Organization>>(`/admin/organizations/${id}`, payload),
   users: (query?: Record<string, string | number>) =>
     api.get<ApiEnvelope<User[]>>("/admin/users", { query }),
+  studentTickets: (userId: number | string) =>
+    api.get<ApiEnvelope<Ticket[]>>(`/admin/users/${userId}/tickets`),
   createInternalUser: (payload: CreateInternalUserPayload) =>
     api.post<ApiEnvelope<User>>("/admin/users", payload),
   assignOrganizer: (id: number, payload: { ma_don_vi_to_chuc: number }) =>
