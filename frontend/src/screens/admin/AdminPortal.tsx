@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { useNavigate } from "react-router"
 import AdminLayout from "./AdminLayout"
 import {
@@ -369,6 +369,33 @@ export default function AdminPortal({ section }: { section: Section }) {
   const [noShowReason, setNoShowReason] = useState<string>("")
   const [noShowSubmitting, setNoShowSubmitting] = useState<boolean>(false)
   const [lockReason, setLockReason] = useState<string>("")
+  const [lookupTickets, setLookupTickets] = useState<Ticket[]>([])
+  const [loadingLookup, setLoadingLookup] = useState<boolean>(false)
+
+  const fetchStudentTickets = useCallback((userId: number) => {
+    setLoadingLookup(true)
+    adminService
+      .studentTickets(userId)
+      .then((res: any) => {
+        const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? [])
+        setLookupTickets(list)
+      })
+      .catch((err) => {
+        console.error("Failed to fetch student tickets:", err)
+        setLookupTickets([])
+      })
+      .finally(() => {
+        setLoadingLookup(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    if (dialog?.kind === "ticketLookup" && dialog.student?.ma_nguoi_dung) {
+      fetchStudentTickets(dialog.student.ma_nguoi_dung)
+    } else {
+      setLookupTickets([])
+    }
+  }, [dialog, fetchStudentTickets])
 
   const users = useMemo(
     () =>
@@ -2006,7 +2033,16 @@ export default function AdminPortal({ section }: { section: Section }) {
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                   Danh sách vé của sinh viên trong hệ thống:
                 </h3>
-                {tickets.slice(0, 3).map((t) => (
+                {loadingLookup ? (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    Đang tải danh sách vé của sinh viên...
+                  </div>
+                ) : lookupTickets.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs border border-dashed border-slate-200 rounded-2xl">
+                    Sinh viên chưa đăng ký vé nào trong hệ thống.
+                  </div>
+                ) : (
+                  lookupTickets.map((t) => (
                   <div
                     key={t.ma_dang_ky}
                     className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white transition-colors text-xs space-y-2"
@@ -2044,14 +2080,16 @@ export default function AdminPortal({ section }: { section: Section }) {
                       <div>
                         Thời gian:{" "}
                         <b>
-                          {new Date(t.thoi_gian_bat_dau).toLocaleTimeString(
-                            "vi-VN",
-                            { hour: "2-digit", minute: "2-digit" },
-                          )}
+                          {t.thoi_gian_bat_dau
+                            ? new Date(t.thoi_gian_bat_dau).toLocaleTimeString(
+                                "vi-VN",
+                                { hour: "2-digit", minute: "2-digit" },
+                              )
+                            : "N/A"}
                         </b>
                       </div>
                       <div>
-                        Địa điểm: <b>{t.ten_phong}</b>
+                        Địa điểm: <b>{t.ten_phong || "Hội trường"}</b>
                       </div>
                     </div>
 
@@ -2061,7 +2099,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                         <span>
                           {t.trang_thai === "DaHuy"
                             ? "Đã hủy trước ngày sự kiện (Hợp lệ trước mốc T-4h, không phạt No-show)"
-                            : `Đặt vé lúc: ${new Date(t.thoi_gian_dang_ky).toLocaleString("vi-VN")}`}
+                            : `Đặt vé lúc: ${t.thoi_gian_dang_ky ? new Date(t.thoi_gian_dang_ky).toLocaleString("vi-VN") : "N/A"}`}
                         </span>
                       </span>
                       <div className="flex gap-2">
@@ -2092,6 +2130,9 @@ export default function AdminPortal({ section }: { section: Section }) {
                                 `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${dialog.student.ho_ten}.`,
                                 "success",
                               )
+                              if (dialog.student?.ma_nguoi_dung) {
+                                fetchStudentTickets(dialog.student.ma_nguoi_dung)
+                              }
                             } catch (err) {
                               showToast(getApiErrorMessage(err), "error")
                             }
@@ -2104,7 +2145,8 @@ export default function AdminPortal({ section }: { section: Section }) {
                       </div>
                     </div>
                   </div>
-                ))}
+                ))
+              )}
               </div>
             </div>
 

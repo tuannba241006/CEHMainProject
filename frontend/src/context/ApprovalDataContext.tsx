@@ -320,11 +320,13 @@ export interface ApprovalDataContextType {
   submitSurvey: (
     input: Omit<SurveyResponse, "id" | "submittedAt">,
   ) => { success: boolean; error?: string }
-  issueCertificate: (certificateId: string) => { success: boolean; error?: string }
+  issueCertificate: (
+    certificateId: string,
+  ) => Promise<{ success: boolean; error?: string }>
   revokeCertificate: (
     certificateId: string,
     reason: string,
-  ) => { success: boolean; error?: string }
+  ) => Promise<{ success: boolean; error?: string }>
   replaceCertificate: (
     certificateId: string,
   ) => { success: boolean; certificate?: Certificate; error?: string }
@@ -591,28 +593,36 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
     return { success: true }
   }
 
-  function issueCertificate(certificateId: string) {
+  async function issueCertificate(certificateId: string) {
     const cert = certificates.find((c) => c.id === certificateId)
     const ticketId = cert ? Number(cert.id.replace(/\D/g, "")) || 1 : 1
-    certificatesService.issue(ticketId).catch(() => {})
-    setCertificates((prev) =>
-      prev.map((c) => (c.id === certificateId ? { ...c, status: "issued" } : c)),
-    )
-    return { success: true }
+    try {
+      await certificatesService.issue(ticketId)
+      setCertificates((prev) =>
+        prev.map((c) => (c.id === certificateId ? { ...c, status: "issued" } : c)),
+      )
+      return { success: true }
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Không thể cấp chứng nhận." }
+    }
   }
 
-  function revokeCertificate(certificateId: string, reason: string) {
+  async function revokeCertificate(certificateId: string, reason: string) {
     const cert = certificates.find((c) => c.id === certificateId)
     const numId = cert ? Number(cert.id.replace(/\D/g, "")) || 1 : 1
-    certificatesService.revoke(numId, reason).catch(() => {})
-    setCertificates((prev) =>
-      prev.map((c) =>
-        c.id === certificateId
-          ? { ...c, status: "revoked", revokeReason: reason, da_thu_hoi: true }
-          : c,
-      ),
-    )
-    return { success: true }
+    try {
+      await certificatesService.revoke(numId, reason)
+      setCertificates((prev) =>
+        prev.map((c) =>
+          c.id === certificateId
+            ? { ...c, status: "revoked", revokeReason: reason, da_thu_hoi: true }
+            : c,
+        ),
+      )
+      return { success: true }
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Không thể thu hồi chứng nhận." }
+    }
   }
 
   function replaceCertificate(certificateId: string) {

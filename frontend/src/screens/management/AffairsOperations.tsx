@@ -4,12 +4,14 @@ import {
   type AttendanceRecord,
   type Certificate,
 } from "../../context/AppContext"
+import { useUser } from "../../context/UserContext"
 import { useToast } from "../../components/Toast"
 import { ManagementLayout } from "./ManagementLayout"
 import { drlService } from "../../api/services/drl.service"
 import { certificatesService } from "../../api/services/certificates.service"
 import { feedbackService } from "../../api/services/feedback.service"
 import { eventsService } from "../../api/services/events.service"
+import { attendanceService } from "../../api/services/attendance.service"
 import { getApiErrorMessage, isAuthError } from "../../api/errors"
 import type { DrlRecord } from "../../data/contract"
 import { Lock, Unlock, Download, AlertTriangle, CheckCircle2, ShieldAlert, Award, FileSpreadsheet, X, Gift } from "lucide-react"
@@ -25,9 +27,14 @@ export default function AffairsOperations({
   onNavigate,
   onLogout,
 }: Props) {
+  const { user } = useUser()
+  const layoutRole =
+    user?.role === "faculty_manager" || user?.role === "organizer"
+      ? "faculty_manager"
+      : "student_affairs"
   return (
     <ManagementLayout
-      role="student_affairs"
+      role={layoutRole}
       current={mode === "results" ? "affairs-results" : "affairs-certificates"}
       onNavigate={onNavigate}
       onLogout={onLogout}
@@ -106,7 +113,7 @@ function Results() {
         if (isAuthError(err)) {
           return
         }
-        if (!cancelled && (!attendanceRecords || attendanceRecords.length === 0)) {
+        if (!cancelled) {
           setError(getApiErrorMessage(err))
         }
       })
@@ -117,6 +124,24 @@ function Results() {
       cancelled = true
     }
   }, [selectedEventId, attendanceRecords])
+
+  const [ticketMap, setTicketMap] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    const numericId = Number(selectedEventId) || Number(String(selectedEventId).replace(/\D/g, "")) || 101
+    attendanceService
+      .participants(numericId, { limit: 100 })
+      .then((res) => {
+        if (res.data && Array.isArray(res.data)) {
+          const map: Record<string, number> = {}
+          res.data.forEach((p: any) => {
+            if (p.mssv && p.ma_dang_ky) map[p.mssv] = p.ma_dang_ky
+          })
+          setTicketMap(map)
+        }
+      })
+      .catch(() => {})
+  }, [selectedEventId])
 
   const [lockModalOpen, setLockModalOpen] = useState(false)
   const [reasonFor, setReasonFor] = useState<string | null>(null)
@@ -130,23 +155,26 @@ function Results() {
 
   const effectiveRecords: AttendanceRecord[] =
     drlApiRecords.length > 0
-      ? drlApiRecords.map((r, idx) => ({
-          id: `DRL-${r.stt || idx + 1}`,
-          eventId: String(selectedEventId),
-          studentId: r.mssv,
-          studentName: r.ho_ten,
-          checkin: r.thoi_gian_vao || "08:30",
-          checkout: r.thoi_gian_ra || "11:30",
-          validMinutes: r.thoi_luong_tham_du_phut || 150,
-          participationRatio: 1.0,
-          proposedPoints: r.diem_cong_thuc_nhan,
-          officialPoints: r.diem_cong_thuc_nhan,
-          certificateEligible: true,
-          status: "recognized" as const,
-          ruleVersion: "DK-2026.2",
-          history: [],
-        }))
-      : attendanceRecords
+      ? drlApiRecords.map((r, idx) => {
+          const ratioPercent = r.ghi_chu_tham_du?.includes("50%") ? 50 : 100
+          return {
+            id: `DRL-${r.stt || idx + 1}`,
+            eventId: String(selectedEventId),
+            studentId: r.mssv,
+            studentName: r.ho_ten,
+            checkin: r.thoi_gian_vao ? new Date(r.thoi_gian_vao).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "08:30",
+            checkout: r.thoi_gian_ra ? new Date(r.thoi_gian_ra).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "11:30",
+            validMinutes: r.thoi_luong_tham_du_phut || 100,
+            participationRatio: ratioPercent,
+            proposedPoints: r.diem_cong_thuc_nhan,
+            officialPoints: r.diem_cong_thuc_nhan,
+            certificateEligible: ratioPercent >= 60,
+            status: "recognized" as const,
+            ruleVersion: "DK-2026.2",
+            history: [],
+          }
+        })
+      : (selectedEventId ? [] : attendanceRecords)
 
   const rows = effectiveRecords.filter(
     (row) => filter === "all" || row.status === filter,
@@ -235,8 +263,18 @@ function Results() {
       showToast("Vui lòng nhập lý do cấp ân hạn chi tiết (tối thiểu 5 ký tự).", "error")
       return
     }
+    const targetTicketId =
+      ticketMap[graceStudent.studentId] ||
+      (!isNaN(Number(graceStudent.id)) ? Number(graceStudent.id) : null) ||
+      (Number(graceStudent.id.replace(/\D/g, "")) || null)
+
+    if (!targetTicketId) {
+      showToast("Không tìm thấy mã đăng ký vé của sinh viên để cấp ân hạn.", "error")
+      return
+    }
+
     try {
-      await feedbackService.grantGrace(graceStudent.id, graceReason.trim())
+      await feedbackService.grantGrace(targetTicketId, graceReason.trim())
       showToast(
         `Đã cấp ân hạn làm bài khảo sát 24h cho sinh viên ${graceStudent.studentName} (${graceStudent.studentId}).`,
         "success",
@@ -529,7 +567,7 @@ function Results() {
                 Thời lượng
                 <br />
                 <b className="text-slate-700">
-                  {row.validMinutes} phút · {row.participationRatio}%
+                  {row.validMinutes} phút · {row.participationRatio <= 1 ? Math.round(row.participationRatio * 100) : row.participationRatio}%
                 </b>
               </p>
               <p>
@@ -832,7 +870,7 @@ function ResultRow({
         {row.checkout || "—"}
       </td>
       <td className="px-4 py-4 font-mono">{row.validMinutes}</td>
-      <td className="px-4 py-4 font-mono">{row.participationRatio}%</td>
+      <td className="px-4 py-4 font-mono">{row.participationRatio <= 1 ? Math.round(row.participationRatio * 100) : row.participationRatio}%</td>
       <td className="px-4 py-4 font-bold text-indigo">{row.proposedPoints}</td>
       <td className="px-4 py-4 text-xs">
         {row.certificateEligible ? "Đủ điều kiện" : "Chưa đủ"}
@@ -936,8 +974,8 @@ export function Certificates({ embedded = false }: {
     return certificates
   }, [remoteCerts, certificates])
 
-  function issue(id: string) {
-    const result = issueCertificate(id)
+  async function issue(id: string) {
+    const result = await issueCertificate(id)
     showToast(
       result.success
         ? "Đã phát hành chứng nhận. Thao tác lặp lại không tạo bản trùng."

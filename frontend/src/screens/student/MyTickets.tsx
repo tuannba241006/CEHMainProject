@@ -12,6 +12,7 @@ import {
 } from "../management/AffairsOperations"
 import type { Certificate } from "../../context/AppContext"
 import { feedbackService } from "../../api/services/feedback.service"
+import { certificatesService } from "../../api/services/certificates.service"
 import { getApiErrorMessage } from "../../api/errors"
 import {
   QrCode,
@@ -930,6 +931,41 @@ function AfterEvent({
     joinAgain: true,
   })
 
+  const [remoteCert, setRemoteCert] = useState<Certificate | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const ticketId = ticket.ma_dang_ky || Number(ticket.id)
+    if (ticketId && !isNaN(Number(ticketId))) {
+      certificatesService
+        .issue(ticketId)
+        .then((res) => {
+          if (!cancelled && res.data) {
+            setRemoteCert(res.data as unknown as Certificate)
+          }
+        })
+        .catch(() => {
+          certificatesService
+            .mine()
+            .then((res) => {
+              if (!cancelled && res.data && Array.isArray(res.data)) {
+                const numEventId = Number(ticket.ma_su_kien) || Number(ticket.eventId)
+                const found = res.data.find(
+                  (c: any) =>
+                    (ticket.ma_dang_ky && c.ma_dang_ky === ticket.ma_dang_ky) ||
+                    (numEventId && c.ma_su_kien === numEventId),
+                )
+                if (found) setRemoteCert(found as unknown as Certificate)
+              }
+            })
+            .catch(() => {})
+        })
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [ticket])
+
   const record = attendanceRecords.find(
     (row) => row.studentId === user.studentId,
   )
@@ -937,6 +973,17 @@ function AfterEvent({
     (item) =>
       item.studentId === user.studentId && item.eventId === ticket.eventId,
   )
+  const activeCertificate = remoteCert
+    ? {
+        ...remoteCert,
+        id: (remoteCert as any).id,
+        code: (remoteCert as any).code || (remoteCert as any).ma_hash?.slice(0, 16) || `CERT-${(remoteCert as any).id}`,
+        eventTitle: ticket.eventTitle || ticket.ten_su_kien || "Sự kiện",
+        recipientName: user.name,
+        participantRole: "Người tham dự",
+        status: (remoteCert as any).da_thu_hoi ? "revoked" : ((remoteCert as any).status || "issued"),
+      }
+    : myCertificate
   const sent = surveyResponses.some(
     (item) =>
       item.eventId === ticket.eventId && item.studentId === user.studentId,
@@ -1215,22 +1262,22 @@ function AfterEvent({
               <h3 className="font-display font-semibold text-slate-900">
                 Chứng nhận số của sự kiện
               </h3>
-              {myCertificate ? (
+              {activeCertificate ? (
                 <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50/50">
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div>
                       <p className="font-semibold text-sm text-slate-900">
-                        {myCertificate.eventTitle}
+                        {activeCertificate.eventTitle}
                       </p>
                       <p className="text-xs font-mono text-slate-400 mt-1">
-                        {myCertificate.code}
+                        {activeCertificate.code}
                       </p>
                     </div>
-                    <CertificateBadge status={myCertificate.status} />
+                    <CertificateBadge status={activeCertificate.status} />
                   </div>
                   <button
-                    disabled={myCertificate.status !== "issued"}
-                    onClick={() => setPreview(myCertificate)}
+                    disabled={activeCertificate.status !== "issued"}
+                    onClick={() => setPreview(activeCertificate as any)}
                     className="w-full py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors cursor-pointer"
                   >
                     Xem chứng nhận & tải PDF
