@@ -39,7 +39,7 @@ Schedule::command('events:send-reminders')
 // PKG-12 Task CEH-P2-SYS-03: Daily Statistics Aggregator (UC-SYS-01.Task 6)
 Schedule::command('ceh:aggregate-daily-stats')
     ->timezone('Asia/Ho_Chi_Minh')
-    ->dailyAt('01:00')
+    ->dailyAt('00:05')
     ->withoutOverlapping();
 
 Schedule::command('ceh:expire-offers')
