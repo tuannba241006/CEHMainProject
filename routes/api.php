@@ -93,6 +93,7 @@ $adminRoutes = function () {
         Route::post('/users/create-internal', [AdminUserController::class, 'createInternal'])->name('admin.users.create-internal');
         Route::put('/users/{id}/status', [AdminUserController::class, 'updateStatus'])->name('admin.users.status');
         Route::put('/users/{id}/assign-organizer', [AdminUserController::class, 'assignOrganizer'])->name('admin.users.assign-organizer');
+        Route::get('/users/{id}/tickets', [AdminUserController::class, 'studentTickets'])->whereNumber('id')->name('admin.users.tickets');
 
         // Gap 3 Endpoint 4: Admin CRUD Organizations
         Route::get('/organizations', [OrganizationController::class, 'adminIndex'])->name('admin.organizations.index');

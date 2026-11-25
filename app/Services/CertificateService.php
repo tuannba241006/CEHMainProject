@@ -182,13 +182,18 @@ class CertificateService
         $date = $certificate->ngay_cap ? Carbon::parse($certificate->ngay_cap)->format('d/m/Y') : date('d/m/Y');
         $hashShort = substr($certificate->ma_hash, 0, 16).'...';
 
+        $ratePercent = ((float) ($dangKy?->ti_le_drl ?? 1.0) >= 1.0) ? '100%' : (round((float) ($dangKy?->ti_le_drl ?? 0.5) * 100).'%');
+        $appUrl = rtrim(config('app.url', 'http://localhost:5173'), '/');
+        $verifyUrl = "{$appUrl}/verify-certificate/{$certificate->ma_hash}";
+
         $content = "BT\n/F1 18 Tf\n50 730 Td\n(TRUONG DAI HOC CONG NGHE THONG TIN - DHQG-HCM) Tj\nET\n";
         $content .= "BT\n/F1 15 Tf\n50 680 Td\n(GIAY CHUNG NHAN THAM GIA SU KIEN) Tj\nET\n";
         $content .= "BT\n/F2 12 Tf\n50 620 Td\n(Chung nhan sinh vien: ".addcslashes($studentName, '()\\').' - MSSV: '.$mssv.") Tj\nET\n";
         $content .= "BT\n/F2 12 Tf\n50 580 Td\n(Da tham gia su kien: ".addcslashes($eventName, '()\\').") Tj\nET\n";
         $content .= "BT\n/F2 12 Tf\n50 540 Td\n(Don vi to chuc: ".addcslashes($unitName, '()\\').") Tj\nET\n";
-        $content .= "BT\n/F2 11 Tf\n50 500 Td\n(Ngay cap: {$date} | Ma chu ky HMAC: {$hashShort}) Tj\nET\n";
-        $content .= "BT\n/F2 9 Tf\n50 460 Td\n(Xac thuc truc tuyen tai: /certificates/verify/{$certificate->ma_hash}) Tj\nET\n";
+        $content .= "BT\n/F2 12 Tf\n50 500 Td\n(Ty le tham du: {$ratePercent}) Tj\nET\n";
+        $content .= "BT\n/F2 11 Tf\n50 460 Td\n(Ngay cap: {$date} | Ma chu ky HMAC: {$hashShort}) Tj\nET\n";
+        $content .= "BT\n/F2 9 Tf\n50 420 Td\n(Ma QR xac thuc truc tuyen tai: {$verifyUrl}) Tj\nET\n";
 
         $streamLen = strlen($content);
 

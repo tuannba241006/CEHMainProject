@@ -23,7 +23,7 @@ class DrlExportService
         'Thời gian vào',
         'Thời gian ra',
         'Thời lượng (phút)',
-        'Ghi chú tham dự',
+        'Ghi chú',
     ];
 
     /**
