@@ -74,7 +74,8 @@ export type Section =
   | "cohost-invitations"
 
 export interface NoShowViolation {
-  ma_dang_ky: number
+  ma_tai_khoan?: number
+  ma_dang_ky?: number
   mssv: string
   name: string
   lop: string
@@ -84,42 +85,6 @@ export interface NoShowViolation {
   penalty: string
   vi_pham_no_show: boolean
 }
-
-const DEFAULT_NO_SHOWS: NoShowViolation[] = [
-  {
-    ma_dang_ky: 501,
-    mssv: "22520088",
-    name: "Trần Minh Quân",
-    lop: "HTTT2022",
-    khoa: "Hệ thống Thông tin",
-    count: 3,
-    events: "Hội thảo AI 2026, Web Dev Workshop, Talkshow Startup",
-    penalty: "Khóa quyền đặt vé 30 ngày",
-    vi_pham_no_show: true,
-  },
-  {
-    ma_dang_ky: 502,
-    mssv: "22520145",
-    name: "Lê Hoàng Long",
-    lop: "KHMT2022",
-    khoa: "Khoa học Máy tính",
-    count: 2,
-    events: "An toàn Thông tin 2026, Techfest UIT",
-    penalty: "Trừ 5 Điểm rèn luyện",
-    vi_pham_no_show: true,
-  },
-  {
-    ma_dang_ky: 503,
-    mssv: "23520312",
-    name: "Phạm Thu Hương",
-    lop: "KTPM2023",
-    khoa: "Kỹ thuật Phần mềm",
-    count: 2,
-    events: "Chinh phục Hackathon, Lễ hội CLB",
-    penalty: "Cảnh cáo in-app lần 1",
-    vi_pham_no_show: true,
-  },
-]
 
 interface AdminUser {
   ma_nguoi_dung: number
@@ -262,8 +227,11 @@ export default function AdminPortal({ section }: { section: Section }) {
           }))
           return { data: mapped }
         } catch (err) {
-          console.warn("Failed to fetch admin users from backend, using seed data:", err)
-          return { data: SEED_USERS }
+          console.warn("Failed to fetch admin users from backend:", err)
+          if (!isAuthError(err)) {
+            showToast(getApiErrorMessage(err), "error")
+          }
+          return { data: [] }
         }
       },
       create: (i) =>
@@ -311,10 +279,13 @@ export default function AdminPortal({ section }: { section: Section }) {
               ma_don_vi_cha: r.ma_don_vi_cha ? Number(r.ma_don_vi_cha) : null,
             }
           })
-          return { data: mapped.length > 0 ? mapped : ORGANIZATIONS }
+          return { data: mapped }
         } catch (err) {
-          console.warn("Admin organizations API returned error, using fallback seed:", err)
-          return { data: ORGANIZATIONS }
+          console.warn("Admin organizations API returned error:", err)
+          if (!isAuthError(err)) {
+            showToast(getApiErrorMessage(err), "error")
+          }
+          return { data: [] }
         }
       },
       create: (i) => {
@@ -342,10 +313,13 @@ export default function AdminPortal({ section }: { section: Section }) {
         try {
           const res = await adminService.topics()
           const rows = (res.data || []) as Topic[]
-          return { data: rows.length > 0 ? rows : CONTRACT_TOPICS }
+          return { data: rows }
         } catch (err) {
-          console.warn("Admin topics API error, using fallback seed:", err)
-          return { data: CONTRACT_TOPICS }
+          console.warn("Admin topics API error:", err)
+          if (!isAuthError(err)) {
+            showToast(getApiErrorMessage(err), "error")
+          }
+          return { data: [] }
         }
       },
       create: (i) => adminService.createTopic(i),
@@ -364,7 +338,9 @@ export default function AdminPortal({ section }: { section: Section }) {
     | { kind: "noShowGrace"; violation: NoShowViolation }
     | null
   const [dialog, setDialog] = useState<Dialog>(null)
-  const [noShowList, setNoShowList] = useState<NoShowViolation[]>(DEFAULT_NO_SHOWS)
+  const [noShowList, setNoShowList] = useState<NoShowViolation[]>([])
+  const [noShowLoading, setNoShowLoading] = useState<boolean>(false)
+  const [noShowError, setNoShowError] = useState<string | null>(null)
   const [noShowRate, setNoShowRate] = useState<number>(1.0)
   const [noShowReason, setNoShowReason] = useState<string>("")
   const [noShowSubmitting, setNoShowSubmitting] = useState<boolean>(false)
@@ -396,6 +372,70 @@ export default function AdminPortal({ section }: { section: Section }) {
       setLookupTickets([])
     }
   }, [dialog, fetchStudentTickets])
+
+  const mapNoShowRows = (raw: unknown): NoShowViolation[] => {
+    const items = Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === "object" && "data" in (raw as Record<string, unknown>) && Array.isArray((raw as Record<string, unknown>).data)
+        ? ((raw as Record<string, unknown>).data as unknown[])
+        : []
+    return (items as Array<Record<string, unknown>>).map((r) => {
+      const count = Number(r.so_lan_vi_pham ?? r.count ?? 0)
+      const eventsText =
+        typeof r.su_kien_vi_pham_gan_nhat === "string" && r.su_kien_vi_pham_gan_nhat.trim() !== ""
+          ? r.su_kien_vi_pham_gan_nhat
+          : Array.isArray(r.danh_sach_su_kien_no_show)
+            ? (r.danh_sach_su_kien_no_show as Array<{ ten_su_kien?: string }>)
+                .map((e) => e.ten_su_kien)
+                .filter(Boolean)
+                .join(", ")
+            : String(r.events ?? "")
+      const penaltyText =
+        typeof r.penalty === "string" && r.penalty.trim() !== ""
+          ? r.penalty
+          : r.hoat_dong === false
+            ? "Đã khóa tài khoản"
+            : count >= 2
+              ? "Khóa đặt vé / Xem xét ĐRL"
+              : "Cảnh cáo"
+      return {
+        ma_tai_khoan: r.ma_tai_khoan ? Number(r.ma_tai_khoan) : undefined,
+        ma_dang_ky: r.ma_dang_ky ? Number(r.ma_dang_ky) : undefined,
+        mssv: String(r.mssv ?? ""),
+        name: String(r.ho_ten ?? r.name ?? ""),
+        lop: String(r.lop_sinh_hoat ?? r.lop ?? ""),
+        khoa: String(r.khoa ?? ""),
+        count,
+        events: eventsText,
+        penalty: penaltyText,
+        vi_pham_no_show: r.vi_pham_no_show !== undefined ? Boolean(r.vi_pham_no_show) : count > 0,
+      }
+    })
+  }
+
+  const fetchNoShowViolations = async () => {
+    setNoShowLoading(true)
+    setNoShowError(null)
+    try {
+      const res = await reportsService.noShow()
+      setNoShowList(mapNoShowRows(res.data))
+    } catch (err) {
+      const msg = getApiErrorMessage(err)
+      setNoShowError(msg)
+      setNoShowList([])
+      if (!isAuthError(err)) {
+        showToast(msg, "error")
+      }
+    } finally {
+      setNoShowLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (section === "no-show") {
+      void fetchNoShowViolations()
+    }
+  }, [section])
 
   const users = useMemo(
     () =>
@@ -1606,20 +1646,17 @@ export default function AdminPortal({ section }: { section: Section }) {
                     "info",
                   )
                   try {
-                    let rowsToExport = noShowList
-                    try {
-                      const res = await reportsService.noShow()
-                      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-                        rowsToExport = res.data as any
-                      }
-                    } catch {
-                      // Fallback to current table rows
+                    const res = await reportsService.noShow()
+                    const rowsToExport = mapNoShowRows(res.data)
+                    if (rowsToExport.length === 0) {
+                      showToast("Không có dữ liệu vi phạm No-show để xuất.", "info")
+                      return
                     }
                     const csvHeader = "\uFEFFMSSV,Họ và tên,Lớp,Khoa,Số lần No-show,Lịch sử sự kiện bỏ vé,Biện pháp xử lý\n"
                     const csvRows = rowsToExport
                       .map(
-                        (r: any) =>
-                          `"${r.mssv || ""}","${r.name || r.ho_ten || ""}","${r.lop || r.lop_sinh_hoat || ""}","${r.khoa || ""}","${r.count || r.so_lan_no_show || 0}","${(r.events || "").replace(/"/g, '""')}","${r.action || (r.count >= 2 ? "Khóa đặt vé" : "Cảnh cáo")}"`,
+                        (r) =>
+                          `"${r.mssv}","${r.name}","${r.lop}","${r.khoa}","${r.count}","${r.events.replace(/"/g, '""')}","${r.penalty}"`,
                       )
                       .join("\n")
                     triggerFileDownload(
@@ -1641,6 +1678,18 @@ export default function AdminPortal({ section }: { section: Section }) {
                 <span>Xuất file No-show (.xlsx/.csv)</span>
               </button>
             </div>
+            {noShowError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center justify-between gap-3">
+                <span>Không thể tải danh sách No-show: {noShowError}</span>
+                <button
+                  type="button"
+                  onClick={() => void fetchNoShowViolations()}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-rose-200 font-semibold hover:bg-rose-100 cursor-pointer"
+                >
+                  Thử lại
+                </button>
+              </div>
+            )}
             <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
               <table className="w-full min-w-[760px] text-sm">
                 <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
@@ -1665,66 +1714,87 @@ export default function AdminPortal({ section }: { section: Section }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {noShowList.map((row) => (
-                    <tr
-                      key={row.mssv}
-                      className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors"
-                    >
-                      <td className="p-3 font-mono font-semibold text-slate-800">
-                        {row.mssv}
-                      </td>
-                      <td className="p-3 font-medium text-slate-900">
-                        {row.name}
-                      </td>
-                      <td className="p-3 text-slate-600">{row.lop}</td>
-                      <td className="p-3 text-slate-600">{row.khoa}</td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            row.vi_pham_no_show
-                              ? "bg-rose-100 text-rose-700"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          {row.count} lần
-                        </span>
-                      </td>
-                      <td className="p-3 text-xs text-slate-500 max-w-xs">
-                        {row.events}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded-lg border ${
-                            row.vi_pham_no_show
-                              ? "text-amber-700 bg-amber-50 border-amber-200"
-                              : "text-emerald-700 bg-emerald-50 border-emerald-200"
-                          }`}
-                        >
-                          {row.penalty}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right whitespace-nowrap">
-                        {row.vi_pham_no_show ? (
-                          <button
-                            onClick={() => {
-                              setNoShowReason("")
-                              setNoShowRate(1.0)
-                              setDialog({ kind: "noShowGrace", violation: row })
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
-                            title="Xử lý cứu xét phân bậc ĐRL và xóa cờ vi phạm No-show theo quy chuẩn CTSV"
-                          >
-                            <span className="flex items-center gap-1.5"><Scale className="w-3.5 h-3.5" /> Cứu xét / Xóa cờ</span>
-                          </button>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Đã xóa cờ vi phạm</span>
-                          </span>
-                        )}
+                  {noShowLoading ? (
+                    <tr>
+                      <td colSpan={8} className="p-6 text-center text-xs text-slate-500">
+                        Đang tải danh sách sinh viên vi phạm No-show...
                       </td>
                     </tr>
-                  ))}
+                  ) : noShowList.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-6 text-center text-xs text-slate-500">
+                        {noShowError ? "Chưa có dữ liệu do lỗi kết nối API." : "Không có sinh viên nào vi phạm No-show."}
+                      </td>
+                    </tr>
+                  ) : (
+                    noShowList.map((row) => (
+                      <tr
+                        key={row.ma_tai_khoan ?? row.mssv}
+                        className="border-t border-slate-100 hover:bg-slate-50/60 transition-colors"
+                      >
+                        <td className="p-3 font-mono font-semibold text-slate-800">
+                          {row.mssv}
+                        </td>
+                        <td className="p-3 font-medium text-slate-900">
+                          {row.name}
+                        </td>
+                        <td className="p-3 text-slate-600">{row.lop}</td>
+                        <td className="p-3 text-slate-600">{row.khoa}</td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                              row.vi_pham_no_show
+                                ? "bg-rose-100 text-rose-700"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {row.count} lần
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs text-slate-500 max-w-xs">
+                          {row.events}
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`text-xs font-semibold px-2 py-0.5 rounded-lg border ${
+                              row.vi_pham_no_show
+                                ? "text-amber-700 bg-amber-50 border-amber-200"
+                                : "text-emerald-700 bg-emerald-50 border-emerald-200"
+                            }`}
+                          >
+                            {row.penalty}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right whitespace-nowrap">
+                          {row.vi_pham_no_show && row.ma_dang_ky ? (
+                            <button
+                              onClick={() => {
+                                setNoShowReason("")
+                                setNoShowRate(1.0)
+                                setDialog({ kind: "noShowGrace", violation: row })
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
+                              title="Xử lý cứu xét phân bậc ĐRL và xóa cờ vi phạm No-show theo quy chuẩn CTSV"
+                            >
+                              <span className="flex items-center gap-1.5"><Scale className="w-3.5 h-3.5" /> Cứu xét / Xóa cờ</span>
+                            </button>
+                          ) : row.vi_pham_no_show ? (
+                            <span
+                              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200"
+                              title="Danh sách tổng hợp theo tài khoản; thao tác xóa cờ cần mã đăng ký cụ thể."
+                            >
+                              Tổng hợp theo tài khoản
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Đã xóa cờ vi phạm</span>
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2277,6 +2347,10 @@ export default function AdminPortal({ section }: { section: Section }) {
                 type="button"
                 disabled={noShowSubmitting || noShowReason.trim().length < 10}
                 onClick={async () => {
+                  if (!dialog.violation.ma_dang_ky) {
+                    showToast("Không có mã đăng ký cụ thể để thực hiện cứu xét.", "error")
+                    return
+                  }
                   setNoShowSubmitting(true)
                   try {
                     await attendanceService.manualOverride({
