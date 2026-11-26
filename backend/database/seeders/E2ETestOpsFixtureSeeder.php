@@ -41,7 +41,7 @@ class E2ETestOpsFixtureSeeder extends Seeder
 
             $organizer = $accounts->get($organizerEmail);
             if (
-                !$organizer
+                ! $organizer
                 || $organizer->loai_tai_khoan !== 'ToChuc'
                 || (int) $organizer->ma_don_vi_to_chuc !== 8
                 || (int) $organizer->hoat_dong !== 1
@@ -54,7 +54,7 @@ class E2ETestOpsFixtureSeeder extends Seeder
             foreach ($students as $studentData) {
                 $student = $accounts->get($studentData['email']);
                 if (
-                    !$student
+                    ! $student
                     || $student->loai_tai_khoan !== 'SinhVien'
                     || $student->mssv !== $studentData['mssv']
                     || (int) $student->hoat_dong !== 1
@@ -78,16 +78,16 @@ class E2ETestOpsFixtureSeeder extends Seeder
                 );
             }
 
-            if (!DB::table('don_vi_to_chuc')->where('ma_don_vi_to_chuc', 8)->exists()) {
+            if (! DB::table('don_vi_to_chuc')->where('ma_don_vi_to_chuc', 8)->exists()) {
                 throw new RuntimeException('Không tìm thấy đơn vị tổ chức có mã 8.');
             }
 
-            if (!DB::table('chuyen_de')->where('ma_chuyen_de', 1)->exists()) {
+            if (! DB::table('chuyen_de')->where('ma_chuyen_de', 1)->exists()) {
                 throw new RuntimeException('Không tìm thấy chuyên đề có mã 1.');
             }
 
             foreach ([1, 2] as $roomId) {
-                if (!DB::table('phong_hoi_truong')->where('ma_phong', $roomId)->exists()) {
+                if (! DB::table('phong_hoi_truong')->where('ma_phong', $roomId)->exists()) {
                     throw new RuntimeException("Không tìm thấy phòng hội trường có mã {$roomId}.");
                 }
             }

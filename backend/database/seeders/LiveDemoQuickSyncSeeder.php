@@ -181,6 +181,7 @@ class LiveDemoQuickSyncSeeder extends Seeder
             foreach ($upcomingEvents as $evt) {
                 if (DB::table('su_kien')->where('ma_su_kien', $evt['ma_su_kien'])->exists()) {
                     $this->command?->line("[Bỏ qua] Sự kiện {$evt['ma_su_kien']} đã tồn tại.");
+
                     continue;
                 }
 

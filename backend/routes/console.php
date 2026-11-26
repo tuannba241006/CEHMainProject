@@ -3,6 +3,8 @@
 use App\Jobs\ExpireSoftHoldJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -55,33 +57,37 @@ Schedule::job(new ExpireSoftHoldJob)
     ->withoutOverlapping();
 
 Artisan::command('ceh:set-password {email}', function (string $email) {
-    $account = \Illuminate\Support\Facades\DB::table('tai_khoan')->where('email', $email)->first();
-    if (!$account) {
+    $account = DB::table('tai_khoan')->where('email', $email)->first();
+    if (! $account) {
         $this->error("Không tìm thấy tài khoản: {$email}");
+
         return 1;
     }
 
     $password = $this->secret("Nhập mật khẩu mới cho {$email} (tối thiểu 8 ký tự)");
     $confirm = $this->secret('Nhập lại mật khẩu mới');
 
-    if (!$password || strlen($password) < 8) {
+    if (! $password || strlen($password) < 8) {
         $this->error('Mật khẩu phải có ít nhất 8 ký tự.');
+
         return 1;
     }
 
     if ($password !== $confirm) {
         $this->error('Mật khẩu xác nhận không khớp.');
+
         return 1;
     }
 
-    \Illuminate\Support\Facades\DB::table('tai_khoan')
+    DB::table('tai_khoan')
         ->where('ma_tai_khoan', $account->ma_tai_khoan)
         ->update([
-            'mat_khau' => \Illuminate\Support\Facades\Hash::make($password, ['cost' => 12]),
+            'mat_khau' => Hash::make($password, ['cost' => 12]),
             'buoc_doi_mat_khau' => 0,
             'thoi_gian_cap_nhat' => now('Asia/Ho_Chi_Minh'),
         ]);
 
     $this->info("Đã đổi mật khẩu thành công cho {$email}.");
+
     return 0;
 })->purpose('Đổi mật khẩu an toàn cho tài khoản Admin/BTC trước khi golive');
