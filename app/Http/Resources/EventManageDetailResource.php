@@ -23,11 +23,11 @@ class EventManageDetailResource extends JsonResource
         $hanGiuChoTam = null;
         if ($this->relationLoaded('datPhongs')) {
             $pendingDatPhong = $this->datPhongs->firstWhere('trang_thai', 'PENDING');
-            $hanGiuChoTam = $pendingDatPhong?->han_giu_cho_tam?->toIso8601String();
+            $hanGiuChoTam = $pendingDatPhong?->han_giu_cho_tam?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String();
         } else {
             $hanVal = $this->datPhongs()->where('trang_thai', 'PENDING')->value('han_giu_cho_tam');
             if ($hanVal) {
-                $hanGiuChoTam = Carbon::parse($hanVal)->toIso8601String();
+                $hanGiuChoTam = Carbon::parse($hanVal)->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String();
             }
         }
 
@@ -49,7 +49,7 @@ class EventManageDetailResource extends JsonResource
                     'trang_thai_truoc' => $log->trang_thai_truoc,
                     'trang_thai_sau' => $log->trang_thai_sau,
                     'ly_do' => $log->ly_do,
-                    'thoi_gian_tao' => $log->thoi_gian_tao ? Carbon::parse($log->thoi_gian_tao)->toIso8601String() : null,
+                    'thoi_gian_tao' => $log->thoi_gian_tao ? Carbon::parse($log->thoi_gian_tao)->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String() : null,
                 ];
             })->values()->all();
         }
@@ -100,10 +100,10 @@ class EventManageDetailResource extends JsonResource
                 'trang_thai' => (string) ($roomStatus ?? 'KhaDung'),
             ] : null,
             'han_giu_cho_tam_phong' => $hanGiuChoTam,
-            'ngay_cong_bo' => $this->ngay_cong_bo?->toIso8601String(),
-            'thoi_gian_bat_dau' => $this->thoi_gian_bat_dau?->toIso8601String(),
-            'thoi_gian_ket_thuc' => $this->thoi_gian_ket_thuc?->toIso8601String(),
-            'thoi_gian_ket_thuc_thuc_te' => $this->thoi_gian_ket_thuc_thuc_te?->toIso8601String(),
+            'ngay_cong_bo' => $this->ngay_cong_bo?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
+            'thoi_gian_bat_dau' => $this->thoi_gian_bat_dau?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
+            'thoi_gian_ket_thuc' => $this->thoi_gian_ket_thuc?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
+            'thoi_gian_ket_thuc_thuc_te' => $this->thoi_gian_ket_thuc_thuc_te?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
             'khong_gioi_han_slot' => (bool) $this->khong_gioi_han_slot,
             'so_luong_toi_da' => $this->so_luong_toi_da !== null ? (int) $this->so_luong_toi_da : null,
             'so_ve_con_lai' => $this->so_ve_con_lai !== null ? (int) $this->so_ve_con_lai : null,
@@ -119,8 +119,8 @@ class EventManageDetailResource extends JsonResource
             'da_chot_drl' => (bool) $this->da_chot_drl,
             'thoi_gian_chot_drl' => $this->thoi_gian_chot_drl?->toIso8601String(),
             'lich_su_kiem_duyet' => $auditLogs,
-            'thoi_gian_tao' => $this->thoi_gian_tao?->toIso8601String(),
-            'thoi_gian_cap_nhat' => $this->thoi_gian_cap_nhat?->toIso8601String(),
+            'thoi_gian_tao' => $this->thoi_gian_tao?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
+            'thoi_gian_cap_nhat' => $this->thoi_gian_cap_nhat?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
         ];
     }
 }
