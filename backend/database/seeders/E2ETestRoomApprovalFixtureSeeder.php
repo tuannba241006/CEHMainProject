@@ -56,7 +56,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         );
         $adminUser = DB::table('tai_khoan')->where('email', $adminEmail)->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản Admin P.CTSV: %s (ID: %d, pass: Admin@123)",
+            'Đã cấu hình tài khoản Admin P.CTSV: %s (ID: %d, pass: Admin@123)',
             $adminUser->email,
             $adminUser->ma_tai_khoan
         ));
@@ -87,7 +87,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         );
         $facultyUser = DB::table('tai_khoan')->where('email', $facultyEmail)->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản Cán bộ Khoa HTTT: %s (ID: %d, đơn vị: %d, pass: Faculty@123)",
+            'Đã cấu hình tài khoản Cán bộ Khoa HTTT: %s (ID: %d, đơn vị: %d, pass: Faculty@123)',
             $facultyUser->email,
             $facultyUser->ma_tai_khoan,
             $facultyUser->ma_don_vi_to_chuc
@@ -119,7 +119,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         );
         $clubUser = DB::table('tai_khoan')->where('email', $clubEmail)->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản CLB WebDev: %s (ID: %d, đơn vị: %d, pass: Club@123)",
+            'Đã cấu hình tài khoản CLB WebDev: %s (ID: %d, đơn vị: %d, pass: Club@123)',
             $clubUser->email,
             $clubUser->ma_tai_khoan,
             $clubUser->ma_don_vi_to_chuc
@@ -160,7 +160,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         }
         $student1User = DB::table('tai_khoan')->where('email', $student1Email)->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản Sinh viên 1: %s (ID: %d, MSSV: %s, pass: Student@123)",
+            'Đã cấu hình tài khoản Sinh viên 1: %s (ID: %d, MSSV: %s, pass: Student@123)',
             $student1User->email,
             $student1User->ma_tai_khoan,
             $student1User->mssv
@@ -201,7 +201,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         }
         $student2User = DB::table('tai_khoan')->where('email', $student2Email)->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản Sinh viên 2: %s (ID: %d, MSSV: %s, pass: Student@123)",
+            'Đã cấu hình tài khoản Sinh viên 2: %s (ID: %d, MSSV: %s, pass: Student@123)',
             $student2User->email,
             $student2User->ma_tai_khoan,
             $student2User->mssv
@@ -231,19 +231,19 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         // 3. THIẾT LẬP CÁC SỰ KIỆN VÀ ĐẶT PHÒNG
         // -------------------------------------------------------------------------
         $time701Start = date('Y-m-d 10:00:00', strtotime('+1 day'));
-        $time701End   = date('Y-m-d 12:00:00', strtotime('+1 day'));
+        $time701End = date('Y-m-d 12:00:00', strtotime('+1 day'));
 
         $time702Start = date('Y-m-d 08:00:00', strtotime('+2 days'));
-        $time702End   = date('Y-m-d 11:00:00', strtotime('+2 days'));
+        $time702End = date('Y-m-d 11:00:00', strtotime('+2 days'));
 
         $time703Start = date('Y-m-d 08:00:00', strtotime('+3 days'));
-        $time703End   = date('Y-m-d 11:00:00', strtotime('+3 days'));
+        $time703End = date('Y-m-d 11:00:00', strtotime('+3 days'));
 
         $time704Start = date('Y-m-d 08:00:00', strtotime('+4 days'));
-        $time704End   = date('Y-m-d 11:00:00', strtotime('+4 days'));
+        $time704End = date('Y-m-d 11:00:00', strtotime('+4 days'));
 
         $time705Start = date('Y-m-d 08:00:00', strtotime('+5 days'));
-        $time705End   = date('Y-m-d 11:00:00', strtotime('+5 days'));
+        $time705End = date('Y-m-d 11:00:00', strtotime('+5 days'));
 
         $events = [
             // 701: UC-ROOM-02 - Đã chiếm phòng CONFIRMED Hội trường E (ma_phong = 1)
@@ -410,7 +410,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         foreach ($events as $event) {
             DB::table('su_kien')->insert($event);
             $this->command->info(sprintf(
-                "Đã tạo sự kiện ID: %d | Trạng thái: %-15s | Phòng: %d | Bắt đầu: %s | Tên: %s",
+                'Đã tạo sự kiện ID: %d | Trạng thái: %-15s | Phòng: %d | Bắt đầu: %s | Tên: %s',
                 $event['ma_su_kien'],
                 $event['trang_thai'],
                 $event['ma_phong'],
@@ -488,7 +488,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         foreach ($datPhongData as $dp) {
             $dpId = DB::table('dat_phong')->insertGetId($dp);
             $this->command->info(sprintf(
-                "Đã tạo đặt phòng ID: %d | Phòng: %d | Sự kiện: %d | Trạng thái: %-9s | [%s -> %s]",
+                'Đã tạo đặt phòng ID: %d | Phòng: %d | Sự kiện: %d | Trạng thái: %-9s | [%s -> %s]',
                 $dpId,
                 $dp['ma_phong'],
                 $dp['ma_su_kien'],
@@ -535,7 +535,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         ]);
 
         $this->command->info(sprintf(
-            "Đã tạo vé sự kiện 705 cho SV 1 | Mã ĐK: %d | User ID: %d (%s) | Trạng thái: DaDangKy | UUID: %s",
+            'Đã tạo vé sự kiện 705 cho SV 1 | Mã ĐK: %d | User ID: %d (%s) | Trạng thái: DaDangKy | UUID: %s',
             $ticket705Id,
             $student1User->ma_tai_khoan,
             $student1User->email,
@@ -554,7 +554,7 @@ class E2ETestRoomApprovalFixtureSeeder extends Seeder
         ]);
 
         $this->command->info(sprintf(
-            "Đã tạo hàng chờ sự kiện 705 cho SV 2 | Waitlist ID: %d | User ID: %d (%s) | Thứ tự: 1 | Trạng thái: WAITING",
+            'Đã tạo hàng chờ sự kiện 705 cho SV 2 | Waitlist ID: %d | User ID: %d (%s) | Thứ tự: 1 | Trạng thái: WAITING',
             $waitlist705Id,
             $student2User->ma_tai_khoan,
             $student2User->email

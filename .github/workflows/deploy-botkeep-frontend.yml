@@ -1,13 +1,9 @@
-﻿name: Build frontend for Botkeep
+name: Build frontend for Botkeep
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "frontend/**"
-      - ".github/workflows/deploy-botkeep-frontend.yml"
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["CEH Main Project CI"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -18,11 +14,14 @@ concurrency:
 
 jobs:
   build-and-publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}
     name: Build and publish static files
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
+      - name: Checkout tested source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -41,6 +40,14 @@ jobs:
           VITE_APP_MODE: api
           VITE_API_URL: https://api-ceh-das.bot-keep.xyz
         run: npm run build
+
+      - name: Add static SPA fallback files
+        run: |
+          cp frontend/dist/index.html frontend/dist/404.html
+          printf '/* /index.html 200\n' > frontend/dist/_redirects
+          test -s frontend/dist/index.html
+          test -s frontend/dist/404.html
+          test -s frontend/dist/_redirects
 
       - name: Publish dist to botkeep-static branch
         env:

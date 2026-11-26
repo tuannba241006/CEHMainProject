@@ -7,7 +7,6 @@ use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class E2ERepNotifSysFixtureSeeder extends Seeder
 {
@@ -548,7 +547,7 @@ class E2ERepNotifSysFixtureSeeder extends Seeder
                 'thoi_gian_ket_thuc' => $cfg['thoi_gian_ket_thuc'],
                 'trang_thai' => $roomStatus,
                 'han_giu_cho_tam' => null,
-                'ghi_chu' => 'Đặt phòng Fixture: ' . $cfg['ten_su_kien'],
+                'ghi_chu' => 'Đặt phòng Fixture: '.$cfg['ten_su_kien'],
                 'thoi_gian_tao' => $now,
                 'thoi_gian_cap_nhat' => $now,
             ]);
@@ -978,7 +977,7 @@ class E2ERepNotifSysFixtureSeeder extends Seeder
             [
                 'ma_tai_khoan' => $student1->ma_tai_khoan,
                 'tieu_de' => 'Nhắc hẹn: Hội thảo AWS & Kubernetes sắp diễn ra trong 12h',
-                'noi_dung' => 'Sự kiện "Hội thảo Điện toán Đám mây AWS & Kubernetes" sẽ diễn ra lúc ' . $timeEventCStart->format('H:i d/m/Y') . ' tại Hội trường E. Vui lòng có mặt trước 15 phút.',
+                'noi_dung' => 'Sự kiện "Hội thảo Điện toán Đám mây AWS & Kubernetes" sẽ diễn ra lúc '.$timeEventCStart->format('H:i d/m/Y').' tại Hội trường E. Vui lòng có mặt trước 15 phút.',
                 'loai_thong_bao' => 'NHAC_HEN',
                 'lien_ket' => '/events/4103',
                 'da_doc' => 0,

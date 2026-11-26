@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,10 +27,10 @@ class SuKien extends Model
         static::saving(function (SuKien $event) {
             if ($event->thoi_gian_bat_dau && $event->ngay_cong_bo) {
                 $start = is_string($event->thoi_gian_bat_dau)
-                    ? \Carbon\Carbon::parse($event->thoi_gian_bat_dau)
+                    ? Carbon::parse($event->thoi_gian_bat_dau)
                     : $event->thoi_gian_bat_dau;
                 $publish = is_string($event->ngay_cong_bo)
-                    ? \Carbon\Carbon::parse($event->ngay_cong_bo)
+                    ? Carbon::parse($event->ngay_cong_bo)
                     : $event->ngay_cong_bo;
 
                 if ($publish->isAfter($start)) {

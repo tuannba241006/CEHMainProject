@@ -54,7 +54,7 @@ class E2EAdm01Room01FixtureSeeder extends Seeder
         );
         $adminUser = DB::table('tai_khoan')->where('email', $adminEmail)->first();
         $this->command->info(sprintf(
-            "✓ [Admin] Đã cấu hình tài khoản Quản trị viên: %s (ID: %d, vai trò: %s, pass: Admin@123)",
+            '✓ [Admin] Đã cấu hình tài khoản Quản trị viên: %s (ID: %d, vai trò: %s, pass: Admin@123)',
             $adminUser->email,
             $adminUser->ma_tai_khoan,
             $adminUser->loai_tai_khoan
@@ -85,7 +85,7 @@ class E2EAdm01Room01FixtureSeeder extends Seeder
         );
         $lockTargetUser = DB::table('tai_khoan')->where('email', $lockTargetEmail)->first();
         $this->command->info(sprintf(
-            "✓ [Lock Target] Đã cấu hình tài khoản kiểm thử Khóa: %s (ID: %d, MSSV: %s, hoat_dong: %d, pass: Student@123)",
+            '✓ [Lock Target] Đã cấu hình tài khoản kiểm thử Khóa: %s (ID: %d, MSSV: %s, hoat_dong: %d, pass: Student@123)',
             $lockTargetUser->email,
             $lockTargetUser->ma_tai_khoan,
             $lockTargetUser->mssv,
@@ -122,7 +122,7 @@ class E2EAdm01Room01FixtureSeeder extends Seeder
         DB::table('personal_access_tokens')->where('tokenable_id', $unlockTargetUser->ma_tai_khoan)->delete();
 
         $this->command->info(sprintf(
-            "✓ [Unlock Target] Đã cấu hình tài khoản kiểm thử Mở khóa: %s (ID: %d, MSSV: %s, hoat_dong: %d, pass: Student@123)",
+            '✓ [Unlock Target] Đã cấu hình tài khoản kiểm thử Mở khóa: %s (ID: %d, MSSV: %s, hoat_dong: %d, pass: Student@123)',
             $unlockTargetUser->email,
             $unlockTargetUser->ma_tai_khoan,
             $unlockTargetUser->mssv,
@@ -150,7 +150,7 @@ class E2EAdm01Room01FixtureSeeder extends Seeder
         );
         $htttOrg = DB::table('don_vi_to_chuc')->where('ma_don_vi_to_chuc', 1)->first();
         $this->command->info(sprintf(
-            "✓ [Đơn vị cha] Đã cấu hình: %s (ID: %d, ma_dinh_danh: %s, cấp trên: %s)",
+            '✓ [Đơn vị cha] Đã cấu hình: %s (ID: %d, ma_dinh_danh: %s, cấp trên: %s)',
             $htttOrg->ten_don_vi,
             $htttOrg->ma_don_vi_to_chuc,
             $htttOrg->ma_dinh_danh,
@@ -173,7 +173,7 @@ class E2EAdm01Room01FixtureSeeder extends Seeder
         );
         $clbFixture = DB::table('don_vi_to_chuc')->where('ma_dinh_danh', 'CLB_TEST_FIXTURE')->first();
         $this->command->info(sprintf(
-            "✓ [CLB Fixture] Đã cấu hình: %s (ID: %d, ma_dinh_danh: %s, loai: %s, cấp trên ban đầu: %s)",
+            '✓ [CLB Fixture] Đã cấu hình: %s (ID: %d, ma_dinh_danh: %s, loai: %s, cấp trên ban đầu: %s)',
             $clbFixture->ten_don_vi,
             $clbFixture->ma_don_vi_to_chuc,
             $clbFixture->ma_dinh_danh,
@@ -216,7 +216,7 @@ class E2EAdm01Room01FixtureSeeder extends Seeder
             ->first();
 
         $this->command->info(sprintf(
-            "✓ [Phòng 1] Đã cấu hình Hội trường Test Conflict: ID %d | Cơ sở: %s | Sức chứa: %d | Trạng thái: %s",
+            '✓ [Phòng 1] Đã cấu hình Hội trường Test Conflict: ID %d | Cơ sở: %s | Sức chứa: %d | Trạng thái: %s',
             $roomConflict->ma_phong,
             $roomConflict->co_so,
             $roomConflict->suc_chua_toi_da,
@@ -257,7 +257,7 @@ class E2EAdm01Room01FixtureSeeder extends Seeder
         DB::table('dat_phong')->where('ma_phong', $roomNormal->ma_phong)->delete();
 
         $this->command->info(sprintf(
-            "✓ [Phòng 2] Đã cấu hình Hội trường Test Normal: ID %d | Cơ sở: %s | Sức chứa: %d | Trạng thái: %s (Trống lịch)",
+            '✓ [Phòng 2] Đã cấu hình Hội trường Test Normal: ID %d | Cơ sở: %s | Sức chứa: %d | Trạng thái: %s (Trống lịch)',
             $roomNormal->ma_phong,
             $roomNormal->co_so,
             $roomNormal->suc_chua_toi_da,
@@ -330,7 +330,7 @@ class E2EAdm01Room01FixtureSeeder extends Seeder
         ]);
 
         $this->command->info(sprintf(
-            "✓ [Đặt phòng CONFIRMED] Đã gắn Sự kiện ID %d vào Phòng %s (ID %d): Từ %s đến %s (Trạng thái: CONFIRMED)",
+            '✓ [Đặt phòng CONFIRMED] Đã gắn Sự kiện ID %d vào Phòng %s (ID %d): Từ %s đến %s (Trạng thái: CONFIRMED)',
             $fixtureEventId,
             $roomConflict->ten_phong,
             $roomConflict->ma_phong,

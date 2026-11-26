@@ -6,6 +6,7 @@ use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TicketResource;
 use App\Http\Resources\WaitlistResource;
+use App\Models\DangKy;
 use App\Models\HangDoiWaitlist;
 use App\Services\WaitlistService;
 use Illuminate\Http\JsonResponse;
@@ -121,7 +122,7 @@ class WaitlistController extends Controller
                     );
                 }
 
-                $ticket = \App\Models\DangKy::with(['suKien.phongHoiTruong', 'chungNhan'])
+                $ticket = DangKy::with(['suKien.phongHoiTruong', 'chungNhan'])
                     ->find($cached['ma_dang_ky'] ?? 0);
 
                 if ($ticket) {
