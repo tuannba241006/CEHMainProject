@@ -4,8 +4,9 @@ import { useApp, type LiveEvent } from "../../context/AppContext"
 import { useToast } from "../../components/Toast"
 import { getApiErrorMessage } from "../../api/errors"
 import { eventsService } from "../../api/services/events.service"
+import { roomsService } from "../../api/services/rooms.service"
 import { ROOMS, type Event } from "../../data/mock"
-import type { DrlRule, EventStatus, OrganizationSummary, Topic } from "../../data/contract"
+import type { DrlRule, EventStatus, OrganizationSummary, RoomPublic, Topic } from "../../data/contract"
 import {
   FileText,
   MapPin,
@@ -79,43 +80,61 @@ export default function AdminEventsManagement({
   )
 
   const [localEvents, setLocalEvents] = useState<AdminManageEvent[]>([])
+  const [realRooms, setRealRooms] = useState<RoomPublic[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    async function loadEvents() {
-      try {
-        setLoading(true)
-        setError(null)
-        const res = await eventsService.getEvents()
-        if (!cancelled && res.data && Array.isArray(res.data)) {
-          const apiItems: AdminManageEvent[] = res.data.map((item) => ({
-            ...item,
-            id: String(item.ma_su_kien),
-            title: item.ten_su_kien,
-            date: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(0, 10) : "",
-            time: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(11, 16) : "",
-            status: item.trang_thai,
-            registered:
-              item.so_luong_toi_da && item.so_ve_con_lai != null
-                ? Math.max(0, item.so_luong_toi_da - item.so_ve_con_lai)
-                : 0,
-            capacity: item.so_luong_toi_da || 100,
-          }))
-          setLocalEvents(apiItems)
-        }
-      } catch (err) {
-        console.warn("Admin events load note:", err)
-        setError(getApiErrorMessage(err))
-      } finally {
-        if (!cancelled) setLoading(false)
+  async function reloadEvents() {
+    try {
+      setLoading(true)
+      setError(null)
+      const res = await eventsService.organizerList({ limit: 100 })
+      if (res.data && Array.isArray(res.data)) {
+        const apiItems: AdminManageEvent[] = res.data.map((item) => ({
+          ...item,
+          id: String(item.ma_su_kien),
+          title: item.ten_su_kien,
+          date: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(0, 10) : "",
+          time: item.thoi_gian_bat_dau ? item.thoi_gian_bat_dau.slice(11, 16) : "",
+          status: item.trang_thai,
+          registered:
+            item.so_luong_toi_da && item.so_ve_con_lai != null
+              ? Math.max(0, item.so_luong_toi_da - item.so_ve_con_lai)
+              : 0,
+          capacity: item.so_luong_toi_da || 100,
+        }))
+        setLocalEvents(apiItems)
       }
+    } catch (err) {
+      console.warn("Admin events load note:", err)
+      setError(getApiErrorMessage(err))
+    } finally {
+      setLoading(false)
     }
-    loadEvents()
-    return () => {
-      cancelled = true
-    }
+  }
+
+  useEffect(() => {
+    void reloadEvents()
+    roomsService
+      .list()
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          const mapped: RoomPublic[] = (res.data as Array<Partial<RoomPublic> & { suc_chua_toi_da?: number }>).map(
+            (r) => ({
+              ma_phong: Number(r.ma_phong),
+              ten_phong: r.ten_phong || "Hội trường",
+              suc_chua: Number(r.suc_chua_toi_da ?? r.suc_chua ?? 100),
+              co_so: (r.co_so === "CoSo2" ? "CoSo2" : "CoSo1") as RoomPublic["co_so"],
+              toa_nha: r.toa_nha || "",
+              vi_tri_tang: Number(r.vi_tri_tang ?? 1),
+              thiet_bi: r.thiet_bi || { may_chieu: true, am_thanh: true, wifi: true },
+              trang_thai: r.trang_thai,
+            }),
+          )
+          setRealRooms(mapped)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   // Filter & Search states
@@ -271,12 +290,14 @@ export default function AdminEventsManagement({
   const univEvents = localEvents.filter((e) =>
     (e.organizer || e.ten_don_vi_host || "").includes("Sinh viên"),
   ).length
-  const openCount = localEvents.filter(
-    (e) => (e.status as string) === "open" || (e.status as string) === "published",
-  ).length
-  const pendingCount = approvalCases.filter((c) =>
-    c.status.includes("pending"),
-  ).length
+  const openCount = localEvents.filter((e) => {
+    const s = String(e.status || e.trang_thai || "").toLowerCase()
+    return s === "open" || s === "published"
+  }).length
+  const pendingCount = localEvents.filter((e) =>
+    String(e.status || e.trang_thai || "").toLowerCase().includes("pending") ||
+    String(e.status || e.trang_thai || "").toLowerCase() === "waiting_cohost_confirm",
+  ).length || approvalCases.filter((c) => c.status.includes("pending")).length
   const draftCount = localEvents.filter(
     (e) => (e.status || e.trang_thai || "").toLowerCase() === "draft",
   ).length
@@ -408,26 +429,30 @@ export default function AdminEventsManagement({
       showToast("Vui lòng nhập lý do đổi phòng chi tiết (tối thiểu 10 ký tự).", "error")
       return
     }
+    const targetRoomId = Number(newRoom)
+    const selectedRoom = realRooms.find((r) => r.ma_phong === targetRoomId)
+    const targetRoomName = selectedRoom?.ten_phong || `Phòng #${targetRoomId}`
     setSubmitting(true)
     try {
       await eventsService.changeRoom(modal.event.id || modal.event.ma_su_kien, {
-        ma_phong_moi: newRoom,
+        ma_phong_moi: targetRoomId,
         ly_do: actionReason.trim(),
       })
       setLocalEvents((prev) =>
         prev.map((e) =>
           e.id === modal.event.id || e.ma_su_kien === modal.event.ma_su_kien
-            ? { ...e, room: newRoom, ten_phong: newRoom }
+            ? { ...e, room: targetRoomName, ten_phong: targetRoomName }
             : e,
         ),
       )
       showToast(
-        `Đã điều chuyển phòng sang "${newRoom}" thành công. Toàn bộ sinh viên đã nhận thông báo khẩn cấp.`,
+        `Đã điều chuyển phòng sang "${targetRoomName}" thành công. Toàn bộ sinh viên đã nhận thông báo khẩn cấp.`,
         "success",
       )
       setModal(null)
       setActionReason("")
       setNewRoom("")
+      await reloadEvents()
     } catch (err) {
       showToast(getApiErrorMessage(err), "error")
     } finally {
@@ -1235,7 +1260,7 @@ export default function AdminEventsManagement({
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span>{room}</span>
                         <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200" title="Đã bảo toàn khoảng đệm 15 phút chống xung đột">
-                          Buffer 15m
+                          Đệm 15 phút
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-400 mt-0.5">
@@ -1263,28 +1288,38 @@ export default function AdminEventsManagement({
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           status === "open" || status === "published"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : isPending
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : isDraft
-                                ? "bg-slate-100 text-slate-700 border border-slate-200 font-bold"
-                                : isRejected
-                                  ? "bg-rose-100 text-rose-700 border border-rose-200 font-bold"
-                                  : status === "cancelled"
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-slate-100 text-slate-600"
+                            : status === "approved"
+                              ? "bg-sky-50 text-sky-700 border border-sky-200"
+                              : status === "waiting_cohost_confirm"
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : isPending
+                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                  : isDraft
+                                    ? "bg-slate-100 text-slate-700 border border-slate-200 font-bold"
+                                    : isRejected
+                                      ? "bg-rose-100 text-rose-700 border border-rose-200 font-bold"
+                                      : status === "cancelled"
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-slate-100 text-slate-600"
                         }`}
                       >
                         {status === "open" || status === "published"
                           ? "Đang mở"
-                          : isPending
-                            ? "Chờ duyệt"
-                            : isDraft
-                              ? "Bản nháp"
-                              : isRejected
-                                ? "Bị từ chối"
-                                : status === "cancelled"
-                                  ? "Đã hủy"
-                                  : "Đã kết thúc"}
+                          : status === "approved"
+                            ? "Đã duyệt"
+                            : status === "waiting_cohost_confirm"
+                              ? "Chờ Co-host"
+                              : isPending
+                                ? "Chờ duyệt"
+                                : isDraft
+                                  ? "Bản nháp"
+                                  : isRejected
+                                    ? "Bị từ chối"
+                                    : status === "cancelled"
+                                      ? "Đã hủy"
+                                      : status === "happening"
+                                        ? "Đang diễn ra"
+                                        : "Đã kết thúc"}
                       </span>
                     </td>
 
@@ -1426,13 +1461,13 @@ export default function AdminEventsManagement({
               <span>Điều chuyển phòng khẩn cấp</span>
             </h2>
             <p className="text-xs text-slate-500 mt-1 mb-4 leading-relaxed">
-              Quyền hạn độc quyền của Admin khi sự kiện đã APPROVED hoặc PUBLISHED gặp sự cố bất khả kháng. Hệ thống tự động kiểm tra sức chứa phòng mới và bảo toàn đệm 15 phút.
+              Quyền hạn độc quyền của Admin khi sự kiện đã được duyệt hoặc đang mở đăng ký gặp sự cố bất khả kháng. Hệ thống tự động kiểm tra sức chứa phòng mới và bảo toàn đệm 15 phút.
             </p>
 
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 mb-4">
               <div>Sự kiện: <b className="text-navy">{modal.event.title || modal.event.ten_su_kien}</b></div>
               <div>Phòng hiện tại: <b className="text-amber-700">{modal.event.room || modal.event.ten_phong}</b></div>
-              <div>Số vé đã phát hành: <b className="text-indigo-700">{modal.event.registered || modal.event.so_luong_da_dang_ky || 0} vé</b></div>
+              <div>Quy mô vé tối đa: <b className="text-indigo-700">{modal.event.so_luong_toi_da ?? modal.event.capacity ?? 0} vé</b> (đã đặt: {modal.event.registered || modal.event.so_luong_da_dang_ky || 0})</div>
             </div>
 
             <div className="space-y-3">
@@ -1446,11 +1481,18 @@ export default function AdminEventsManagement({
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm bg-white font-medium focus:outline-none focus:border-indigo"
                 >
                   <option value="">-- Chọn phòng trống đủ sức chứa --</option>
-                  {ROOMS.filter((r) => r.ten_phong !== (modal.event.room || modal.event.ten_phong)).map((r) => (
-                    <option key={r.ma_phong} value={r.ten_phong}>
-                      {r.ten_phong} (Sức chứa {r.suc_chua} chỗ - {r.toa_nha})
-                    </option>
-                  ))}
+                  {realRooms
+                    .filter((r) => r.ten_phong !== (modal.event.room || modal.event.ten_phong))
+                    .map((r) => (
+                      <option
+                        key={r.ma_phong}
+                        value={String(r.ma_phong)}
+                        disabled={r.trang_thai === "BaoTri"}
+                      >
+                        {r.ten_phong} (Sức chứa {r.suc_chua} chỗ · {r.co_so === "CoSo2" ? "Cơ sở 2" : "Cơ sở 1"})
+                        {r.trang_thai === "BaoTri" ? " [ĐANG BẢO TRÌ]" : ""}
+                      </option>
+                    ))}
                 </select>
               </div>
 
@@ -1496,7 +1538,7 @@ export default function AdminEventsManagement({
               <span>Hủy sự kiện khẩn cấp</span>
             </h2>
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 my-3 leading-relaxed">
-              <b>Cảnh báo nghiêm trọng:</b> Sự kiện sẽ chuyển sang CANCELLED, giải phóng hội trường, hủy toàn bộ vé sinh viên đã đăng ký (trạng thái DaHuy mà <u>không bị tính vi phạm No-show</u>) và xóa hàng đợi Waitlist.
+              <b>Cảnh báo nghiêm trọng:</b> Sự kiện sẽ bị hủy lập tức, giải phóng hội trường, hủy toàn bộ vé sinh viên đã đăng ký (không tính vi phạm vắng mặt) và đóng hàng đợi chờ vé.
             </div>
 
             <div>

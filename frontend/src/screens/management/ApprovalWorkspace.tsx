@@ -1,17 +1,117 @@
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import type { Role } from "../../App"
 import {
   useApp,
   type ApprovalCase,
   type ApprovalStatus,
 } from "../../context/AppContext"
+import { resolveFacultyFromUnit } from "../../context/ApprovalDataContext"
 import { useToast } from "../../components/Toast"
 import { ManagementLayout } from "./ManagementLayout"
 import { useUser } from "../../context/UserContext"
 import { formatCalendarDate, inDateRange } from "../../utils/date"
 import { eventsService } from "../../api/services/events.service"
+import { roomsService } from "../../api/services/rooms.service"
 import { getApiErrorMessage, isAuthError } from "../../api/errors"
+import type { EventManageDetail, RoomPublic } from "../../data/contract"
 import { AlertTriangle, Zap, RotateCcw, RefreshCw, Building2, Check } from "lucide-react"
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  SUBMIT: "Gửi đề xuất phê duyệt",
+  WITHDRAW_PROPOSAL: "Rút đề xuất về bản nháp",
+  COHOST_ACCEPT: "Đồng tổ chức xác nhận tham gia",
+  COHOST_REJECT: "Đồng tổ chức từ chối lời mời",
+  EXPIRE_COHOST_HOLD: "Hết hạn giữ chỗ 48h (Tự động)",
+  APPROVE_FACULTY: "Khoa phê duyệt & chuyển P.CTSV",
+  APPROVE_FACULTY_BY_ADMIN: "Admin P.CTSV duyệt thay cấp Khoa",
+  REJECT_FACULTY: "Khoa từ chối hồ sơ",
+  APPROVE_ADMIN: "P.CTSV phê duyệt chính thức",
+  REJECT_ADMIN: "P.CTSV từ chối hồ sơ",
+  AUTO_REJECT_EXPIRED: "Tự động từ chối do quá hạn",
+  REQUEST_EDIT: "Yêu cầu chỉnh sửa bổ sung",
+  CHANGE_ROOM: "Điều chuyển phòng khẩn cấp",
+  CANCEL_EVENT: "Hủy sự kiện khẩn cấp",
+}
+
+const COHOST_STATUS_LABELS: Record<string, { label: string; tone: string }> = {
+  CHO_XAC_NHAN: { label: "Chờ xác nhận", tone: "bg-amber-50 text-amber-700 border-amber-200" },
+  DONG_Y: { label: "Đã đồng ý", tone: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  TU_CHOI: { label: "Đã từ chối", tone: "bg-rose-50 text-rose-700 border-rose-200" },
+}
+
+function formatTimeHm(iso?: string | null): string {
+  if (!iso) return ""
+  const m = String(iso).match(/T(\d{2}:\d{2})/)
+  if (m) return m[1]
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false })
+}
+
+function formatDateTimeVi(iso?: string | null): string {
+  if (!iso) return "—"
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return String(iso)
+  return d.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour12: false,
+  })
+}
+
+function mapDetailStatusToApproval(rawStatus: string): ApprovalStatus {
+  const s = String(rawStatus || "").toUpperCase()
+  if (s === "PENDING_FACULTY" || s === "WAITING_COHOST_CONFIRM") return "faculty_pending"
+  if (s === "PENDING_ADMIN") return "affairs_pending"
+  if (s === "APPROVED" || s === "PUBLISHED" || s === "HAPPENING" || s === "COMPLETED") return "approved"
+  if (s === "REJECTED" || s === "COHOST_REJECTED") return "faculty_rejected"
+  return "draft"
+}
+
+function mapDetailToApprovalCase(d: EventManageDetail): ApprovalCase {
+  const unitName = d.don_vi_host?.ten_don_vi || d.ten_don_vi_host || "Ban tổ chức"
+  return {
+    id: `HS-${d.ma_su_kien}`,
+    eventId: String(d.ma_su_kien),
+    title: d.ten_su_kien,
+    unit: unitName,
+    faculty: resolveFacultyFromUnit(unitName),
+    submitter: unitName,
+    speaker: d.dien_gia || "",
+    topicName: d.chuyen_de?.ten_chuyen_de || d.ten_chuyen_de || "",
+    roomName: d.phong?.ten_phong || d.ten_phong || "",
+    campus: (d.phong?.co_so ?? d.co_so) === "CoSo2" ? "Cơ sở 2" : "Cơ sở 1",
+    startTime: d.thoi_gian_bat_dau,
+    endTime: d.thoi_gian_ket_thuc,
+    submittedAt: formatCalendarDate(d.thoi_gian_tao || d.thoi_gian_bat_dau),
+    eventDate: (d.thoi_gian_bat_dau || "").slice(0, 10),
+    status: mapDetailStatusToApproval(d.trang_thai),
+    lifecycle: "scheduled",
+    description: d.mo_ta || "",
+    plan: "",
+    documents: [],
+    proposedPoints: d.diem_drl_du_kien ?? 0,
+    semester: "",
+    criteriaCode:
+      d.dieu_khoan_drl === "Dieu4"
+        ? "Điều 4"
+        : d.dieu_khoan_drl === "Dieu3"
+          ? "Điều 3"
+          : "Không có",
+    maxPoints: d.diem_drl_du_kien ?? 0,
+    validMinutes: 0,
+    thresholds: [],
+    requiredSessions: [],
+    certificateCondition: "",
+    ruleBasis: "",
+    ruleVersion: "",
+    history: [],
+  }
+}
 
 interface Props {
   role: Extract<Role, "faculty_manager" | "student_affairs">
@@ -59,6 +159,36 @@ export default function ApprovalWorkspace({
   const { user, role: activeRole } = useUser()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [detailRecord, setDetailRecord] = useState<EventManageDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
+
+  const numericSelectedId = useMemo(() => {
+    if (!selectedId) return null
+    const parsed = Number(selectedId.replace(/\D/g, ""))
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  }, [selectedId])
+
+  const loadDetailRecord = useCallback(async () => {
+    if (!numericSelectedId) {
+      setDetailRecord(null)
+      setDetailError(null)
+      return
+    }
+    setDetailLoading(true)
+    setDetailError(null)
+    try {
+      const res = await eventsService.organizerDetail(numericSelectedId)
+      if (res.data) {
+        setDetailRecord(res.data)
+      }
+    } catch (err: unknown) {
+      setDetailRecord(null)
+      setDetailError(getApiErrorMessage(err))
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [numericSelectedId])
 
   useEffect(() => {
     let cancelled = false
@@ -83,6 +213,10 @@ export default function ApprovalWorkspace({
     }
   }, [])
 
+  useEffect(() => {
+    void loadDetailRecord()
+  }, [loadDetailRecord])
+
   const faculty = user.faculty || user.khoa || ""
   const canView = (item: ApprovalCase) =>
     role !== "faculty_manager" ||
@@ -95,9 +229,24 @@ export default function ApprovalWorkspace({
         .replace(/^Khoa\s+/i, "")
         .trim()
         .toLocaleLowerCase("vi")
-  const detail = selectedId
-    ? approvalCases.find((item) => item.id === selectedId && canView(item))
+
+  const queueMatch = selectedId
+    ? approvalCases.find(
+        (item) =>
+          (item.id === selectedId || item.eventId === String(numericSelectedId ?? "")) &&
+          canView(item),
+      )
     : undefined
+
+  const detail: ApprovalCase | undefined = useMemo(() => {
+    if (!selectedId) return undefined
+    if (detailRecord && detailRecord.ma_su_kien === numericSelectedId) {
+      const mapped = mapDetailToApprovalCase(detailRecord)
+      return canView(mapped) ? mapped : undefined
+    }
+    return queueMatch
+  }, [selectedId, detailRecord, numericSelectedId, queueMatch])
+
   const current =
     role === "faculty_manager"
       ? detail
@@ -113,13 +262,18 @@ export default function ApprovalWorkspace({
       onNavigate={onNavigate}
       onLogout={onLogout}
     >
-      {selectedId && !detail ? (
+      {selectedId && detailLoading && !detail ? (
+        <div className="p-8 max-w-2xl space-y-4 animate-pulse">
+          <div className="h-6 bg-slate-200 rounded w-1/3" />
+          <div className="h-32 bg-slate-100 rounded-2xl w-full" />
+        </div>
+      ) : selectedId && !detail ? (
         <div className="p-8 max-w-xl">
           <h2 className="text-xl font-semibold text-navy">
             Hồ sơ không tồn tại hoặc ngoài phạm vi quản lý
           </h2>
           <p className="text-slate-600 mt-2">
-            Chỉ những hồ sơ thuộc đơn vị được phân quyền mới có thể truy cập.
+            {detailError || "Chỉ những hồ sơ thuộc đơn vị được phân quyền mới có thể truy cập."}
           </p>
           <button
             className="mt-4 px-4 py-2 rounded-xl bg-indigo text-white"
@@ -135,7 +289,12 @@ export default function ApprovalWorkspace({
       ) : detail ? (
         <ApprovalDetail
           item={detail}
+          detailRecord={detailRecord}
           role={role}
+          onRefreshDetail={async () => {
+            await loadDetailRecord()
+            if (refreshReviewQueue) await refreshReviewQueue()
+          }}
           onBack={() =>
             onNavigate(
               role === "faculty_manager" ? "faculty-inbox" : "affairs-inbox",
@@ -344,8 +503,8 @@ function ApprovalList({
                 <tr>
                   {[
                     "Tên sự kiện",
-                    "Đơn vị / người gửi",
-                    "Ngày gửi",
+                    "Đơn vị chủ trì",
+                    "Ngày tạo",
                     "Ngày tổ chức",
                     "Điểm đề xuất",
                     "Trạng thái",
@@ -374,10 +533,12 @@ function ApprovalList({
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-slate-600">{item.unit}</p>
-                      <p className="text-xs text-slate-400">{item.submitter}</p>
+                      <p className="text-xs text-slate-400">
+                        {item.topicName || "Sự kiện UIT"}
+                      </p>
                     </td>
                     <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
-                      {item.submittedAt}
+                      {formatCalendarDate(item.submittedAt)}
                     </td>
                     <td className="px-4 py-4 text-xs text-slate-500 whitespace-nowrap">
                       {formatCalendarDate(item.eventDate)}
@@ -420,9 +581,9 @@ function ApprovalList({
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 my-4">
                   <p>
-                    Người gửi
+                    Chuyên đề
                     <br />
-                    <b className="text-slate-700">{item.submitter}</b>
+                    <b className="text-slate-700">{item.topicName || "Sự kiện UIT"}</b>
                   </p>
                   <p>
                     Ngày tổ chức
@@ -455,11 +616,15 @@ function ApprovalList({
 
 function ApprovalDetail({
   item,
+  detailRecord,
   role,
+  onRefreshDetail,
   onBack,
 }: {
   item: ApprovalCase
+  detailRecord: EventManageDetail | null
   role: Props["role"]
+  onRefreshDetail: () => Promise<void>
   onBack: () => void
 }) {
   const { updateApproval } = useApp()
@@ -478,10 +643,38 @@ function ApprovalDetail({
     >(null)
   const [reason, setReason] = useState("")
   const [newRoomId, setNewRoomId] = useState("")
-  const [documentNotice, setDocumentNotice] = useState<string | null>(null)
+  const [rooms, setRooms] = useState<RoomPublic[]>([])
   const [busy, setBusy] = useState(false)
   const [tab, setTab] =
     useState<"overview" | "documents" | "points" | "history">("overview")
+
+  useEffect(() => {
+    if (dialog !== "emergency_room" || rooms.length > 0) return
+    let active = true
+    roomsService
+      .list()
+      .then((res) => {
+        if (active && Array.isArray(res.data)) {
+          const mapped: RoomPublic[] = (res.data as Array<Partial<RoomPublic> & { suc_chua_toi_da?: number }>).map(
+            (r) => ({
+              ma_phong: Number(r.ma_phong),
+              ten_phong: r.ten_phong || "Hội trường",
+              suc_chua: Number(r.suc_chua_toi_da ?? r.suc_chua ?? 100),
+              co_so: (r.co_so === "CoSo2" ? "CoSo2" : "CoSo1") as RoomPublic["co_so"],
+              toa_nha: r.toa_nha || "",
+              vi_tri_tang: Number(r.vi_tri_tang ?? 1),
+              thiet_bi: r.thiet_bi || { may_chieu: true, am_thanh: true, wifi: true },
+              trang_thai: r.trang_thai,
+            }),
+          )
+          setRooms(mapped)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [dialog, rooms.length])
 
   const isAdminOrAffairs = role === "student_affairs" || activeRole === "admin"
   const canProcess =
@@ -516,9 +709,7 @@ function ApprovalDetail({
       if (action === "emergency_cancel") {
         await eventsService.emergencyCancel(item.eventId, reason.trim())
       } else if (action === "emergency_room") {
-        const roomId =
-          Number(newRoomId) ||
-          (newRoomId === "Hội trường A" ? 1 : newRoomId === "Hội trường B" ? 2 : 3)
+        const roomId = Number(newRoomId)
         await eventsService.changeRoom(item.eventId, {
           ma_phong_moi: roomId,
           ly_do: reason.trim(),
@@ -548,6 +739,7 @@ function ApprovalDetail({
       const result = await updateApproval(item.id, action, reason, true)
       if (!result.success)
         throw new Error(result.error || "Không thể xử lý hồ sơ.")
+      await onRefreshDetail()
       showToast(
         action.includes("approve")
           ? "Đã duyệt hồ sơ thành công."
@@ -556,7 +748,7 @@ function ApprovalDetail({
             : action === "emergency_room"
               ? "Đã điều chuyển phòng khẩn cấp và thông báo cho sinh viên."
               : action === "withdraw"
-                ? "Đã rút đề xuất cưỡng chế về DRAFT (giải phóng phòng)."
+                ? "Đã rút đề xuất cưỡng chế về bản nháp (giải phóng phòng)."
                 : action === "reopen"
                   ? "Đã tái mở bản nháp để chỉnh sửa."
                   : "Đã cập nhật trạng thái hồ sơ.",
@@ -564,6 +756,7 @@ function ApprovalDetail({
       )
       setDialog(null)
       setReason("")
+      setNewRoomId("")
     } catch (error) {
       showToast(getApiErrorMessage(error), "error")
     } finally {
@@ -589,7 +782,10 @@ function ApprovalDetail({
             {item.title}
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            {item.unit} · Gửi bởi {item.submitter}
+            {item.unit}
+            {detailRecord?.chuyen_de?.ten_chuyen_de || item.topicName
+              ? ` · ${detailRecord?.chuyen_de?.ten_chuyen_de || item.topicName}`
+              : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -598,7 +794,7 @@ function ApprovalDetail({
               onClick={() => setDialog("faculty_approve_by_admin")}
               disabled={busy}
               className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
-              title="Admin/CTSV can thiệp duyệt thay cấp Khoa khi Khoa chậm trễ hoặc gặp sự cố (APPROVE_FACULTY_BY_ADMIN)"
+              title="Admin/CTSV can thiệp duyệt thay cấp Khoa khi Khoa chậm trễ hoặc gặp sự cố"
             >
               <Zap className="w-4 h-4" />
               <span>Duyệt thay cấp Khoa (Sự cố)</span>
@@ -610,7 +806,7 @@ function ApprovalDetail({
               onClick={() => setDialog("withdraw")}
               disabled={busy}
               className="px-3.5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
-              title="Can thiệp rút hồ sơ đang thẩm định về DRAFT và tự động giải phóng phòng đã giữ chỗ"
+              title="Can thiệp rút hồ sơ đang thẩm định về bản nháp và tự động giải phóng phòng đã giữ chỗ"
             >
               <RotateCcw className="w-4 h-4" />
               <span>Rút đề xuất cưỡng chế</span>
@@ -686,7 +882,7 @@ function ApprovalDetail({
       <div className="flex gap-1 p-1 rounded-xl bg-slate-100 overflow-x-auto no-scrollbar mb-5">
         {([
           ["overview", "Thông tin"],
-          ["documents", "Kế hoạch & tài liệu"],
+          ["documents", "Kế hoạch & Lịch trình"],
           ["points", "Đề xuất điểm"],
           ["history", "Lịch sử xử lý"],
         ] as const).map(([value, label]) => (
@@ -703,161 +899,264 @@ function ApprovalDetail({
           </button>
         ))}
       </div>
-      {tab === "overview" && (
-        <div className="grid lg:grid-cols-3 gap-4">
-          <Card title="Thông tin sự kiện" className="lg:col-span-2">
-            <InfoGrid
-              values={[
-                ["Ngày tổ chức", formatCalendarDate(item.eventDate)],
-                ["Đơn vị", item.unit],
-                ["Người gửi", item.submitter],
-                ["Khoa quản lý", item.faculty],
-              ]}
-            />
-            <p className="text-sm text-slate-600 leading-relaxed mt-4 pt-4 border-t border-slate-100">
-              {item.description}
-            </p>
-          </Card>
-          <Card title="Tiến trình phê duyệt">
-            <Progress status={item.status} />
-          </Card>
-          {item.facultyDecision && (
-            <Card title="Quyết định của khoa" className="lg:col-span-3">
-              <p className="text-sm text-slate-600">{item.facultyDecision}</p>
-            </Card>
-          )}
-        </div>
-      )}
-      {tab === "documents" && (
-        <div className="grid lg:grid-cols-2 gap-4">
-          <Card title="Kế hoạch tổ chức">
-            <p className="text-sm text-slate-600 leading-relaxed">
-              {item.plan}
-            </p>
-          </Card>
-          <Card title="Tài liệu đính kèm">
-            <div className="space-y-2">
-              {documentNotice && (
-                <div
-                  role="status"
-                  className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
-                >
-                  {documentNotice}: đây mới là tên tài liệu minh họa; bản PDF
-                  thực tế sẽ được lấy từ backend khi tích hợp.
-                  <button
-                    className="ml-2 font-bold underline"
-                    onClick={() => setDocumentNotice(null)}
-                  >
-                    Đóng
-                  </button>
-                </div>
-              )}
-              {item.documents.map((doc) => (
-                <div
-                  key={doc}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50"
-                >
-                  <span className="text-sm text-slate-700">{doc}</span>
-                  <button
-                    onClick={() => setDocumentNotice(doc)}
-                    className="text-xs font-semibold text-indigo"
-                  >
-                    Xem
-                  </button>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
-      {tab === "points" && (
-        <div className="space-y-4">
-          <div className="rounded-2xl bg-indigo-light border border-indigo-100 p-4">
-            <p className="text-sm font-semibold text-indigo">
-              Đây là quy tắc điểm dự kiến.
-            </p>
-            <p className="text-sm text-indigo/80 mt-1">
-              Điểm thực tế được công nhận sau khi đối soát và phê duyệt kết quả
-              tham gia.
-            </p>
-          </div>
-          <div className="grid lg:grid-cols-2 gap-4">
-            <Card title="Cấu hình quy tắc">
+      {tab === "overview" && (() => {
+        const startIso = detailRecord?.thoi_gian_bat_dau || item.startTime || item.eventDate
+        const endIso = detailRecord?.thoi_gian_ket_thuc || item.endTime || ""
+        const startHm = formatTimeHm(startIso)
+        const endHm = formatTimeHm(endIso)
+        const roomName = detailRecord?.phong?.ten_phong || detailRecord?.ten_phong || item.roomName || "Chưa cập nhật"
+        const campusLabel =
+          (detailRecord?.phong?.co_so ?? detailRecord?.co_so) === "CoSo2"
+            ? "Cơ sở 2"
+            : "Cơ sở 1"
+        const roomCap = detailRecord?.phong?.suc_chua_toi_da
+        const roomText = roomCap
+          ? `${roomName} · ${campusLabel} · ${roomCap} chỗ`
+          : roomName
+        const isUnlimited = detailRecord?.khong_gioi_han_slot ?? false
+        const ticketScale = isUnlimited
+          ? "Mở tự do (không giới hạn)"
+          : detailRecord?.so_luong_toi_da != null
+            ? `${detailRecord.so_luong_toi_da} vé`
+            : "Chưa cập nhật"
+        const topicText = detailRecord?.chuyen_de?.ten_chuyen_de || detailRecord?.ten_chuyen_de || item.topicName || "Chưa cập nhật"
+        const speakerText = detailRecord?.dien_gia || item.speaker || "Chưa cập nhật"
+        const targetAudience = detailRecord?.doi_tuong_tham_gia || "Toàn thể sinh viên UIT"
+        const descriptionText = detailRecord?.mo_ta || item.description || "Chưa có mô tả chi tiết."
+
+        return (
+          <div className="grid lg:grid-cols-3 gap-4">
+            <Card title="Thông tin sự kiện" className="lg:col-span-2">
               <InfoGrid
                 values={[
-                  ["Học kỳ", item.semester],
-                  ["Nhóm / mã tiêu chí", item.criteriaCode],
-                  ["Điểm tối đa", `${item.maxPoints} điểm`],
-                  ["Thời lượng hợp lệ", `${item.validMinutes} phút`],
-                  [
-                    "Phiên bắt buộc",
-                    item.requiredSessions.join(", ") || "Không có",
-                  ],
+                  ["Ngày tổ chức", formatCalendarDate(startIso)],
+                  ["Khung giờ", startHm && endHm ? `${startHm} – ${endHm}` : "Chưa cập nhật"],
+                  ["Phòng / Hội trường", roomText],
+                  ["Quy mô vé", ticketScale],
+                  ["Đơn vị chủ trì", item.unit],
+                  ["Khoa quản lý", item.faculty],
+                  ["Chuyên đề", topicText],
+                  ["Diễn giả / Khách mời", speakerText],
+                  ["Đối tượng tham gia", targetAudience],
                 ]}
               />
+              <p className="text-sm text-slate-600 leading-relaxed mt-4 pt-4 border-t border-slate-100 whitespace-pre-line">
+                {descriptionText}
+              </p>
             </Card>
-            <Card title="Ngưỡng tham gia minh họa">
-              <div className="space-y-2">
-                {item.thresholds.map((row) => (
-                  <div
-                    key={row.ratio}
-                    className="flex justify-between p-3 rounded-xl bg-slate-50 text-sm"
-                  >
-                    <span>Từ {row.ratio}% thời lượng</span>
-                    <b className="text-indigo">{row.points} điểm</b>
+            <Card title="Tiến trình phê duyệt">
+              <Progress status={item.status} />
+            </Card>
+          </div>
+        )
+      })()}
+      {tab === "documents" && (() => {
+        const agenda = Array.isArray(detailRecord?.lo_trinh) ? detailRecord.lo_trinh : []
+        const cohosts = Array.isArray(detailRecord?.danh_sach_dong_to_chuc)
+          ? detailRecord.danh_sach_dong_to_chuc
+          : []
+        return (
+          <div className="grid lg:grid-cols-2 gap-4">
+            <Card title="Lịch trình chi tiết (Agenda)">
+              {agenda.length > 0 ? (
+                <div className="space-y-2.5">
+                  {agenda.map((slot, idx) => {
+                    const raw = slot as unknown as {
+                      time?: string
+                      title?: string
+                      thoi_gian?: string
+                      thoi_gian_bat_dau?: string
+                      thoi_gian_ket_thuc?: string
+                      tieu_de?: string
+                      dien_gia?: string | null
+                    }
+                    const slotTime =
+                      raw.time ||
+                      raw.thoi_gian ||
+                      (raw.thoi_gian_bat_dau && raw.thoi_gian_ket_thuc
+                        ? `${raw.thoi_gian_bat_dau} – ${raw.thoi_gian_ket_thuc}`
+                        : raw.thoi_gian_bat_dau) ||
+                      "—"
+                    const slotTitle = raw.title || raw.tieu_de || "Hoạt động sự kiện"
+                    return (
+                      <div
+                        key={`${slotTime}-${idx}`}
+                        className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100"
+                      >
+                        <span className="font-mono text-xs font-bold text-indigo bg-indigo-50 px-2.5 py-1 rounded-lg shrink-0">
+                          {slotTime}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm text-slate-700 font-medium">
+                            {slotTitle}
+                          </p>
+                          {raw.dien_gia && (
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              Phụ trách: {raw.dien_gia}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">
+                  Chưa có lịch trình chi tiết được đính kèm.
+                </p>
+              )}
+            </Card>
+            <Card title="Đơn vị đồng tổ chức">
+              {cohosts.length > 0 ? (
+                <div className="space-y-2.5">
+                  {cohosts.map((ch, idx) => {
+                    const obj = ch as {
+                      ma_don_vi_to_chuc?: number
+                      ten_don_vi?: string
+                      trang_thai_xac_nhan?: string
+                      ghi_chu_tu_choi?: string | null
+                      don_vi?: { ma_don_vi?: number; ten_don_vi?: string }
+                    }
+                    const name = obj.ten_don_vi || obj.don_vi?.ten_don_vi || "Đơn vị đồng tổ chức"
+                    const st = obj.trang_thai_xac_nhan || "CHO_XAC_NHAN"
+                    const badge = COHOST_STATUS_LABELS[st] || COHOST_STATUS_LABELS.CHO_XAC_NHAN
+                    return (
+                      <div
+                        key={obj.ma_don_vi_to_chuc || obj.don_vi?.ma_don_vi || idx}
+                        className="p-3 rounded-xl bg-slate-50 border border-slate-100"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-slate-700">{name}</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badge.tone}`}>
+                            {badge.label}
+                          </span>
+                        </div>
+                        {obj.ghi_chu_tu_choi && (
+                          <p className="text-xs text-rose-600 mt-1.5">
+                            Lý do: {obj.ghi_chu_tu_choi}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">
+                  Sự kiện không có đơn vị đồng tổ chức.
+                </p>
+              )}
+            </Card>
+          </div>
+        )
+      })()}
+      {tab === "points" && (() => {
+        const drlRule = detailRecord?.dieu_khoan_drl
+        const drlLabel =
+          drlRule === "Dieu4"
+            ? "Điều 4 — Tham gia hoạt động chính trị, xã hội, văn hóa, thể thao"
+            : drlRule === "Dieu3"
+              ? "Điều 3 — Ý thức và kết quả học tập, nghiên cứu khoa học"
+              : drlRule === "KhongCo"
+                ? "Không cộng điểm rèn luyện"
+                : item.criteriaCode || "Chưa cập nhật"
+        const drlPoints = detailRecord?.diem_drl_du_kien ?? item.proposedPoints ?? 0
+        const volunteerHours = detailRecord?.gio_tinh_nguyen ?? 0
+        const durationMinutes = (() => {
+          if (!detailRecord?.thoi_gian_bat_dau || !detailRecord?.thoi_gian_ket_thuc) return null
+          const diff = Math.round(
+            (new Date(detailRecord.thoi_gian_ket_thuc).getTime() -
+              new Date(detailRecord.thoi_gian_bat_dau).getTime()) /
+              60000,
+          )
+          return Number.isFinite(diff) && diff > 0 ? diff : null
+        })()
+        return (
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-indigo-light border border-indigo-100 p-4">
+              <p className="text-sm font-semibold text-indigo">
+                Đây là mức điểm rèn luyện và giờ tình nguyện dự kiến.
+              </p>
+              <p className="text-sm text-indigo/80 mt-1">
+                Điểm thực tế được chốt sau khi đối soát dữ liệu điểm danh và khảo sát phản hồi của sinh viên.
+              </p>
+            </div>
+            <div className="grid lg:grid-cols-2 gap-4">
+              <Card title="Cấu hình điểm rèn luyện (Từ dữ liệu sự kiện)">
+                <InfoGrid
+                  values={[
+                    ["Điều khoản ĐRL", drlLabel],
+                    ["Điểm ĐRL dự kiến", `${drlPoints} điểm`],
+                    ["Giờ tình nguyện", `${volunteerHours} giờ`],
+                    ["Thời lượng dự kiến", durationMinutes ? `${durationMinutes} phút` : "Chưa xác định"],
+                  ]}
+                />
+              </Card>
+              <Card title="Quy tắc công nhận theo tỷ lệ tham dự">
+                <div className="space-y-2">
+                  <div className="flex justify-between p-3 rounded-xl bg-slate-50 text-sm">
+                    <span>Tham dự từ 80% thời lượng trở lên</span>
+                    <b className="text-indigo">{drlPoints} điểm (100%)</b>
+                  </div>
+                  <div className="flex justify-between p-3 rounded-xl bg-slate-50 text-sm">
+                    <span>Tham dự từ 50% đến dưới 80% thời lượng</span>
+                    <b className="text-slate-700">{(drlPoints * 0.5).toFixed(1).replace(/\.0$/, "")} điểm (50%)</b>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Sinh viên cần hoàn tất điểm danh vào/ra và gửi khảo sát đánh giá để đủ điều kiện nhận điểm rèn luyện và chứng nhận.
+                  </p>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )
+      })()}
+      {tab === "history" && (() => {
+        const dbLogs = Array.isArray(detailRecord?.lich_su_kiem_duyet)
+          ? [...detailRecord.lich_su_kiem_duyet].reverse()
+          : []
+        const entries =
+          dbLogs.length > 0
+            ? dbLogs.map((log) => ({
+                id: String(log.id),
+                action: AUDIT_ACTION_LABELS[log.hanh_dong] || log.hanh_dong,
+                actor: log.nguoi_thuc_hien?.ho_ten || "Hệ thống tự động",
+                at: formatDateTimeVi(log.thoi_gian_tao),
+                note: log.ly_do || undefined,
+              }))
+            : [...item.history].reverse()
+        return (
+          <Card title="Nhật ký kiểm duyệt">
+            {entries.length === 0 ? (
+              <p className="text-sm text-slate-400">
+                Chưa có lịch sử xử lý nào được ghi nhận cho hồ sơ này.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {entries.map((entry, index) => (
+                  <div key={entry.id} className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-indigo-light text-indigo flex items-center justify-center text-xs font-bold shrink-0">
+                      {entries.length - index}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-navy">
+                        {entry.action}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {entry.actor} · {entry.at}
+                      </p>
+                      {entry.note && (
+                        <p className="text-sm text-slate-600 mt-1 p-2.5 bg-slate-50 rounded-lg">
+                          {entry.note}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
-                <p className="text-xs text-slate-400 mt-3">
-                  Các ngưỡng có thể cấu hình và không phải quy định chính thức
-                  của trường.
-                </p>
               </div>
-            </Card>
-            <Card title="Điều kiện chứng nhận">
-              <p className="text-sm text-slate-600">
-                {item.certificateCondition}
-              </p>
-              <p className="text-xs text-slate-400 mt-2">
-                Điều kiện chứng nhận được xét riêng với điều kiện điểm.
-              </p>
-            </Card>
-            <Card title="Căn cứ & phiên bản">
-              <InfoGrid
-                values={[
-                  ["Căn cứ", item.ruleBasis],
-                  ["Phiên bản quy tắc", item.ruleVersion],
-                ]}
-              />
-            </Card>
-          </div>
-        </div>
-      )}
-      {tab === "history" && (
-        <Card title="Nhật ký không thể xóa">
-          <div className="space-y-4">
-            {[...item.history].reverse().map((entry, index) => (
-              <div key={entry.id} className="flex gap-3">
-                <div className="w-7 h-7 rounded-full bg-indigo-light text-indigo flex items-center justify-center text-xs font-bold">
-                  {item.history.length - index}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-navy">
-                    {entry.action}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {entry.actor} · {entry.at}
-                  </p>
-                  {entry.note && (
-                    <p className="text-sm text-slate-600 mt-1 p-2.5 bg-slate-50 rounded-lg">
-                      {entry.note}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+            )}
+          </Card>
+        )
+      })()}
       {dialog && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
@@ -871,9 +1170,9 @@ function ApprovalDetail({
                     : dialog === "emergency_cancel"
                       ? "Hủy sự kiện khẩn cấp"
                       : dialog === "withdraw"
-                        ? "Rút đề xuất cưỡng chế (Về DRAFT)"
+                        ? "Rút đề xuất cưỡng chế (Về bản nháp)"
                         : dialog === "faculty_approve_by_admin"
-                          ? "Duyệt thay cấp Khoa (Admin Override)"
+                          ? "Duyệt thay cấp Khoa (P.CTSV can thiệp)"
                           : "Tái mở bản nháp để chỉnh sửa"}
             </h2>
             <p className="text-sm text-slate-500 mt-1 mb-4">
@@ -882,9 +1181,9 @@ function ApprovalDetail({
                 : dialog === "emergency_cancel"
                   ? "Cảnh báo: Toàn bộ vé sinh viên đã nhận sẽ tự động bị thu hồi kèm email thông báo xin lỗi."
                   : dialog === "withdraw"
-                    ? "Admin can thiệp rút hồ sơ đang thẩm định về DRAFT. Phòng hội trường đang giữ chỗ sẽ được tự động giải phóng. Yêu cầu nhập lý do kiểm toán (tối thiểu 10 ký tự):"
+                    ? "Admin can thiệp rút hồ sơ đang thẩm định về bản nháp. Phòng hội trường đang giữ chỗ sẽ được tự động giải phóng. Yêu cầu nhập lý do kiểm toán (tối thiểu 10 ký tự):"
                     : dialog === "reopen"
-                      ? "Khôi phục hồ sơ đã bị từ chối quay về DRAFT để Ban tổ chức có thể hoàn thiện lại. Yêu cầu nhập lý do kiểm toán (tối thiểu 10 ký tự):"
+                      ? "Khôi phục hồ sơ đã bị từ chối quay về bản nháp để Ban tổ chức có thể hoàn thiện lại. Yêu cầu nhập lý do kiểm toán (tối thiểu 10 ký tự):"
                       : dialog === "faculty_approve_by_admin"
                         ? "Admin can thiệp phê duyệt thay cấp Khoa khi Khoa chậm trễ hoặc gặp sự cố kỹ thuật. Yêu cầu nhập lý do kiểm toán (tối thiểu 5 ký tự):"
                         : "Lý do là bắt buộc (tối thiểu 10 ký tự) và sẽ được lưu trong lịch sử kiểm toán."}
@@ -900,16 +1199,17 @@ function ApprovalDetail({
                   onChange={(e) => setNewRoomId(e.target.value)}
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-semibold"
                 >
-                  <option value="">-- Chọn phòng trống --</option>
-                  <option value="Hội trường A">
-                    Hội trường A (Sức chứa 400 - Cơ sở 1)
-                  </option>
-                  <option value="Hội trường B">
-                    Hội trường B (Sức chứa 250 - Cơ sở 1)
-                  </option>
-                  <option value="Phòng Hội thảo E">
-                    Phòng Hội thảo E (Sức chứa 150 - Cơ sở 2)
-                  </option>
+                  <option value="">-- Chọn phòng từ danh mục --</option>
+                  {rooms.map((r) => (
+                    <option
+                      key={r.ma_phong}
+                      value={String(r.ma_phong)}
+                      disabled={r.trang_thai === "BaoTri"}
+                    >
+                      {r.ten_phong} (Sức chứa {r.suc_chua} chỗ · {r.co_so === "CoSo2" ? "Cơ sở 2" : "Cơ sở 1"})
+                      {r.trang_thai === "BaoTri" ? " [ĐANG BẢO TRÌ]" : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
@@ -958,12 +1258,16 @@ function ApprovalDetail({
                   }
                 }}
                 disabled={
+                  busy ||
                   !reason.trim() ||
                   ((dialog === "reject" ||
+                    dialog === "revision" ||
                     dialog === "withdraw" ||
                     dialog === "reopen") &&
                     reason.trim().length < 10) ||
-                  (dialog === "faculty_approve_by_admin" &&
+                  ((dialog === "faculty_approve_by_admin" ||
+                    dialog === "emergency_room" ||
+                    dialog === "emergency_cancel") &&
                     reason.trim().length < 5) ||
                   (dialog === "emergency_room" && !newRoomId)
                 }

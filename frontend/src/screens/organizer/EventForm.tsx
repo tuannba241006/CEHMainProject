@@ -145,13 +145,58 @@ function getRoomMaintenanceInfo(
   }
 }
 
+const AI_CONTENT_COPILOT_ENABLED = false
+
+const ORG_TYPE_LABELS: Record<string, string> = {
+  CLB: "CLB",
+  Khoa: "Khoa",
+  DoanHoi: "Đoàn - Hội",
+  PhongBan: "Phòng ban",
+}
+
+const CAMPUS_LABELS: Record<string, string> = {
+  CoSo1: "Cơ sở 1",
+  CoSo2: "Cơ sở 2",
+}
+
+function formatOrgTypeLabel(type?: string | null): string {
+  if (!type) return ""
+  return ORG_TYPE_LABELS[type] ?? type
+}
+
+function formatCampusLabel(campus?: string | null): string {
+  if (!campus) return ""
+  return CAMPUS_LABELS[campus] ?? campus
+}
+
+export function formatLocalDate(date: Date): string {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, "0")
+  const dd = String(date.getDate()).padStart(2, "0")
+  return `${yyyy}-${mm}-${dd}`
+}
+
+export function formatLocalTime(date: Date): string {
+  const hh = String(date.getHours()).padStart(2, "0")
+  const mi = String(date.getMinutes()).padStart(2, "0")
+  return `${hh}:${mi}`
+}
+
 export default function EventForm({ onNavigate, onLogout }: Props) {
   const { id } = useParams<{ id?: string }>()
-  const isEditMode = Boolean(id)
-  const { user } = useUser()
+  const { user, role } = useUser()
   const { saveApprovalDraft } = useApp()
   const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [createdDraftId, setCreatedDraftId] = useState<number | undefined>(
+    undefined,
+  )
+  const effectiveEventId = id ? Number(id) : createdDraftId
+  const isEditMode = Boolean(effectiveEventId)
+  const isDirectToAdminUnit =
+    role === "faculty_manager" ||
+    ["Khoa", "PhongBan", "DoanHoi"].includes(user?.don_vi?.loai_don_vi || "")
+  const submitLabel = isDirectToAdminUnit ? "Gửi CTSV duyệt" : "Gửi khoa duyệt"
   const [bannerUploading, setBannerUploading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [orgList, setOrgList] = useState<OrganizationSummary[]>([])
@@ -267,9 +312,12 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
         const ev: any = res.data
         const start = ev.thoi_gian_bat_dau ? new Date(ev.thoi_gian_bat_dau) : null
         const end = ev.thoi_gian_ket_thuc ? new Date(ev.thoi_gian_ket_thuc) : null
-        const dateStr = start ? start.toISOString().slice(0, 10) : ""
-        const startTimeStr = start ? start.toTimeString().slice(0, 5) : ""
-        const endTimeStr = end ? end.toTimeString().slice(0, 5) : ""
+        const dateStr =
+          start && !Number.isNaN(start.getTime()) ? formatLocalDate(start) : ""
+        const startTimeStr =
+          start && !Number.isNaN(start.getTime()) ? formatLocalTime(start) : ""
+        const endTimeStr =
+          end && !Number.isNaN(end.getTime()) ? formatLocalTime(end) : ""
 
         const topicId = ev.chuyen_de?.ma_chuyen_de ?? ev.ma_chuyen_de
         const roomId = ev.phong?.ma_phong ?? ev.ma_phong
@@ -513,7 +561,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
       }
     }
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = formatLocalDate(new Date())
     if (!form.eventDate) {
       if (submitForApproval) e.eventDate = "Vui lòng chọn ngày tổ chức."
     } else if (form.eventDate < today) {
@@ -550,16 +598,16 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
     setSaving(true)
     try {
       const title = form.title.trim() || "Bản nháp chưa đặt tên"
-      let eventTargetId = id ? Number(id) : undefined
+      let eventTargetId = effectiveEventId
 
       const payload: any = {
         ten_su_kien: title,
         mo_ta: form.description.trim(),
         ma_chuyen_de: Number(form.topic),
         ma_phong: Number(form.room),
-        ngay_cong_bo: `${form.publishDate}T08:00:00`,
-        thoi_gian_bat_dau: `${form.eventDate}T${form.startTime}:00`,
-        thoi_gian_ket_thuc: `${form.eventDate}T${form.endTime}:00`,
+        ngay_cong_bo: `${form.publishDate}T08:00:00+07:00`,
+        thoi_gian_bat_dau: `${form.eventDate}T${form.startTime}:00+07:00`,
+        thoi_gian_ket_thuc: `${form.eventDate}T${form.endTime}:00+07:00`,
         khong_gioi_han_slot: form.unlimited === "true",
         so_luong_toi_da:
           form.unlimited === "true" ? null : Number(form.capacity),
@@ -581,8 +629,8 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
           : {}),
       }
 
-      if (id) {
-        const updated = await eventsService.updateDraft(id, payload)
+      if (effectiveEventId) {
+        const updated = await eventsService.updateDraft(effectiveEventId, payload)
         if (!updated.success)
           throw new Error(updated.message || "Không thể cập nhật bản nháp")
       } else {
@@ -594,6 +642,9 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
           id?: number
         }
         eventTargetId = event.ma_su_kien ?? event.id
+        if (eventTargetId) {
+          setCreatedDraftId(eventTargetId)
+        }
       }
 
       if (submitForApproval && eventTargetId) {
@@ -660,12 +711,19 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
           danh_sach_co_host_ids: "cohost",
         }
         for (const [backendField, msgs] of Object.entries(vErrors)) {
+          const msg = Array.isArray(msgs)
+            ? msgs.find((m) => typeof m === "string" && m.trim() !== "")
+            : undefined
+          if (!msg) continue
           const formField = fieldMapping[backendField] || backendField
-          mappedErrors[formField] = Array.isArray(msgs) ? msgs[0] : String(msgs)
+          mappedErrors[formField] = msg
         }
-        setErrors(mappedErrors)
-        const firstMsg = Object.values(mappedErrors)[0]
-        showToast(firstMsg || "Dữ liệu cung cấp không hợp lệ.", "error")
+        if (Object.keys(mappedErrors).length > 0) {
+          setErrors(mappedErrors)
+          showToast(Object.values(mappedErrors)[0], "error")
+        } else {
+          showToast(getApiErrorMessage(error), "error")
+        }
       } else {
         showToast(getApiErrorMessage(error), "error")
       }
@@ -712,29 +770,31 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                   Chính sách giữ chỗ phòng Soft Hold 48h:
                 </p>
                 <p className="mt-0.5 text-amber-800 leading-relaxed">
-                  Khi bạn nhấn "Gửi phê duyệt", phòng hội trường được chọn sẽ
-                  được hệ thống giữ tạm thời (Soft Hold) tối đa 48 giờ để chờ
-                  Khoa và CTSV thẩm định. Slot sẽ tự giải phóng nếu không được
-                  duyệt trước thời hạn.
+                  Khi bạn nhấn "{submitLabel}" có mời đơn vị đồng tổ chức, phòng
+                  hội trường sẽ được hệ thống giữ tạm thời (Soft Hold) tối đa 48
+                  giờ để chờ các đơn vị đồng tổ chức xác nhận. Slot phòng sẽ tự
+                  giải phóng nếu quá hạn chưa đủ đồng thuận.
                 </p>
               </div>
             </div>
 
             {/* Section 1: Thông tin chung */}
             <Section title="Thông tin chung">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs text-slate-500">
-                  Nhập tiêu đề hoặc dùng trợ lý AI:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAiModal(true)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-purple-200"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Trợ lý gợi ý nội dung & Agenda</span>
-                </button>
-              </div>
+              {AI_CONTENT_COPILOT_ENABLED && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-slate-500">
+                    Nhập tiêu đề hoặc dùng trợ lý AI:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAiModal(true)}
+                    className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-purple-200"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Trợ lý gợi ý nội dung & Agenda</span>
+                  </button>
+                </div>
+              )}
               <FormField label="Tên sự kiện" required error={errors.title}>
                 <input
                   value={form.title}
@@ -857,9 +917,9 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
             <Section title="Đơn vị Đồng tổ chức (Co-hosts)">
               <p className="text-xs text-slate-500 mb-3">
                 Chọn các Câu lạc bộ, Khoa hoặc Phòng ban phối hợp tổ chức. Khi
-                gửi duyệt, hệ thống sẽ chuyển sự kiện sang trạng thái{" "}
-                <strong>WAITING_COHOST_CONFIRM</strong> để các đơn vị đồng tổ
-                chức xác nhận.
+                gửi duyệt, sự kiện sẽ chuyển sang trạng thái{" "}
+                <strong>Chờ đồng tổ chức xác nhận</strong> để các đơn vị được
+                mời phản hồi trong vòng 48 giờ.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 bg-slate-50 rounded-2xl border border-slate-200">
                 {orgList.map((org) => {
@@ -867,6 +927,9 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                     ? form.cohostIds.split(",").map((s) => s.trim())
                     : []
                   const isChecked = selectedIds.includes(String(org.ma_don_vi))
+                  const isSelfHost =
+                    user.ma_don_vi_to_chuc != null &&
+                    Number(org.ma_don_vi) === Number(user.ma_don_vi_to_chuc)
                   return (
                     <label
                       key={org.ma_don_vi}
@@ -889,8 +952,13 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                         {org.ten_don_vi}
                       </span>
                       <span className="text-[10px] text-slate-400">
-                        ({org.loai_don_vi})
+                        ({formatOrgTypeLabel(org.loai_don_vi)})
                       </span>
+                      {isSelfHost && (
+                        <span className="ml-auto px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold">
+                          Đơn vị chủ trì
+                        </span>
+                      )}
                     </label>
                   )
                 })}
@@ -997,7 +1065,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                           value={room.ma_phong}
                           disabled={maint.isConflict}
                         >
-                          {room.ten_phong} · {room.co_so} · {room.suc_chua} chỗ
+                          {room.ten_phong} · {formatCampusLabel(room.co_so)} · {room.suc_chua} chỗ
                           {maint.suffix}
                         </option>
                       )
@@ -1065,7 +1133,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                 {form.unlimited === "true"
                   ? "Sự kiện mở tự do cho phép sinh viên tham gia không cần xếp hàng slot."
                   : selectedRoom
-                    ? `Phòng ${selectedRoom.ten_phong} có sức chứa tối đa ${selectedRoom.suc_chua} chỗ. Hệ thống sẽ đóng đăng ký khi hết slot.`
+                    ? `${selectedRoom.ten_phong} có sức chứa tối đa ${selectedRoom.suc_chua} chỗ. Hệ thống sẽ đóng đăng ký khi hết slot.`
                     : "Sau khi đạt giới hạn, hệ thống sẽ tự động đóng đăng ký và kích hoạt hàng đợi Waitlist."}
               </p>
             </Section>
@@ -1073,7 +1141,7 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
             {/* Section 6: Nội dung chương trình (lo_trinh) */}
             <Section title="Nội dung chương trình (Lộ trình sự kiện)">
               <FormField
-                label="Lịch trình chi tiết (Lộ trình JSON Array - Mỗi mốc một dòng)"
+                label="Lịch trình chi tiết (Mỗi mốc thời gian một dòng)"
                 error={errors.agenda}
               >
                 <textarea
@@ -1086,8 +1154,8 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
                 />
               </FormField>
               <p className="text-xs text-slate-400">
-                Hệ thống sẽ tự động chuyển đổi các dòng lịch trình thành danh
-                sách Agenda chuẩn OpenAPI để hiển thị cho sinh viên.
+                Hệ thống sẽ tự động định dạng các mốc thời gian thành lịch trình
+                sự kiện rõ ràng cho sinh viên theo dõi.
               </p>
             </Section>
 
@@ -1095,8 +1163,8 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
             <Section title="Đề xuất Điểm rèn luyện (ĐRL)">
               <div className="rounded-xl p-3 bg-indigo-50 border border-indigo-100">
                 <p className="text-xs text-indigo-700">
-                  Đây là quy tắc điểm dự kiến theo SRS v3.1.3. Điểm thực tế chỉ
-                  được công nhận sau khi đối soát và Phòng CTSV phê duyệt.
+                  Đây là quy tắc điểm dự kiến. Điểm thực tế chỉ được công nhận
+                  sau khi đối soát điểm danh và Phòng CTSV phê duyệt.
                 </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1251,16 +1319,17 @@ export default function EventForm({ onNavigate, onLogout }: Props) {
             className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
             style={{ background: "#4f46e5" }}
           >
-            {saving ? "Đang xử lý..." : "Gửi khoa duyệt"}
+            {saving ? "Đang xử lý..." : submitLabel}
           </button>
           <p className="w-full text-xs text-slate-400">
-            Gửi duyệt không đồng nghĩa công bố. Sự kiện chỉ đủ điều kiện công bố
-            sau khi Khoa và Phòng CTSV phê duyệt.
+            {isDirectToAdminUnit
+              ? "Gửi duyệt không đồng nghĩa công bố. Sự kiện chỉ đủ điều kiện công bố sau khi Phòng CTSV phê duyệt."
+              : "Gửi duyệt không đồng nghĩa công bố. Sự kiện chỉ đủ điều kiện công bố sau khi Khoa và Phòng CTSV phê duyệt."}
           </p>
         </div>
 
         {/* UC-AI-01: AI Content Copilot Modal */}
-        {showAiModal && (
+        {AI_CONTENT_COPILOT_ENABLED && showAiModal && (
           <div
             className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
             onClick={() => setShowAiModal(false)}

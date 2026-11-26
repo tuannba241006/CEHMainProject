@@ -79,16 +79,16 @@ export default function CohostInvitations({ onNavigate, onLogout }: Props) {
                 item.don_vi_dong_to_chuc?.ten_don_vi ||
                 user.don_vi?.ten_don_vi ||
                 "CLB WebDev UIT",
-              hostContact: "bch@uit.edu.vn",
-              topic: "Học thuật & Công nghệ",
+              hostContact: item.don_vi_host?.loai_don_vi || "Đơn vị chủ trì",
+              topic: item.ten_chuyen_de || "Chuyên đề sự kiện",
               eventDate,
               eventTime: `${startTime} - ${endTime}`,
-              roomName: item.ten_phong || "Hội trường A",
+              roomName: item.ten_phong || "Chưa cập nhật",
               roleDescription:
-                "Phối hợp hỗ trợ kiểm tra thiết bị và điều phối check-in sinh viên.",
+                "Phối hợp đồng tổ chức, truyền thông và điều phối check-in sinh viên.",
               drlAllocation: item.diem_drl_du_kien
-                ? `Cộng ${item.diem_drl_du_kien} điểm DRL ${item.dieu_khoan_drl || ""}`
-                : "Cộng 5 điểm DRL Điều 3 cho sinh viên tham gia.",
+                ? `Cộng ${item.diem_drl_du_kien} điểm ĐRL (${item.dieu_khoan_drl === "Dieu4" ? "Điều 4" : item.dieu_khoan_drl === "Dieu3" ? "Điều 3" : "Không có"})`
+                : "Không cộng điểm ĐRL",
               deadline: item.han_giu_cho_tam || "2026-11-02T18:00:00+07:00",
               hoursLeft,
               status: uiStatus,

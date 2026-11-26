@@ -368,6 +368,56 @@ export interface EventCard {
   trang_thai: EventStatus
   dieu_khoan_drl: DrlRule
   diem_drl_du_kien: number
+  thoi_gian_tao?: string | null
+}
+
+/** Mục nhật ký kiểm duyệt sự kiện */
+export interface EventAuditLogEntry {
+  id: number
+  hanh_dong: string
+  nguoi_thuc_hien?: {
+    ma_tai_khoan: number
+    ho_ten: string
+    email: string
+    loai_tai_khoan: string
+  } | null
+  trang_thai_truoc?: string | null
+  trang_thai_sau?: string | null
+  ly_do?: string | null
+  thoi_gian_tao?: string | null
+}
+
+/** Bản ghi đồng tổ chức chi tiết */
+export interface EventCohostDetail {
+  id?: number
+  ma_don_vi_to_chuc?: number
+  ten_don_vi?: string
+  trang_thai_xac_nhan?: string
+  ghi_chu_tu_choi?: string | null
+  thoi_gian_phan_hoi?: string | null
+  don_vi?: OrganizationSummary
+}
+
+/** Chi tiết sự kiện quản trị (/organizer/events/{id}) */
+export interface EventManageDetail extends EventCard {
+  mo_ta: string
+  lo_trinh?: AgendaItem[] | null
+  doi_tuong_tham_gia?: string | null
+  chuyen_de?: Topic | null
+  don_vi_host?: OrganizationSummary | null
+  danh_sach_dong_to_chuc: Array<OrganizationSummary | EventCohostDetail>
+  phong?: RoomPublic | null
+  han_giu_cho_tam_phong?: string | null
+  ngay_cong_bo: string
+  thoi_gian_ket_thuc_thuc_te?: string | null
+  so_slot_dong_bang?: number
+  thoi_diem_het_ve?: string | null
+  gio_tinh_nguyen: number
+  cong_check_in_mo?: boolean
+  cong_check_out_mo?: boolean
+  da_chot_drl?: boolean
+  lich_su_kiem_duyet?: EventAuditLogEntry[]
+  thoi_gian_cap_nhat?: string | null
 }
 
 /** Chi tiết sự kiện công khai (EventPublicDetail) */
@@ -536,6 +586,15 @@ export interface Notification {
   thoi_gian_gui: string
 }
 
+/** Phản hồi khảo sát ẩn danh từ View v_feedback_an_danh (Tuân thủ Nghị định 13) */
+export interface AnonymousFeedbackItem {
+  diem_noi_dung: number
+  diem_dien_gia: number
+  diem_to_chuc: number
+  y_kien_dong_gop: string
+  thoi_gian_gui?: string | null
+}
+
 /** Báo cáo phân tích Dashboard Ban tổ chức (OrganizerDashboard) */
 export interface OrganizerDashboard {
   ma_su_kien: number
@@ -551,6 +610,8 @@ export interface OrganizerDashboard {
   diem_noi_dung_tb?: number | null
   diem_dien_gia_tb?: number | null
   diem_to_chuc_tb?: number | null
+  tong_so_phan_hoi?: number
+  phan_hoi_an_danh?: AnonymousFeedbackItem[]
   phan_bo_theo_khoa?: Array<{
     ma_khoa: number | null
     ten_khoa: string

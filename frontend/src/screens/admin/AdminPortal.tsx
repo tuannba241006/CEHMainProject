@@ -1257,7 +1257,7 @@ export default function AdminPortal({ section }: { section: Section }) {
                         </td>
                         <td className="p-3">
                           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            PUBLISHED
+                            Đang mở đăng ký
                           </span>
                         </td>
                         <td className="p-3 text-right whitespace-nowrap">

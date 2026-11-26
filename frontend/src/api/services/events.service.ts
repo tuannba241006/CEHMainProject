@@ -2,6 +2,7 @@ import { api } from "../client"
 import type {
   EventCard,
   EventPublicDetail,
+  EventManageDetail,
   CohostInvitationStatus,
   EventCreateDraftPayload,
   EventUpdateDraftPayload,
@@ -22,7 +23,7 @@ export const eventsService = {
   getOrganizerEvents: (query?: Record<string, string | number | undefined>) =>
     api.get<ApiEnvelope<EventCard[]>>("/organizer/events", { query }),
   organizerDetail: (id: number | string) =>
-    api.get<ApiEnvelope<EventPublicDetail>>(`/organizer/events/${id}`),
+    api.get<ApiEnvelope<EventManageDetail>>(`/organizer/events/${id}`),
   createDraft: (payload: EventCreateDraftPayload) =>
     api.post<ApiEnvelope<EventPublicDetail>>("/events", payload),
   updateDraft: (id: number | string, payload: EventUpdateDraftPayload) =>
