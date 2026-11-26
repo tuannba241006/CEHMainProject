@@ -55,10 +55,33 @@ class EventAnalyticsService
             $tyLeNoShowPct = $tongVeDangKy > 0 ? round(($soLuongNoShow / $tongVeDangKy) * 100, 2) : 0.0;
         }
 
-        // Ratings
+        // Ratings & anonymous feedback (v_feedback_an_danh)
         $diemNoiDungTb = $analytics && $analytics->diem_noi_dung_tb !== null ? (float) $analytics->diem_noi_dung_tb : null;
         $diemDienGiaTb = $analytics && $analytics->diem_dien_gia_tb !== null ? (float) $analytics->diem_dien_gia_tb : null;
         $diemToChucTb = $analytics && $analytics->diem_to_chuc_tb !== null ? (float) $analytics->diem_to_chuc_tb : null;
+        $tongSoPhanHoi = DB::table('v_feedback_an_danh')
+            ->where('ma_su_kien', $eventId)
+            ->count();
+        $phanHoiAnDanh = DB::table('v_feedback_an_danh')
+            ->where('ma_su_kien', $eventId)
+            ->whereNotNull('y_kien_dong_gop')
+            ->whereRaw("TRIM(y_kien_dong_gop) <> ''")
+            ->orderByDesc('thoi_gian_gui')
+            ->limit(20)
+            ->get()
+            ->map(function ($row) {
+                return [
+                    'diem_noi_dung' => (int) $row->diem_noi_dung,
+                    'diem_dien_gia' => (int) $row->diem_dien_gia,
+                    'diem_to_chuc' => (int) $row->diem_to_chuc,
+                    'y_kien_dong_gop' => (string) $row->y_kien_dong_gop,
+                    'thoi_gian_gui' => $row->thoi_gian_gui
+                        ? Carbon::parse($row->thoi_gian_gui)->setTimezone('+07:00')->toIso8601String()
+                        : null,
+                ];
+            })
+            ->values()
+            ->all();
 
         // 2. Query faculty distribution
         $facultyRows = DB::table('dang_ky as dk')
@@ -102,6 +125,8 @@ class EventAnalyticsService
             'diem_noi_dung_tb' => $diemNoiDungTb,
             'diem_dien_gia_tb' => $diemDienGiaTb,
             'diem_to_chuc_tb' => $diemToChucTb,
+            'tong_so_phan_hoi' => $tongSoPhanHoi,
+            'phan_hoi_an_danh' => $phanHoiAnDanh,
             'phan_bo_theo_khoa' => $phanBoTheoKhoa,
             'luu_luong_theo_khung_gio' => $timeBuckets,
         ];
@@ -303,6 +328,7 @@ class EventAnalyticsService
 
         $congSuatPhong = $roomRows->map(function ($rm, $idx) {
             $rates = [94.5, 88.0, 78.4, 82.1, 75.0, 70.0];
+
             return [
                 'ma_phong' => (int) $rm->ma_phong,
                 'ten_phong' => (string) $rm->ten_phong,

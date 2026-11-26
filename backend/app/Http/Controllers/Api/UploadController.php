@@ -26,7 +26,7 @@ class UploadController extends Controller
 
         $loai = $request->input('loai', 'poster');
         $path = $request->file('file')->store("uploads/{$loai}", 'public');
-        $url  = Storage::url($path);
+        $url = Storage::url($path);
 
         return $this->successResponse(['url' => $url], 'Tải ảnh thành công.', 201);
     }

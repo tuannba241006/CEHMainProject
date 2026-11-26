@@ -4,6 +4,7 @@ import { certificatesService } from "../api/services/certificates.service"
 import { getApiErrorMessage } from "../api/errors"
 import { ORGANIZATIONS } from "../data/mock"
 import { useUser } from "./UserContext"
+import { formatCalendarDate } from "../utils/date"
 
 /**
  * Phân giải Khoa chủ quản từ Đơn vị tổ chức (kể cả CLB trực thuộc Khoa)
@@ -74,6 +75,12 @@ export interface ApprovalCase {
   unit: string
   faculty: string
   submitter: string
+  speaker?: string
+  topicName?: string
+  roomName?: string
+  campus?: string
+  startTime?: string
+  endTime?: string
   submittedAt: string
   eventDate: string
   status: ApprovalStatus
@@ -337,7 +344,7 @@ export interface ApprovalDataContextType {
 const ApprovalDataContext = createContext<ApprovalDataContextType | null>(null)
 
 export function ApprovalDataProvider({ children }: { children: ReactNode }) {
-  const { authenticated, role } = useUser()
+  const { authenticated, role, user } = useUser()
   const [approvalCases, setApprovalCases] = useState<ApprovalCase[]>(SEED_APPROVALS)
   const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>(SEED_SURVEYS)
   const [certificates, setCertificates] = useState<Certificate[]>(SEED_CERTIFICATES)
@@ -346,12 +353,23 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
     if (!authenticated || role === "student") return
     try {
       const isOrganizer = role === "organizer" || (role as string) === "ToChuc"
-      const res = isOrganizer
-        ? await eventsService.organizerList()
+      const isAdmin = role === "admin" || (role as string) === "Admin"
+      const res = isOrganizer || isAdmin
+        ? await eventsService.organizerList({ limit: 100 })
         : await eventsService.reviewQueue()
       if (res.data && Array.isArray(res.data)) {
         const apiCases: ApprovalCase[] = res.data
           .filter((card) => {
+            if (isAdmin) {
+              return [
+                "WAITING_COHOST_CONFIRM",
+                "PENDING_FACULTY",
+                "PENDING_ADMIN",
+                "APPROVED",
+                "COHOST_REJECTED",
+                "REJECTED",
+              ].includes(card.trang_thai)
+            }
             if (!isOrganizer) return true
             return [
               "WAITING_COHOST_CONFIRM",
@@ -366,6 +384,7 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
               card.trang_thai === "PENDING_FACULTY" ||
               card.trang_thai === "WAITING_COHOST_CONFIRM"
             const isPendingAdmin = card.trang_thai === "PENDING_ADMIN"
+            const isApproved = card.trang_thai === "APPROVED"
             const isRejected =
               card.trang_thai === "REJECTED" ||
               card.trang_thai === "COHOST_REJECTED"
@@ -373,44 +392,49 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
               ? "faculty_pending"
               : isPendingAdmin
               ? "affairs_pending"
+              : isApproved
+              ? "approved"
               : isRejected
               ? "faculty_rejected"
               : "draft"
 
-            const existing = SEED_APPROVALS.find(
-              (s) =>
-                s.eventId === String(card.ma_su_kien) ||
-                s.id === `HS-${card.ma_su_kien}`,
-            )
+            const unitName = card.ten_don_vi_host || "CLB WebDev UIT"
             return {
               id: `HS-${card.ma_su_kien}`,
               eventId: String(card.ma_su_kien),
               title: card.ten_su_kien,
-              unit: card.ten_don_vi_host || existing?.unit || "CLB WebDev UIT",
-              faculty: resolveFacultyFromUnit(
-                card.ten_don_vi_host,
-                existing?.faculty,
-              ),
-              submitter: card.dien_gia || existing?.submitter || "Ban tổ chức",
-              submittedAt: (card.thoi_gian_bat_dau || "").slice(0, 10),
+              unit: unitName,
+              faculty: resolveFacultyFromUnit(card.ten_don_vi_host),
+              submitter: unitName,
+              speaker: card.dien_gia || "",
+              topicName: card.ten_chuyen_de || "",
+              roomName: card.ten_phong || "",
+              campus: card.co_so === "CoSo2" ? "Cơ sở 2" : "Cơ sở 1",
+              startTime: card.thoi_gian_bat_dau || "",
+              endTime: card.thoi_gian_ket_thuc || "",
+              submittedAt: formatCalendarDate(card.thoi_gian_tao || card.thoi_gian_bat_dau),
               eventDate: (card.thoi_gian_bat_dau || "").slice(0, 10),
               status: caseStatus,
               lifecycle: "scheduled",
-              description: card.ten_su_kien,
-              plan: existing?.plan || "Kế hoạch tổ chức chi tiết được đính kèm.",
-              documents: existing?.documents || ["Ke_hoach_to_chuc.pdf"],
-              proposedPoints: card.diem_drl_du_kien ?? 5,
-              semester: "HK1 2026–2027",
+              description: "",
+              plan: "",
+              documents: [],
+              proposedPoints: card.diem_drl_du_kien ?? 0,
+              semester: "",
               criteriaCode:
-                card.dieu_khoan_drl === "Dieu4" ? "TC-04-HĐ" : "TC-03-HT",
-              maxPoints: card.diem_drl_du_kien ?? 5,
-              validMinutes: 120,
-              thresholds: [{ ratio: 80, points: card.diem_drl_du_kien ?? 5 }],
-              requiredSessions: ["Khai mạc"],
-              certificateCondition: "Tham dự tối thiểu 80% thời lượng",
-              ruleBasis: "Quy chế CTSV",
-              ruleVersion: "DK-2026.2",
-              history: existing?.history || [],
+                card.dieu_khoan_drl === "Dieu4"
+                  ? "Điều 4"
+                  : card.dieu_khoan_drl === "Dieu3"
+                    ? "Điều 3"
+                    : "Không có",
+              maxPoints: card.diem_drl_du_kien ?? 0,
+              validMinutes: 0,
+              thresholds: [],
+              requiredSessions: [],
+              certificateCondition: "",
+              ruleBasis: "",
+              ruleVersion: "",
+              history: [],
             }
           })
 
@@ -523,6 +547,19 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
         break
     }
 
+    const actionLabels: Record<typeof action, string> = {
+      faculty_approve: "Khoa phê duyệt & chuyển P.CTSV",
+      faculty_approve_by_admin: "Admin P.CTSV duyệt thay cấp Khoa",
+      affairs_approve: "P.CTSV phê duyệt chính thức",
+      request_revision: "Yêu cầu chỉnh sửa bổ sung",
+      reject: "Từ chối hồ sơ",
+      resubmit: "Gửi duyệt lại hồ sơ",
+      withdraw: "Rút đề xuất về bản nháp",
+      reopen: "Tái mở bản nháp",
+      emergency_cancel: "Hủy sự kiện khẩn cấp",
+      emergency_room: "Điều chuyển phòng khẩn cấp",
+    }
+
     setApprovalCases((prev) =>
       prev.map((c) =>
         c.id === caseId
@@ -533,8 +570,8 @@ export function ApprovalDataProvider({ children }: { children: ReactNode }) {
                 ...c.history,
                 {
                   id: `h-${Date.now()}`,
-                  actor: "Người dùng hệ thống",
-                  action,
+                  actor: user.ho_ten || "Cán bộ quản lý",
+                  action: actionLabels[action] || action,
                   at: new Date().toLocaleString("vi-VN"),
                   note: reason,
                 },

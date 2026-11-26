@@ -131,7 +131,7 @@ class EventEmergencyService
                     $reg->update([
                         'trang_thai' => 'DaHuy',
                         'thoi_gian_huy' => now(),
-                        'ly_do_huy' => 'Sự kiện bị hủy bởi BTC: '.$reason,
+                        'ly_do_huy' => 'Sự kiện bị hủy bởi BTC',
                         'vi_pham_no_show' => 0,
                     ]);
                 }

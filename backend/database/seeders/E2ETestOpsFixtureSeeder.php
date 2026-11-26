@@ -21,103 +21,10 @@ class E2ETestOpsFixtureSeeder extends Seeder
 
         $now = Carbon::now('Asia/Ho_Chi_Minh');
         $organizerEmail = 'tochuc.doan@uit.edu.vn';
-<<<<<<< Updated upstream
-        DB::table('tai_khoan')->updateOrInsert(
-            ['email' => $organizerEmail],
-            [
-                'email' => $organizerEmail,
-                'mssv' => null,
-                'ho_ten' => 'Đoàn Thanh niên - Hội Sinh viên (BTC)',
-                'mat_khau' => $hashedOrganizerPassword,
-                'so_dien_thoai' => '02837252002',
-                'ma_khoa' => null,
-                'khoa' => null,
-                'lop_sinh_hoat' => null,
-                'avatar_url' => null,
-                'loai_tai_khoan' => 'ToChuc',
-                'ma_don_vi_to_chuc' => 8, // Đoàn Thanh niên - Hội Sinh viên
-                'dong_y_nghi_dinh_13' => 1,
-                'thoi_gian_dong_y_nd13' => $now,
-                'buoc_doi_mat_khau' => 0,
-                'hoat_dong' => 1,
-                'thoi_gian_tao' => $now,
-                'thoi_gian_cap_nhat' => $now,
-            ]
-        );
-
-        $organizer = DB::table('tai_khoan')->where('email', $organizerEmail)->first();
-        $this->command->info(sprintf(
-            "Đã cấu hình tài khoản BTC: %s (ID: %d, đơn vị: %d, pass: Organizer@123)",
-            $organizer->email,
-            $organizer->ma_tai_khoan,
-            $organizer->ma_don_vi_to_chuc
-        ));
-
-        // -------------------------------------------------------------------------
-        // 2. TÀI KHOẢN SINH VIÊN (22520001 & 22520002)
-        // -------------------------------------------------------------------------
-        $studentsData = [
-            [
-                'email' => '22520001@gm.uit.edu.vn',
-                'mssv' => '22520001',
-                'ho_ten' => 'Nguyễn Văn An (E2E Test)',
-                'mat_khau' => $hashedStudentPassword,
-                'so_dien_thoai' => '0912345678',
-                'ma_khoa' => 1,
-                'khoa' => 'Khoa Hệ thống Thông tin',
-                'lop_sinh_hoat' => 'HTTT2022',
-                'loai_tai_khoan' => 'SinhVien',
-                'dong_y_nghi_dinh_13' => 1,
-                'thoi_gian_dong_y_nd13' => $now,
-                'buoc_doi_mat_khau' => 0,
-                'hoat_dong' => 1,
-            ],
-            [
-                'email' => '22520002@gm.uit.edu.vn',
-                'mssv' => '22520002',
-                'ho_ten' => 'Trần Minh Bình (E2E Test)',
-                'mat_khau' => $hashedStudentPassword,
-                'so_dien_thoai' => '0912345679',
-                'ma_khoa' => 1,
-                'khoa' => 'Khoa Hệ thống Thông tin',
-                'lop_sinh_hoat' => 'HTTT2022',
-                'loai_tai_khoan' => 'SinhVien',
-                'dong_y_nghi_dinh_13' => 1,
-                'thoi_gian_dong_y_nd13' => $now,
-                'buoc_doi_mat_khau' => 0,
-                'hoat_dong' => 1,
-            ],
-        ];
-
-        $studentMap = [];
-        foreach ($studentsData as $student) {
-            DB::table('tai_khoan')->updateOrInsert(
-                ['email' => $student['email']],
-                array_merge($student, [
-                    'thoi_gian_tao' => $now,
-                    'thoi_gian_cap_nhat' => $now,
-                ])
-            );
-
-            $savedUser = DB::table('tai_khoan')->where('email', $student['email'])->first();
-            $studentMap[$student['email']] = $savedUser;
-            $this->command->info(sprintf(
-                "Đã cấu hình tài khoản SV: %s (ID: %d, MSSV: %s, pass: Student@123)",
-                $savedUser->email,
-                $savedUser->ma_tai_khoan,
-                $savedUser->mssv
-            ));
-        }
-
-        // -------------------------------------------------------------------------
-        // 3. DỌN DẸP DỮ LIỆU CŨ CHO SỰ KIỆN FIXTURE (901, 902) ĐẢM BẢO IDEMPOTENT
-        // -------------------------------------------------------------------------
-=======
         $students = [
             ['email' => '22520001@gm.uit.edu.vn', 'mssv' => '22520001'],
             ['email' => '22520002@gm.uit.edu.vn', 'mssv' => '22520002'],
         ];
->>>>>>> Stashed changes
         $fixtureEventIds = [901, 902];
 
         $created = DB::transaction(function () use (
@@ -345,11 +252,7 @@ class E2ETestOpsFixtureSeeder extends Seeder
 
         foreach ($created['events'] as $event) {
             $this->command->info(sprintf(
-<<<<<<< Updated upstream
-                "Đã cấu hình sự kiện ID %d: %s (Trạng thái: %s, Bắt đầu: %s, Kết thúc: %s, Cổng In/Out: %d/%d)",
-=======
                 '[Sự kiện] ID %d | %s | %s → %s',
->>>>>>> Stashed changes
                 $event['ma_su_kien'],
                 $event['ten_su_kien'],
                 $event['thoi_gian_bat_dau']->toDateTimeString(),
@@ -369,65 +272,7 @@ class E2ETestOpsFixtureSeeder extends Seeder
             )
         );
 
-<<<<<<< Updated upstream
-        $ticketsData = [
-            [
-                'student' => $student1,
-                'label' => 'Vé 1 (Sinh viên 1)',
-            ],
-            [
-                'student' => $student2,
-                'label' => 'Vé 2 (Sinh viên 2)',
-            ],
-        ];
-
-        foreach ($ticketsData as $ticketItem) {
-            $student = $ticketItem['student'];
-            $uuid = (string) Str::uuid();
-            $signature = $cryptoService->signTicket($uuid, (int) $student->ma_tai_khoan, 901);
-
-            $ticketId = DB::table('dang_ky')->insertGetId([
-                'ma_tai_khoan' => $student->ma_tai_khoan,
-                'ma_su_kien' => 901,
-                'ma_ve_uuid' => $uuid,
-                'chu_ky_hmac' => $signature,
-                'trang_thai' => 'DaDangKy',
-                'thoi_gian_dang_ky' => $now->copy()->subMinutes(30),
-                'thoi_gian_check_in' => null,
-                'thoi_gian_check_out' => null,
-                'thoi_gian_huy' => null,
-                'ly_do_huy' => null,
-                'da_check_in' => 0,
-                'da_check_out' => 0,
-                'ma_thiet_bi_check_in' => null,
-                'ma_thiet_bi_check_out' => null,
-                'ma_thiet_bi_nghi_van' => null,
-                'nghi_van_gian_lan' => 0,
-                'tham_gia_tron_ven' => 0,
-                'tham_gia_mot_phan' => 0,
-                'ti_le_drl' => 0.00,
-                'da_feedback' => 0,
-                'han_an_han_feedback' => null,
-                'du_dieu_kien_drl' => 0,
-                'vi_pham_no_show' => 0,
-                'da_gui_nhac_nho' => 0,
-                'ghi_chu' => 'E2E Fixture Ticket for UC-OPS-01 & UC-OPS-03',
-            ]);
-
-            $this->command->info(sprintf(
-                "Đã tạo %s - Mã ĐK: %d | User ID: %d (%s) | Event: 901 | Trạng thái: DaDangKy | UUID: %s",
-                $ticketItem['label'],
-                $ticketId,
-                $student->ma_tai_khoan,
-                $student->email,
-                $uuid
-            ));
-        }
-
-        $this->command->info('=== HOÀN TẤT THIẾT LẬP E2E OPS FIXTURES THÀNH CÔNG ===');
-=======
         $this->command->info('=== HOÀN TẤT: đã tạo 2 sự kiện, 2 đặt phòng và 2 vé cho sự kiện 901 ===');
         $this->command->warn('Sự kiện 901 kết thúc sau 15 phút tính từ lúc chạy seeder; hãy dùng ngay cho kiểm thử check-out sớm.');
->>>>>>> Stashed changes
     }
 }

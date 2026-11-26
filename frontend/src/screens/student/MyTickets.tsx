@@ -190,8 +190,8 @@ export default function MyTickets({
                 Đặt vé thành công: {newlyBookedTicket.eventTitle}
               </h2>
               <p className="text-xs text-emerald-800 mt-0.5 leading-relaxed">
-                Vé điện tử kèm mã QR HMAC-SHA256 đã được lưu vào Ví vé và đưa vào
-                hàng đợi gửi tới email của bạn. Mã vé:{" "}
+                Vé điện tử kèm mã QR bảo mật đã được lưu vào Ví vé và đang được
+                gửi tới email của bạn. Mã vé:{" "}
                 <span className="font-mono font-bold">
                   {newlyBookedTicket.ma_ve_uuid || newlyBookedTicket.id}
                 </span>
@@ -793,13 +793,13 @@ export default function MyTickets({
                 {showQR.studentName} · {showQR.studentId}
               </p>
               <p className="text-[10px] text-slate-400 mt-1 font-mono break-all">
-                HMAC-SHA256:{" "}
+                Mã xác thực QR:{" "}
                 {showQR.payload_qr ||
                   showQR.qrCode ||
                   `CEHTK.${showQR.id}.${user.studentId}.HMAC_SIG`}
               </p>
               <p className="text-[11px] text-indigo-600 mt-1 font-medium">
-                Xuất trình mã này tại bàn đón tiếp để CTV quét mã qua HMAC Token
+                Xuất trình mã này tại bàn đón tiếp để CTV quét mã điểm danh
               </p>
             </div>
 

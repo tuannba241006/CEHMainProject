@@ -3,13 +3,45 @@ export interface ApiErrorPayload {
   error?: string
   message?: string
   trace_id?: string
-  errors?: Record<string, string[]>
+  errors?: Record<string, unknown>
   chi_tiet?: unknown
+  details?: unknown
+}
+
+function extractValidationErrors(
+  status: number,
+  rawErrors?: unknown,
+): Record<string, string[]> | undefined {
+  if (
+    status !== 422 ||
+    !rawErrors ||
+    typeof rawErrors !== "object" ||
+    Array.isArray(rawErrors)
+  ) {
+    return undefined
+  }
+  const normalized: Record<string, string[]> = {}
+  for (const [key, val] of Object.entries(rawErrors)) {
+    if (Array.isArray(val)) {
+      const msgs = val.filter(
+        (item): item is string => typeof item === "string" && item.trim() !== "",
+      )
+      if (msgs.length > 0) normalized[key] = msgs
+    } else if (typeof val === "string" && val.trim() !== "") {
+      normalized[key] = [val]
+    }
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
   ACCOUNT_LOCKED: "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.",
   PASSWORD_CHANGE_REQUIRED: "Bạn phải đổi mật khẩu trước khi tiếp tục.",
+  ROOM_CONFLICT:
+    "Phòng hội trường đã có sự kiện khác đặt trong khung giờ này (bao gồm đệm an toàn 15 phút).",
+  ROOM_MAINTENANCE_CONFLICT:
+    "Phòng hội trường đang trong lịch bảo trì tại khung giờ đã chọn.",
+  CAPACITY_EXCEEDS_ROOM: "Số lượng vé vượt quá sức chứa tối đa của phòng.",
   SLOT_SOLD_OUT: "Sự kiện vừa hết vé.",
   SCHEDULE_CONFLICT_HARD:
     "Bạn đang giữ vé của một sự kiện giới hạn chỗ bị trùng lịch.",
@@ -65,8 +97,8 @@ export class ApiError extends Error {
     this.status = status
     this.code = payload.error
     this.traceId = payload.trace_id
-    this.validationErrors = payload.errors
-    this.details = payload.chi_tiet
+    this.validationErrors = extractValidationErrors(status, payload.errors)
+    this.details = payload.chi_tiet ?? payload.details
   }
 }
 
@@ -107,19 +139,30 @@ export function isAuthError(error: unknown): boolean {
 export function getValidationErrors(
   error: unknown,
 ): Record<string, string[]> | undefined {
+  let raw: unknown
   if (error instanceof ApiError && error.validationErrors) {
-    return error.validationErrors
-  }
-  if (
+    raw = error.validationErrors
+  } else if (
     typeof error === "object" &&
     error !== null &&
     "validationErrors" in error &&
     typeof (error as { validationErrors: unknown }).validationErrors === "object"
   ) {
-    return (error as { validationErrors: Record<string, string[]> })
-      .validationErrors
+    raw = (error as { validationErrors: unknown }).validationErrors
   }
-  return undefined
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined
+  const filtered: Record<string, string[]> = {}
+  for (const [key, val] of Object.entries(raw)) {
+    if (Array.isArray(val)) {
+      const msgs = val.filter(
+        (item): item is string => typeof item === "string" && item.trim() !== "",
+      )
+      if (msgs.length > 0) filtered[key] = msgs
+    } else if (typeof val === "string" && val.trim() !== "") {
+      filtered[key] = [val]
+    }
+  }
+  return Object.keys(filtered).length > 0 ? filtered : undefined
 }
 
 export function getApiErrorMessage(error: unknown): string {

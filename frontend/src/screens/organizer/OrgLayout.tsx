@@ -99,12 +99,24 @@ const NAV_ITEMS = [
   },
 ]
 
+function getUserInitials(displayName: string): string {
+  return (
+    displayName
+      .replace(/[^a-zA-ZÀ-ỹ0-9\s]/g, "")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("") || displayName.slice(0, 2)
+  ).toUpperCase()
+}
+
 export function OrgLayout({ children, current, onNavigate, onLogout }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { user, role } = useUser()
   const displayName = user.ho_ten || "Ban Tổ Chức"
   const unitName = user.don_vi?.ten_don_vi || "CLB / Đoàn - Hội / Khoa"
-  const userInitials = (user.initials || displayName.slice(0, 2)).toUpperCase()
+  const userInitials = getUserInitials(displayName)
   const roleLabel =
     role === "faculty_manager"
       ? "Ban Quản lý Khoa"
@@ -365,7 +377,7 @@ function SidebarContent({
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
             style={{ background: "#4f46e5" }}
           >
-            {displayName.slice(0, 2).toUpperCase()}
+            {getUserInitials(displayName)}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold truncate text-navy">

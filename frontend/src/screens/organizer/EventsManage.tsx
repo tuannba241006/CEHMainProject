@@ -1,35 +1,63 @@
-import { useState, useMemo } from "react"
-import { STATUS_LABELS, TOPIC_LABELS } from "../../data/mock"
+import { useState, useMemo, useEffect, useCallback } from "react"
+import { TOPIC_LABELS } from "../../data/mock"
 import { OrgLayout } from "./OrgLayout"
 import { ManagementLayout } from "../management/ManagementLayout"
 import { formatCalendarDate } from "../../utils/date"
 import { useApp, type EventStatus } from "../../context/AppContext"
+import {
+  mapContractEventToLiveEvent,
+  type LiveEvent,
+} from "../../context/EventDataContext"
 import { useToast } from "../../components/Toast"
 import { eventsService } from "../../api/services/events.service"
+import { api } from "../../api/client"
 import { getApiErrorMessage } from "../../api/errors"
 import { useUser } from "../../context/UserContext"
+import type { Topic } from "../../data/contract"
 import {
   RefreshCw,
   Calendar,
   Users,
   Camera,
   AlertTriangle,
-  Building2,
   Eye,
   Edit3,
   BarChart3,
   Monitor,
   Undo2,
+  X,
+  MapPin,
+  Clock,
+  ExternalLink,
+  Award,
 } from "lucide-react"
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  open: { bg: "#dcfce7", text: "#15803d" },
-  nearly_full: { bg: "#fef9c3", text: "#a16207" },
-  full: { bg: "#fee2e2", text: "#b91c1c" },
-  draft: { bg: "#f1f5f9", text: "#64748b" },
-  happening: { bg: "#e0f2fe", text: "#0369a1" },
-  closed: { bg: "#e0e7ff", text: "#4338ca" },
-  ended: { bg: "#f1f5f9", text: "#94a3b8" },
+const LIFECYCLE_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+  DRAFT: { label: "Bản nháp", bg: "#f1f5f9", text: "#475569" },
+  WAITING_COHOST_CONFIRM: { label: "Chờ Co-host xác nhận", bg: "#fef3c7", text: "#b45309" },
+  COHOST_REJECTED: { label: "Co-host từ chối", bg: "#fee2e2", text: "#b91c1c" },
+  PENDING_FACULTY: { label: "Chờ Khoa duyệt", bg: "#e0f2fe", text: "#0369a1" },
+  PENDING_ADMIN: { label: "Chờ CTSV duyệt", bg: "#e0e7ff", text: "#4338ca" },
+  APPROVED: { label: "Đã duyệt (Chờ công bố)", bg: "#d1fae5", text: "#047857" },
+  PUBLISHED: { label: "Đang mở đăng ký", bg: "#dcfce7", text: "#15803d" },
+  HAPPENING: { label: "Đang diễn ra", bg: "#cffafe", text: "#0e7490" },
+  COMPLETED: { label: "Đã kết thúc", bg: "#f1f5f9", text: "#64748b" },
+  REJECTED: { label: "Bị từ chối", bg: "#fee2e2", text: "#b91c1c" },
+  CANCELLED: { label: "Đã hủy", bg: "#ffe4e6", text: "#be123c" },
+}
+
+function getEventBadge(event: LiveEvent, computed: EventStatus) {
+  const raw = (event.trang_thai || "").toUpperCase()
+  if (raw && LIFECYCLE_BADGE[raw]) {
+    if (raw === "PUBLISHED" && computed === "full") {
+      return { label: "Hết chỗ", bg: "#fee2e2", text: "#b91c1c" }
+    }
+    if (raw === "PUBLISHED" && computed === "nearly_full") {
+      return { label: "Sắp hết chỗ", bg: "#fef9c3", text: "#a16207" }
+    }
+    return LIFECYCLE_BADGE[raw]
+  }
+  return LIFECYCLE_BADGE.PUBLISHED
 }
 
 interface Props {
@@ -44,7 +72,6 @@ export default function EventsManage({
   layout = "organizer",
 }: Props) {
   const {
-    events: EVENTS,
     approvalCases,
     updateApproval,
     cancelEvent,
@@ -52,8 +79,15 @@ export default function EventsManage({
     refetch,
   } = useApp()
   const { showToast } = useToast()
+  const { user } = useUser()
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [dateFilter, setDateFilter] = useState<"all" | "upcoming" | "past">("all")
+  const [topicFilter, setTopicFilter] = useState("all")
+  const [topics, setTopics] = useState<Topic[]>([])
+  const [orgEvents, setOrgEvents] = useState<LiveEvent[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(true)
+  const [detailModal, setDetailModal] = useState<LiveEvent | null>(null)
   const [reopenModal, setReopenModal] = useState<{
     id: string
     eventId?: string
@@ -72,6 +106,45 @@ export default function EventsManage({
     title: string
   } | null>(null)
   const [cancelReason, setCancelReason] = useState("")
+  const [cancelReasonTouched, setCancelReasonTouched] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+
+  function openCancelModal(target: { id: string; eventId?: string; title: string }) {
+    setCancelReason("")
+    setCancelReasonTouched(false)
+    setCancelModal(target)
+  }
+
+  const loadOrganizerEvents = useCallback(async () => {
+    setLoadingEvents(true)
+    try {
+      const res = await eventsService.organizerList({ limit: 100 })
+      if (Array.isArray(res.data)) {
+        setOrgEvents(res.data.map(mapContractEventToLiveEvent))
+      }
+    } catch (e) {
+      showToast(getApiErrorMessage(e), "error")
+    } finally {
+      setLoadingEvents(false)
+    }
+  }, [showToast])
+
+  useEffect(() => {
+    void loadOrganizerEvents()
+  }, [loadOrganizerEvents, user.email])
+
+  useEffect(() => {
+    let active = true
+    api
+      .get<{ data: Topic[] }>("/topics")
+      .then((res) => {
+        if (active && Array.isArray(res.data)) setTopics(res.data)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function handleReopen() {
     if (!reopenModal) return
@@ -89,6 +162,7 @@ export default function EventsManage({
       )
       setReopenModal(null)
       setReopenReason("")
+      await loadOrganizerEvents()
       if (refetch) await refetch()
     } catch (e) {
       showToast(getApiErrorMessage(e), "error")
@@ -115,6 +189,7 @@ export default function EventsManage({
       )
       setWithdrawModal(null)
       setWithdrawReason("")
+      await loadOrganizerEvents()
       if (refetch) await refetch()
     } catch (e) {
       showToast(getApiErrorMessage(e), "error")
@@ -122,8 +197,9 @@ export default function EventsManage({
   }
 
   async function handleEmergencyCancel() {
-    if (!cancelModal) return
+    if (!cancelModal || cancelling) return
     if (!cancelReason.trim() || cancelReason.trim().length < 8) {
+      setCancelReasonTouched(true)
       showToast(
         "Vui lòng nhập lý do hủy sự kiện chi tiết (tối thiểu 8 ký tự).",
         "error",
@@ -133,98 +209,87 @@ export default function EventsManage({
     const targetCase = approvalCases.find((c) => c.id === cancelModal.id)
     const rawId = cancelModal.eventId || targetCase?.eventId || cancelModal.id
     const numericId = Number(rawId.replace(/\D/g, "")) || 101
+    setCancelling(true)
     try {
       if (numericId) {
-        await eventsService.emergencyCancel(numericId, cancelReason)
+        await eventsService.emergencyCancel(numericId, cancelReason.trim())
       }
-      cancelEvent(cancelModal.id, cancelReason)
+      cancelEvent(cancelModal.id, cancelReason, true)
       showToast(
         `Đã hủy sự kiện "${cancelModal.title}". Hệ thống đang gửi email thông báo hủy và giải phóng vé.`,
         "success",
       )
       setCancelModal(null)
       setCancelReason("")
-      if (refetch) await refetch()
+      setCancelReasonTouched(false)
+      await loadOrganizerEvents()
     } catch (e) {
       showToast(getApiErrorMessage(e), "error")
+    } finally {
+      setCancelling(false)
     }
   }
 
-  const { user, role } = useUser()
-
-  // Data scoping cô lập tuyệt đối:
-  // - Admin (P.CTSV): CHỈ xem các sự kiện do P.CTSV tổ chức/đồng tổ chức!
-  // - Ban tổ chức (CLB/Khoa): CHỈ xem các sự kiện thuộc đơn vị mình!
-  // (Lưu ý: Quản trị & đối soát sự kiện toàn trường được thực hiện tại /admin/events)
-  const scopedEvents = useMemo(() => {
-    const isPctsAdmin = role === "admin" || role === "student_affairs"
-    const userEmail = (user.email || "").toLowerCase()
-    const rawUnit =
-      user.don_vi?.ten_don_vi ||
-      user.faculty ||
-      user.khoa ||
-      (userEmail.includes("webdev") ? "webdev" : "") ||
-      (userEmail.includes("is@") || userEmail.includes(".is@") ? "thông tin" : "") ||
-      (user.name && user.name.includes("CLB") ? user.name : "") ||
-      ""
-    const targetUnit = isPctsAdmin ? "sinh viên" : rawUnit.toLowerCase().trim()
-    const unitId = user.ma_don_vi_to_chuc || user.don_vi?.ma_don_vi
-
-    const filteredList = EVENTS.filter((e) => {
-      const hostName = (
-        e.organizer ||
-        e.don_vi_host?.ten_don_vi ||
-        e.ten_don_vi_host ||
-        ""
-      ).toLowerCase()
-      const hostId = e.don_vi_host?.ma_don_vi || e.ma_don_vi_to_chuc
-      const isHost =
-        (unitId && hostId === unitId) ||
-        (targetUnit && hostName.includes(targetUnit)) ||
-        (targetUnit.includes("webdev") && (hostName.includes("webdev") || hostName.includes("devops") || hostName.includes("ai")))
-      const isCoHost = (
-        e.coHosts ||
-        e.danh_sach_ten_dong_to_chuc ||
-        []
-      ).some((ch: string) => {
-        const c = ch.toLowerCase()
-        return (targetUnit && c.includes(targetUnit)) || (targetUnit.includes("webdev") && c.includes("webdev"))
-      })
-      return isHost || isCoHost
+  // Pending / in-progress proposals strictly derived from organizer's real events
+  const activeProposals = useMemo(() => {
+    return orgEvents.filter((e) => {
+      const s = (e.trang_thai || "").toUpperCase()
+      return [
+        "WAITING_COHOST_CONFIRM",
+        "PENDING_FACULTY",
+        "PENDING_ADMIN",
+        "COHOST_REJECTED",
+        "REJECTED",
+      ].includes(s)
     })
+  }, [orgEvents])
 
-    return filteredList.length > 0 ? filteredList : EVENTS
-  }, [EVENTS, role, user])
+  const filtered = useMemo(() => {
+    const todayStr = new Date().toISOString().slice(0, 10)
+    return orgEvents.filter((e) => {
+      const rawStatus = (e.trang_thai || "").toUpperCase()
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "DRAFT" && rawStatus === "DRAFT") ||
+        (statusFilter === "WAITING_COHOST_CONFIRM" && rawStatus === "WAITING_COHOST_CONFIRM") ||
+        (statusFilter === "PENDING" && (rawStatus === "PENDING_FACULTY" || rawStatus === "PENDING_ADMIN")) ||
+        (statusFilter === "APPROVED" && rawStatus === "APPROVED") ||
+        (statusFilter === "PUBLISHED" && rawStatus === "PUBLISHED") ||
+        (statusFilter === "HAPPENING" && rawStatus === "HAPPENING") ||
+        (statusFilter === "REJECTED" && (rawStatus === "REJECTED" || rawStatus === "COHOST_REJECTED")) ||
+        (statusFilter === "COMPLETED" && rawStatus === "COMPLETED") ||
+        (statusFilter === "CANCELLED" && rawStatus === "CANCELLED")
 
-  const filtered = scopedEvents.filter((e) => {
-    const rawStatus = (e.trang_thai || "").toUpperCase()
-    const isHappening =
-      rawStatus === "HAPPENING" ||
-      rawStatus === "DANG_DIEN_RA" ||
-      e.status === "happening" ||
-      computeStatus(e) === "happening"
+      const matchesSearch =
+        !search.trim() ||
+        e.title.toLowerCase().includes(search.toLowerCase()) ||
+        e.location.toLowerCase().includes(search.toLowerCase()) ||
+        String(e.ma_su_kien).includes(search.trim())
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "happening"
-        ? isHappening
-        : computeStatus(e) === statusFilter)
+      const matchesDate =
+        dateFilter === "all" ||
+        (dateFilter === "upcoming" && e.date >= todayStr) ||
+        (dateFilter === "past" && e.date < todayStr)
 
-    const matchesSearch =
-      e.title.toLowerCase().includes(search.toLowerCase()) ||
-      e.location.toLowerCase().includes(search.toLowerCase())
+      const evtTopic = (e.ten_chuyen_de || String(e.topic || "")).toLowerCase()
+      const matchesTopic =
+        topicFilter === "all" || evtTopic === topicFilter.toLowerCase()
 
-    return matchesStatus && matchesSearch
-  })
+      return matchesStatus && matchesSearch && matchesDate && matchesTopic
+    })
+  }, [orgEvents, statusFilter, search, dateFilter, topicFilter])
 
   const statusTabs = [
-    { id: "all", label: "Tất cả" },
-    { id: "draft", label: "Bản nháp" },
-    { id: "open", label: "Đang mở" },
-    { id: "nearly_full", label: "Sắp hết" },
-    { id: "happening", label: "Đang diễn ra" },
-    { id: "closed", label: "Đã đóng" },
-    { id: "ended", label: "Đã kết thúc" },
+    { id: "all", label: `Tất cả (${orgEvents.length})` },
+    { id: "DRAFT", label: "Bản nháp" },
+    { id: "WAITING_COHOST_CONFIRM", label: "Chờ Co-host" },
+    { id: "PENDING", label: "Chờ duyệt" },
+    { id: "APPROVED", label: "Đã duyệt" },
+    { id: "PUBLISHED", label: "Đang mở" },
+    { id: "HAPPENING", label: "Đang diễn ra" },
+    { id: "REJECTED", label: "Bị từ chối" },
+    { id: "COMPLETED", label: "Đã kết thúc" },
+    { id: "CANCELLED", label: "Đã hủy" },
   ]
 
   const LayoutComponent = layout === "faculty" ? ManagementLayout : OrgLayout
@@ -255,7 +320,9 @@ export default function EventsManage({
               Quản lý sự kiện
             </h1>
             <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-              {EVENTS.length} sự kiện trong hệ thống
+              {loadingEvents
+                ? "Đang tải danh sách sự kiện của đơn vị..."
+                : `${orgEvents.length} sự kiện thuộc đơn vị`}
             </p>
           </div>
           <button
@@ -280,86 +347,100 @@ export default function EventsManage({
           </button>
         </div>
 
-        {/* Toolbar */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-4 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="font-display font-semibold text-sm text-navy">
-                Tiến trình phê duyệt hồ sơ
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Nháp → Khoa duyệt → CTSV duyệt → Đủ điều kiện công bố
-              </p>
-            </div>
-            <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">
-              {
-                approvalCases.filter((item) => item.status !== "approved")
-                  .length
-              }{" "}
-              hồ sơ đang xử lý
-            </span>
-          </div>
-          <div className="mt-3 space-y-2 max-h-96 overflow-y-auto">
-            {approvalCases.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-50"
-              >
-                <div>
-                  <p className="text-sm font-medium text-slate-700">
-                    {item.title}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {item.id} · {approvalLabel(item.status)}
-                  </p>
-                  {(item.status === "faculty_pending" ||
-                    item.status === "affairs_pending") && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200 mt-1">
-                      <span>⏳</span> Soft Hold: Giữ chỗ phòng 48h (còn 38h)
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {(item.status === "faculty_pending" ||
-                    item.status === "affairs_pending") && (
-                    <button
-                      onClick={() =>
-                        setWithdrawModal({ id: item.id, eventId: item.eventId, title: item.title })
-                      }
-                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors"
-                      title="Rút hồ sơ về bản nháp để điều chỉnh"
-                    >
-                      Rút đề xuất
-                    </button>
-                  )}
-                  {(item.status === "faculty_rejected" ||
-                    item.status === "affairs_rejected") && (
-                    <button
-                      onClick={() =>
-                        setReopenModal({ id: item.id, eventId: item.eventId, title: item.title })
-                      }
-                      className="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                      title="Tái mở bản nháp bị từ chối để chỉnh sửa lại"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Tái mở bản nháp</span>
-                    </button>
-                  )}
-                  {item.status.endsWith("revision") && (
-                    <button
-                      onClick={() => {
-                        updateApproval(item.id, "resubmit")
-                      }}
-                      className="px-3 py-2 rounded-lg bg-indigo text-white text-xs font-semibold"
-                    >
-                      Đã bổ sung · Gửi lại
-                    </button>
-                  )}
-                </div>
+        {/* Approval Progress Card */}
+        {activeProposals.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="font-display font-semibold text-sm text-navy">
+                  Tiến trình phê duyệt hồ sơ
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Nháp → Co-host xác nhận (nếu có) → Khoa duyệt → CTSV duyệt → Đủ điều kiện công bố
+                </p>
               </div>
-            ))}
+              <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold">
+                {activeProposals.length} hồ sơ đang xử lý
+              </span>
+            </div>
+            <div className="mt-3 space-y-2 max-h-96 overflow-y-auto">
+              {activeProposals.map((item) => {
+                const rawSt = (item.trang_thai || "").toUpperCase()
+                const badge = LIFECYCLE_BADGE[rawSt] || LIFECYCLE_BADGE.PENDING_FACULTY
+                const isWaitingCohost = rawSt === "WAITING_COHOST_CONFIRM"
+                const isPendingApproval =
+                  rawSt === "WAITING_COHOST_CONFIRM" ||
+                  rawSt === "PENDING_FACULTY" ||
+                  rawSt === "PENDING_ADMIN"
+                const isRejectedProposal =
+                  rawSt === "REJECTED" || rawSt === "COHOST_REJECTED"
+                const evId = String(item.ma_su_kien)
+
+                return (
+                  <div
+                    key={item.ma_su_kien}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-slate-50"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">
+                        {item.title}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-xs text-slate-400 font-mono">
+                          #{item.ma_su_kien}
+                        </span>
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                          style={{ background: badge.bg, color: badge.text }}
+                        >
+                          {badge.label}
+                        </span>
+                        {isWaitingCohost && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            <span>⏳</span> Soft Hold 48h chờ đồng tổ chức
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isPendingApproval && (
+                        <button
+                          onClick={() =>
+                            setWithdrawModal({
+                              id: `HS-${evId}`,
+                              eventId: evId,
+                              title: item.title,
+                            })
+                          }
+                          className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+                          title="Rút hồ sơ về bản nháp để điều chỉnh"
+                        >
+                          Rút đề xuất
+                        </button>
+                      )}
+                      {isRejectedProposal && (
+                        <button
+                          onClick={() =>
+                            setReopenModal({
+                              id: `HS-${evId}`,
+                              eventId: evId,
+                              title: item.title,
+                            })
+                          }
+                          className="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                          title="Tái mở bản nháp bị từ chối để chỉnh sửa lại"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Tái mở bản nháp</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1 max-w-sm">
@@ -380,37 +461,39 @@ export default function EventsManage({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm kiếm theo tên sự kiện..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm outline-none bg-white"
+              placeholder="Tìm kiếm theo tên, phòng hoặc mã sự kiện..."
+              className="w-full pl-9 pr-4 py-2 rounded-xl border text-sm outline-none bg-white focus:border-indigo-500"
               style={{ borderColor: "#e2e8f0" }}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium bg-white"
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Lọc theo ngày"
+              value={dateFilter}
+              onChange={(e) =>
+                setDateFilter(e.target.value as "all" | "upcoming" | "past")
+              }
+              className="px-3 py-2 rounded-xl border text-sm font-medium bg-white outline-none focus:border-indigo-500 cursor-pointer"
               style={{ borderColor: "#e2e8f0", color: "#475569" }}
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5"
-                />
-              </svg>
-              Lọc theo ngày
-            </button>
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium bg-white"
+              <option value="all">Tất cả thời gian</option>
+              <option value="upcoming">Sắp diễn ra</option>
+              <option value="past">Đã qua</option>
+            </select>
+            <select
+              aria-label="Lọc theo chủ đề"
+              value={topicFilter}
+              onChange={(e) => setTopicFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl border text-sm font-medium bg-white outline-none focus:border-indigo-500 cursor-pointer"
               style={{ borderColor: "#e2e8f0", color: "#475569" }}
             >
-              Lọc theo chủ đề
-            </button>
+              <option value="all">Tất cả chủ đề</option>
+              {topics.map((t) => (
+                <option key={t.ma_chuyen_de} value={t.ten_chuyen_de}>
+                  {t.ten_chuyen_de}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -495,7 +578,7 @@ export default function EventsManage({
                 ) : (
                   filtered.map((event) => {
                     const eventStatus = computeStatus(event) as EventStatus
-                    const sc = STATUS_COLORS[eventStatus] || STATUS_COLORS.open
+                    const badge = getEventBadge(event, eventStatus)
                     const isUnlimited =
                       !event.capacity ||
                       event.capacity <= 0 ||
@@ -509,7 +592,7 @@ export default function EventsManage({
                         ) || 0
                     const eventId = String(event.ma_su_kien || event.id)
                     const rawStatus = (event.trang_thai || "").toUpperCase()
-                    const isDraft = rawStatus === "DRAFT" || eventStatus === "draft"
+                    const isDraft = rawStatus === "DRAFT"
                     const isPending =
                       rawStatus === "CHO_PHE_DUYET" ||
                       rawStatus === "CHO_DUYET" ||
@@ -520,20 +603,17 @@ export default function EventsManage({
                       rawStatus === "REJECTED" ||
                       rawStatus === "COHOST_REJECTED" ||
                       rawStatus.includes("REJECTED")
+                    const isHappening =
+                      rawStatus === "HAPPENING" ||
+                      rawStatus === "DANG_DIEN_RA"
                     const isEnded =
                       rawStatus === "COMPLETED" ||
-                      rawStatus === "DA_KET_THUC" ||
-                      eventStatus === "ended"
-                    const isHappening =
-                      !isEnded &&
-                      (rawStatus === "HAPPENING" ||
-                        rawStatus === "DANG_DIEN_RA" ||
-                        eventStatus === "happening")
+                      rawStatus === "DA_KET_THUC"
                     const isCancelled =
                       rawStatus === "CANCELLED" ||
                       rawStatus === "DA_HUY"
                     const isPublishedOrApproved =
-                      !isDraft && !isPending && !isRejected && !isHappening && !isEnded && !isCancelled
+                      rawStatus === "APPROVED" || rawStatus === "PUBLISHED"
 
                     return (
                       <tr
@@ -545,7 +625,7 @@ export default function EventsManage({
                           <div
                             className="font-medium leading-snug cursor-pointer hover:text-indigo-600"
                             style={{ color: "#1a1a2e", maxWidth: 240 }}
-                            onClick={() => onNavigate(`/events/${eventId}`)}
+                            onClick={() => setDetailModal(event)}
                           >
                             {event.title}
                           </div>
@@ -553,7 +633,7 @@ export default function EventsManage({
                             className="text-xs mt-0.5"
                             style={{ color: "#94a3b8" }}
                           >
-                            {TOPIC_LABELS[event.topic]}
+                            #{event.ma_su_kien} · {event.ten_chuyen_de || TOPIC_LABELS[event.topic] || event.topic}
                           </div>
                         </td>
                         <td
@@ -625,16 +705,16 @@ export default function EventsManage({
                         <td className="px-4 py-4">
                           <span
                             className="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
-                            style={{ background: sc.bg, color: sc.text }}
+                            style={{ background: badge.bg, color: badge.text }}
                           >
-                            {STATUS_LABELS[eventStatus] || eventStatus}
+                            {badge.label}
                           </span>
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-1">
                             <ActionBtn
                               title="Xem chi tiết sự kiện"
-                              onClick={() => onNavigate(`/events/${eventId}`)}
+                              onClick={() => setDetailModal(event)}
                             >
                               <Eye className="w-4 h-4 text-slate-500" />
                             </ActionBtn>
@@ -705,7 +785,7 @@ export default function EventsManage({
                                 <ActionBtn
                                   title="Hủy sự kiện khẩn cấp"
                                   onClick={() =>
-                                    setCancelModal({
+                                    openCancelModal({
                                       id: event.id,
                                       eventId,
                                       title: event.title,
@@ -746,7 +826,7 @@ export default function EventsManage({
                                 <ActionBtn
                                   title="Hủy sự kiện khẩn cấp"
                                   onClick={() =>
-                                    setCancelModal({
+                                    openCancelModal({
                                       id: event.id,
                                       eventId,
                                       title: event.title,
@@ -810,7 +890,7 @@ export default function EventsManage({
           ) : (
             filtered.map((event) => {
               const eventStatus = computeStatus(event) as EventStatus
-              const sc = STATUS_COLORS[eventStatus] || STATUS_COLORS.open
+              const badge = getEventBadge(event, eventStatus)
               const isUnlimited =
                 !event.capacity ||
                 event.capacity <= 0 ||
@@ -824,7 +904,7 @@ export default function EventsManage({
                   ) || 0
               const eventId = String(event.ma_su_kien || event.id)
               const rawStatus = (event.trang_thai || "").toUpperCase()
-              const isDraft = rawStatus === "DRAFT" || eventStatus === "draft"
+              const isDraft = rawStatus === "DRAFT"
               const isPending =
                 rawStatus === "CHO_PHE_DUYET" ||
                 rawStatus === "CHO_DUYET" ||
@@ -835,20 +915,17 @@ export default function EventsManage({
                 rawStatus === "REJECTED" ||
                 rawStatus === "COHOST_REJECTED" ||
                 rawStatus.includes("REJECTED")
+              const isHappening =
+                rawStatus === "HAPPENING" ||
+                rawStatus === "DANG_DIEN_RA"
               const isEnded =
                 rawStatus === "COMPLETED" ||
-                rawStatus === "DA_KET_THUC" ||
-                eventStatus === "ended"
-              const isHappening =
-                !isEnded &&
-                (rawStatus === "HAPPENING" ||
-                  rawStatus === "DANG_DIEN_RA" ||
-                  eventStatus === "happening")
+                rawStatus === "DA_KET_THUC"
               const isCancelled =
                 rawStatus === "CANCELLED" ||
                 rawStatus === "DA_HUY"
               const isPublishedOrApproved =
-                !isDraft && !isPending && !isRejected && !isHappening && !isEnded && !isCancelled
+                rawStatus === "APPROVED" || rawStatus === "PUBLISHED"
 
               return (
                 <div
@@ -861,19 +938,19 @@ export default function EventsManage({
                       <h3
                         className="font-display font-semibold text-sm leading-snug cursor-pointer"
                         style={{ color: "#1a1a2e" }}
-                        onClick={() => onNavigate(`/events/${eventId}`)}
+                        onClick={() => setDetailModal(event)}
                       >
                         {event.title}
                       </h3>
                       <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>
-                        {TOPIC_LABELS[event.topic]}
+                        #{event.ma_su_kien} · {event.ten_chuyen_de || TOPIC_LABELS[event.topic] || event.topic}
                       </p>
                     </div>
                     <span
                       className="px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-                      style={{ background: sc.bg, color: sc.text }}
+                      style={{ background: badge.bg, color: badge.text }}
                     >
-                      {STATUS_LABELS[eventStatus] || eventStatus}
+                      {badge.label}
                     </span>
                   </div>
                   <div
@@ -909,7 +986,7 @@ export default function EventsManage({
                   </div>
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
                     <button
-                      onClick={() => onNavigate(`/events/${eventId}`)}
+                      onClick={() => setDetailModal(event)}
                       className="py-1.5 px-3 rounded-xl text-xs font-medium border border-slate-200 text-slate-600 bg-white hover:bg-slate-50"
                     >
                       Chi tiết
@@ -975,7 +1052,7 @@ export default function EventsManage({
                         </button>
                         <button
                           onClick={() =>
-                            setCancelModal({
+                            openCancelModal({
                               id: event.id,
                               eventId,
                               title: event.title,
@@ -1015,7 +1092,7 @@ export default function EventsManage({
                         </button>
                         <button
                           onClick={() =>
-                            setCancelModal({
+                            openCancelModal({
                               id: event.id,
                               eventId,
                               title: event.title,
@@ -1056,6 +1133,182 @@ export default function EventsManage({
         </div>
       </div>
 
+      {detailModal && (() => {
+        const dBadge = getEventBadge(detailModal, computeStatus(detailModal))
+        const dRawStatus = (detailModal.trang_thai || "").toUpperCase()
+        const dId = String(detailModal.ma_su_kien || detailModal.id)
+        const dUnlimited = Boolean(detailModal.khong_gioi_han_slot) || !detailModal.capacity
+        const canPreviewPublic = ["PUBLISHED", "HAPPENING", "COMPLETED"].includes(dRawStatus)
+
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => setDetailModal(null)}
+          >
+            <div
+              className="bg-white rounded-3xl p-6 sm:p-7 max-w-2xl w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="text-xs font-mono font-semibold text-slate-400">
+                      #{detailModal.ma_su_kien}
+                    </span>
+                    <span
+                      className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                      style={{ background: dBadge.bg, color: dBadge.text }}
+                    >
+                      {dBadge.label}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                      {detailModal.ten_chuyen_de || String(detailModal.topic)}
+                    </span>
+                  </div>
+                  <h2 className="font-display font-bold text-xl text-navy leading-snug">
+                    {detailModal.title}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setDetailModal(null)}
+                  className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                  aria-label="Đóng chi tiết"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-5 text-xs">
+                <div className="p-3.5 rounded-2xl bg-slate-50 flex items-start gap-2.5">
+                  <Clock className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-slate-400">Thời gian tổ chức</p>
+                    <p className="font-semibold text-slate-800 mt-0.5">
+                      {formatCalendarDate(detailModal.date)} · {detailModal.time} – {detailModal.endTime}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 flex items-start gap-2.5">
+                  <MapPin className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-slate-400">Phòng / Địa điểm</p>
+                    <p className="font-semibold text-slate-800 mt-0.5">
+                      {detailModal.location}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 flex items-start gap-2.5">
+                  <Users className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-slate-400">Sức chứa & Đăng ký</p>
+                    <p className="font-semibold text-slate-800 mt-0.5">
+                      {dUnlimited
+                        ? `${detailModal.registered || 0} đăng ký · Mở tự do (Không giới hạn slot)`
+                        : `${detailModal.registered || 0} / ${detailModal.capacity} vé`}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-50 flex items-start gap-2.5">
+                  <Award className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-slate-400">Quyền lợi ĐRL & Diễn giả</p>
+                    <p className="font-semibold text-slate-800 mt-0.5">
+                      {detailModal.dieu_khoan_drl === "KhongCo"
+                        ? "Không cộng ĐRL"
+                        : `+${detailModal.diem_drl_du_kien} điểm (${detailModal.dieu_khoan_drl === "Dieu4" ? "Điều 4" : "Điều 3"})`}
+                      {detailModal.speaker ? ` · ${detailModal.speaker}` : ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {detailModal.coHosts && detailModal.coHosts.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-slate-500 mb-1.5">
+                    Đơn vị đồng tổ chức:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detailModal.coHosts.map((ch) => (
+                      <span
+                        key={ch}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-medium"
+                      >
+                        {ch}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-slate-500 mb-1.5">
+                  Mô tả sự kiện:
+                </p>
+                <p className="text-sm text-slate-700 bg-slate-50 p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap">
+                  {detailModal.description || "Chưa có mô tả chi tiết."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  {dRawStatus === "DRAFT" && (
+                    <button
+                      onClick={() => {
+                        setDetailModal(null)
+                        onNavigate(`/organizer/events/${dId}/edit`)
+                      }}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer"
+                    >
+                      Chỉnh sửa & Gửi duyệt
+                    </button>
+                  )}
+                  {["PUBLISHED", "HAPPENING", "COMPLETED"].includes(dRawStatus) && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setDetailModal(null)
+                          onNavigate(`/organizer/dashboard?eventId=${dId}`)
+                        }}
+                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold cursor-pointer"
+                      >
+                        Xem báo cáo & Thống kê
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDetailModal(null)
+                          onNavigate(`/organizer/participants?eventId=${dId}`)
+                        }}
+                        className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold cursor-pointer"
+                      >
+                        Danh sách tham gia
+                      </button>
+                    </>
+                  )}
+                  {canPreviewPublic && (
+                    <button
+                      onClick={() => {
+                        setDetailModal(null)
+                        onNavigate(`/events/${dId}`)
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Xem trang công khai</span>
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => setDetailModal(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {reopenModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100">
@@ -1069,7 +1322,7 @@ export default function EventsManage({
               {reopenModal.title}
             </p>
             <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200 text-xs text-indigo-800 mb-4 leading-relaxed">
-              Khôi phục sự kiện bị từ chối quay về trạng thái <b>Bản nháp (Draft)</b>. Sau khi mở lại, Ban tổ chức có thể tiếp tục chỉnh sửa nội dung, danh sách đồng tổ chức, cấu hình phòng và gửi duyệt lại.
+              Khôi phục sự kiện bị từ chối quay về trạng thái <b>Bản nháp</b>. Sau khi mở lại, Ban tổ chức có thể tiếp tục chỉnh sửa nội dung, danh sách đồng tổ chức, cấu hình phòng và gửi duyệt lại.
             </div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Lý do hoặc ghi chú chỉnh sửa (tùy chọn):
@@ -1113,7 +1366,7 @@ export default function EventsManage({
             </p>
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 mb-4">
               Hồ sơ đang chờ duyệt sẽ được rút về trạng thái{" "}
-              <b>Bản nháp (Draft)</b> để Ban tổ chức có thể tiếp tục chỉnh sửa
+              <b>Bản nháp</b> để Ban tổ chức có thể tiếp tục chỉnh sửa
               trước khi gửi duyệt lại.
             </div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1172,14 +1425,41 @@ export default function EventsManage({
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
               rows={3}
-              className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
+              className={`w-full p-3 rounded-xl border text-sm focus:outline-none focus:ring-2 ${
+                cancelReasonTouched && cancelReason.trim().length < 8
+                  ? "border-rose-400 focus:ring-rose-500/20 focus:border-rose-500"
+                  : "border-slate-200 focus:ring-rose-500/20 focus:border-rose-500"
+              }`}
               placeholder="Ví dụ: Diễn giả chính bị ốm đột xuất không thể có mặt tại hội trường..."
             />
+            <div className="flex items-center justify-between text-[11px] mt-1.5">
+              <span
+                className={
+                  cancelReasonTouched && cancelReason.trim().length < 8
+                    ? "text-rose-600 font-medium"
+                    : "text-slate-400"
+                }
+              >
+                Tối thiểu 8 ký tự
+              </span>
+              <span
+                className={`font-semibold ${
+                  cancelReason.trim().length >= 8
+                    ? "text-emerald-600"
+                    : cancelReasonTouched
+                      ? "text-rose-600"
+                      : "text-slate-400"
+                }`}
+              >
+                {cancelReason.trim().length}/8 ký tự
+              </span>
+            </div>
             <div className="flex gap-3 mt-5">
               <button
                 onClick={() => {
                   setCancelModal(null)
                   setCancelReason("")
+                  setCancelReasonTouched(false)
                 }}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs"
               >
@@ -1187,9 +1467,10 @@ export default function EventsManage({
               </button>
               <button
                 onClick={handleEmergencyCancel}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-sm"
+                disabled={cancelling}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-sm disabled:opacity-50 cursor-pointer"
               >
-                Xác nhận hủy sự kiện
+                {cancelling ? "Đang hủy..." : "Xác nhận hủy sự kiện"}
               </button>
             </div>
           </div>

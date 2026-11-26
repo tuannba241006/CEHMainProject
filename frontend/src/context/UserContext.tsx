@@ -89,6 +89,23 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | null>(null)
 
+const SESSION_HINT_KEY = "ceh_has_session"
+
+function getSessionHint(): boolean {
+  try {
+    return localStorage.getItem(SESSION_HINT_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+function setSessionHint(active: boolean) {
+  try {
+    if (active) localStorage.setItem(SESSION_HINT_KEY, "1")
+    else localStorage.removeItem(SESSION_HINT_KEY)
+  } catch {}
+}
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData>(DEFAULT_USER)
   const [role, setRole] = useState<AppRole | null>(() => {
@@ -102,10 +119,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const token = tokenStore.get()
     const storedRole = sessionStorage.getItem("ceh_demo_role") as AppRole | null
     const storedEmail = sessionStorage.getItem("ceh_demo_email")
+    const hasSessionHint = Boolean(
+      token || storedRole || storedEmail || getSessionHint(),
+    )
 
     // CSRF pre-fetch is handled during auth actions (login/register) to prevent wiping active sessions.
 
-    if (token || isApiMode()) {
+    if (token || (isApiMode() && hasSessionHint)) {
       authService
         .me()
         .then(({ data }) => {
@@ -113,6 +133,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           const u = fromContractUser(data)
           setUser(u)
           setRole(roleFromUser(data))
+          setSessionHint(true)
           try {
             sessionStorage.setItem("ceh_user_data", JSON.stringify(u))
           } catch {}
@@ -125,6 +146,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             setRole(null)
             setUser(DEFAULT_USER)
             tokenStore.clear()
+            setSessionHint(false)
             try {
               sessionStorage.removeItem("ceh_demo_role")
               sessionStorage.removeItem("ceh_demo_email")
@@ -169,6 +191,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setRole(null)
       setUser(DEFAULT_USER)
       tokenStore.clear()
+      setSessionHint(false)
       try {
         sessionStorage.removeItem("ceh_demo_role")
         sessionStorage.removeItem("ceh_demo_email")
@@ -476,6 +499,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setUser(nextUser)
     const nextRole = roleFromUser(res.data)
     setRole(nextRole)
+    setSessionHint(true)
     try {
       sessionStorage.setItem("ceh_demo_role", nextRole)
       sessionStorage.setItem("ceh_demo_email", nextUser.email)
@@ -491,6 +515,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       console.warn("Logout error:", e)
     } finally {
       tokenStore.clear()
+      setSessionHint(false)
       sessionStorage.removeItem("ceh_demo_role")
       sessionStorage.removeItem("ceh_demo_email")
       sessionStorage.removeItem("ceh_user_data")

@@ -43,7 +43,7 @@ export default function WebFooter() {
             <p className="text-white font-semibold text-sm">Liên hệ & Hỗ trợ</p>
             <ul className="space-y-1.5 text-xs text-slate-400">
               <li>Phòng Công tác Sinh viên (CTSV)</li>
-              <li>Email: ctsv@demo.edu.vn</li>
+              <li>Email: ctsv@uit.edu.vn</li>
               <li>Hotline hỗ trợ: (028) 3725 2002</li>
               <li>Thời gian: 07:30 - 17:00 (Thứ 2 - Thứ 6)</li>
             </ul>

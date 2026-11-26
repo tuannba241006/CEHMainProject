@@ -280,7 +280,6 @@ export function TicketDataProvider({ children }: { children: ReactNode }) {
 
   const refreshTickets = useCallback(
     async (currentUser?: Partial<UserData> | null) => {
-      console.log("REFRESH TICKETS CALLED - authenticated:", authenticated, "role:", role)
       if (!authenticated || role !== "student") return
       setTicketsLoading(true)
       setTicketsError(null)
