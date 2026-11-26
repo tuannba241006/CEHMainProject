@@ -61,7 +61,7 @@ class TicketBookedMailable extends Mailable implements ShouldQueue
         $this->eventName = (string) ($event?->ten_su_kien ?: 'Sự kiện UIT');
         $this->eventStartTime = $start ? $start->format('H:i d/m/Y') : 'Đang cập nhật';
         $this->eventEndTime = $end ? $end->format('H:i d/m/Y') : 'Đang cập nhật';
-        $this->roomName = trim(($room?->ten_phong ?? 'Hội trường') . ' · ' . $campusLabel);
+        $this->roomName = trim(($room?->ten_phong ?? 'Hội trường').' · '.$campusLabel);
         $this->ticketUuid = (string) $ticket->ma_ve_uuid;
         $this->hmacSignature = (string) $ticket->chu_ky_hmac;
         $this->payloadQr = sprintf(
@@ -96,4 +96,3 @@ class TicketBookedMailable extends Mailable implements ShouldQueue
         return [];
     }
 }
-

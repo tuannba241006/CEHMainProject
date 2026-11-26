@@ -73,4 +73,3 @@ class WaitlistOfferMailable extends Mailable implements ShouldQueue
         return [];
     }
 }
-

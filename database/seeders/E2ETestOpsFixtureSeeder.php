@@ -53,7 +53,7 @@ class E2ETestOpsFixtureSeeder extends Seeder
 
         $organizer = DB::table('tai_khoan')->where('email', $organizerEmail)->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản BTC: %s (ID: %d, đơn vị: %d, pass: Organizer@123)",
+            'Đã cấu hình tài khoản BTC: %s (ID: %d, đơn vị: %d, pass: Organizer@123)',
             $organizer->email,
             $organizer->ma_tai_khoan,
             $organizer->ma_don_vi_to_chuc
@@ -108,7 +108,7 @@ class E2ETestOpsFixtureSeeder extends Seeder
             $savedUser = DB::table('tai_khoan')->where('email', $student['email'])->first();
             $studentMap[$student['email']] = $savedUser;
             $this->command->info(sprintf(
-                "Đã cấu hình tài khoản SV: %s (ID: %d, MSSV: %s, pass: Student@123)",
+                'Đã cấu hình tài khoản SV: %s (ID: %d, MSSV: %s, pass: Student@123)',
                 $savedUser->email,
                 $savedUser->ma_tai_khoan,
                 $savedUser->mssv
@@ -239,7 +239,7 @@ class E2ETestOpsFixtureSeeder extends Seeder
             );
 
             $this->command->info(sprintf(
-                "Đã cấu hình sự kiện ID %d: %s (Trạng thái: %s, Bắt đầu: %s, Kết thúc: %s, Cổng In/Out: %d/%d)",
+                'Đã cấu hình sự kiện ID %d: %s (Trạng thái: %s, Bắt đầu: %s, Kết thúc: %s, Cổng In/Out: %d/%d)',
                 $event['ma_su_kien'],
                 $event['ten_su_kien'],
                 $event['trang_thai'],
@@ -301,7 +301,7 @@ class E2ETestOpsFixtureSeeder extends Seeder
             ]);
 
             $this->command->info(sprintf(
-                "Đã tạo %s - Mã ĐK: %d | User ID: %d (%s) | Event: 901 | Trạng thái: DaDangKy | UUID: %s",
+                'Đã tạo %s - Mã ĐK: %d | User ID: %d (%s) | Event: 901 | Trạng thái: DaDangKy | UUID: %s',
                 $ticketItem['label'],
                 $ticketId,
                 $student->ma_tai_khoan,

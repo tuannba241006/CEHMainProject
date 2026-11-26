@@ -216,7 +216,7 @@ class UatPkg03EventLifecycleSeeder extends Seeder
         DB::table('su_kien_dong_to_chuc')->whereIn('ma_su_kien', $fixtureEventIds)->delete();
         DB::table('su_kien')->whereIn('ma_su_kien', $fixtureEventIds)->delete();
 
-        $this->command->info('-> Đã làm sạch dữ liệu cũ cho các sự kiện ID: ' . implode(', ', $fixtureEventIds));
+        $this->command->info('-> Đã làm sạch dữ liệu cũ cho các sự kiện ID: '.implode(', ', $fixtureEventIds));
 
         // -------------------------------------------------------------------------
         // 3. KHỞI TẠO MA TRẬN 10 SỰ KIỆN TEST VÒNG ĐỜI & EDGE CASES (301 -> 310)

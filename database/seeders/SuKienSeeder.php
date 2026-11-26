@@ -378,4 +378,3 @@ class SuKienSeeder extends Seeder
         );
     }
 }
-
