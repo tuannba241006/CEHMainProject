@@ -24,13 +24,13 @@ class CohostInvitationResource extends JsonResource
         if ($event) {
             if ($event->relationLoaded('datPhongs')) {
                 $pendingDatPhong = $event->datPhongs->firstWhere('trang_thai', 'PENDING');
-                $hanGiuChoTam = $pendingDatPhong?->han_giu_cho_tam?->toIso8601String();
+                $hanGiuChoTam = $pendingDatPhong?->han_giu_cho_tam?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String();
             } else {
                 $hanGiuChoTam = $event->datPhongs()
                     ->where('trang_thai', 'PENDING')
                     ->value('han_giu_cho_tam');
                 if ($hanGiuChoTam) {
-                    $hanGiuChoTam = Carbon::parse($hanGiuChoTam)->toIso8601String();
+                    $hanGiuChoTam = Carbon::parse($hanGiuChoTam)->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String();
                 }
             }
         }
@@ -39,8 +39,8 @@ class CohostInvitationResource extends JsonResource
             'id' => (int) $this->id,
             'ma_su_kien' => (int) $this->ma_su_kien,
             'ten_su_kien' => (string) ($event?->ten_su_kien ?? ''),
-            'thoi_gian_bat_dau' => $event?->thoi_gian_bat_dau?->toIso8601String(),
-            'thoi_gian_ket_thuc' => $event?->thoi_gian_ket_thuc?->toIso8601String(),
+            'thoi_gian_bat_dau' => $event?->thoi_gian_bat_dau?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
+            'thoi_gian_ket_thuc' => $event?->thoi_gian_ket_thuc?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
             'han_giu_cho_tam' => $hanGiuChoTam,
             'don_vi_host' => $hostUnit ? [
                 'ma_don_vi_to_chuc' => (int) $hostUnit->ma_don_vi_to_chuc,
@@ -60,7 +60,8 @@ class CohostInvitationResource extends JsonResource
             'thoi_gian_phan_hoi' => $this->thoi_gian_phan_hoi?->toIso8601String(),
             'ghi_chu_tu_choi' => $this->ghi_chu_tu_choi,
             'thoi_gian_tao' => $this->thoi_gian_tao ? Carbon::parse($this->thoi_gian_tao)->toIso8601String() : null,
-            'ten_phong' => $event?->phong?->ten_phong ?? $event?->ten_phong,
+            'ten_phong' => $event?->phongHoiTruong?->ten_phong ?? $event?->ten_phong,
+            'ten_chuyen_de' => $event?->chuyenDe?->ten_chuyen_de,
             'mo_ta' => $event?->mo_ta,
             'dien_gia' => $event?->dien_gia,
             'lo_trinh' => $event?->lo_trinh,

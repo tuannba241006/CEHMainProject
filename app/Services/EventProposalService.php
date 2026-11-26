@@ -441,9 +441,13 @@ class EventProposalService
             ->with([
                 'suKien.donViHost',
                 'suKien.phongHoiTruong',
+                'suKien.chuyenDe',
                 'suKien.datPhongs',
                 'donViToChuc',
-            ]);
+            ])
+            ->whereHas('suKien', function ($q) {
+                $q->where('trang_thai', '!=', 'DRAFT');
+            });
 
         // Lọc theo đơn vị
         if (! $user->isAdmin()) {

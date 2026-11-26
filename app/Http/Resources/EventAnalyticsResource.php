@@ -28,6 +28,8 @@ class EventAnalyticsResource extends JsonResource
             'diem_noi_dung_tb' => $this->resource['diem_noi_dung_tb'] !== null ? (float) $this->resource['diem_noi_dung_tb'] : null,
             'diem_dien_gia_tb' => $this->resource['diem_dien_gia_tb'] !== null ? (float) $this->resource['diem_dien_gia_tb'] : null,
             'diem_to_chuc_tb' => $this->resource['diem_to_chuc_tb'] !== null ? (float) $this->resource['diem_to_chuc_tb'] : null,
+            'tong_so_phan_hoi' => (int) ($this->resource['tong_so_phan_hoi'] ?? 0),
+            'phan_hoi_an_danh' => $this->resource['phan_hoi_an_danh'] ?? [],
             'phan_bo_theo_khoa' => $this->resource['phan_bo_theo_khoa'] ?? [],
             'luu_luong_theo_khung_gio' => $this->resource['luu_luong_theo_khung_gio'] ?? [],
         ];
