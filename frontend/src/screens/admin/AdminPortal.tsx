@@ -799,7 +799,13 @@ export default function AdminPortal({ section }: { section: Section }) {
                       {macroData?.ty_le_show_up_toan_truong_pct ?? 0}%
                     </div>
                     <p className="text-[11px] text-emerald-600 mt-1 font-medium">
-                      Đạt tỷ lệ cao (&gt; 90%)
+                      {(macroData?.ty_le_show_up_toan_truong_pct ?? 0) >= 90
+                        ? "Đạt tỷ lệ cao (≥ 90%)"
+                        : (macroData?.ty_le_show_up_toan_truong_pct ?? 0) >= 60
+                          ? "Mức tham dự khá"
+                          : (macroData?.ty_le_show_up_toan_truong_pct ?? 0) > 0
+                            ? "Cần cải thiện tỷ lệ tham dự"
+                            : "Chưa có dữ liệu điểm danh"}
                     </p>
                   </div>
 
@@ -851,7 +857,14 @@ export default function AdminPortal({ section }: { section: Section }) {
                       </span>
                     </div>
                     <div className="font-display font-bold text-2xl lg:text-3xl text-purple-900 flex items-baseline">
-                      4.82
+                      {(() => {
+                        const rated = (macroData?.top_don_vi_hoat_dong_tich_cuc ?? []).filter(
+                          (u) => typeof u.diem_hai_long_tb === "number" && u.diem_hai_long_tb > 0,
+                        )
+                        if (rated.length === 0) return "—"
+                        const avg = rated.reduce((sum, u) => sum + (u.diem_hai_long_tb ?? 0), 0) / rated.length
+                        return avg.toFixed(2)
+                      })()}
                       <span className="text-xs font-normal text-slate-500 ml-1">/ 5.0</span>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-1 leading-tight">

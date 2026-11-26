@@ -520,14 +520,15 @@ export default function EventsManage({
                       rawStatus === "REJECTED" ||
                       rawStatus === "COHOST_REJECTED" ||
                       rawStatus.includes("REJECTED")
-                    const isHappening =
-                      rawStatus === "HAPPENING" ||
-                      rawStatus === "DANG_DIEN_RA" ||
-                      eventStatus === "happening"
                     const isEnded =
                       rawStatus === "COMPLETED" ||
                       rawStatus === "DA_KET_THUC" ||
                       eventStatus === "ended"
+                    const isHappening =
+                      !isEnded &&
+                      (rawStatus === "HAPPENING" ||
+                        rawStatus === "DANG_DIEN_RA" ||
+                        eventStatus === "happening")
                     const isCancelled =
                       rawStatus === "CANCELLED" ||
                       rawStatus === "DA_HUY"
@@ -834,14 +835,15 @@ export default function EventsManage({
                 rawStatus === "REJECTED" ||
                 rawStatus === "COHOST_REJECTED" ||
                 rawStatus.includes("REJECTED")
-              const isHappening =
-                rawStatus === "HAPPENING" ||
-                rawStatus === "DANG_DIEN_RA" ||
-                eventStatus === "happening"
               const isEnded =
                 rawStatus === "COMPLETED" ||
                 rawStatus === "DA_KET_THUC" ||
                 eventStatus === "ended"
+              const isHappening =
+                !isEnded &&
+                (rawStatus === "HAPPENING" ||
+                  rawStatus === "DANG_DIEN_RA" ||
+                  eventStatus === "happening")
               const isCancelled =
                 rawStatus === "CANCELLED" ||
                 rawStatus === "DA_HUY"
