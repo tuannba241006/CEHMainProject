@@ -36,14 +36,15 @@ class ReviewQueueResource extends JsonResource
             'danh_sach_ten_dong_to_chuc' => $cohostNames,
             'ten_phong' => (string) ($this->phongHoiTruong?->ten_phong ?? ''),
             'co_so' => (string) ($coSo ?? 'CoSo1'),
-            'thoi_gian_bat_dau' => $this->thoi_gian_bat_dau?->toIso8601String(),
-            'thoi_gian_ket_thuc' => $this->thoi_gian_ket_thuc?->toIso8601String(),
+            'thoi_gian_bat_dau' => $this->thoi_gian_bat_dau?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
+            'thoi_gian_ket_thuc' => $this->thoi_gian_ket_thuc?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
             'khong_gioi_han_slot' => (bool) $this->khong_gioi_han_slot,
             'so_luong_toi_da' => $this->so_luong_toi_da !== null ? (int) $this->so_luong_toi_da : null,
             'so_ve_con_lai' => $this->so_ve_con_lai !== null ? (int) $this->so_ve_con_lai : null,
             'trang_thai' => (string) $this->trang_thai,
             'dieu_khoan_drl' => (string) $this->dieu_khoan_drl,
             'diem_drl_du_kien' => (int) $this->diem_drl_du_kien,
+            'thoi_gian_tao' => $this->thoi_gian_tao?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
         ];
     }
 }

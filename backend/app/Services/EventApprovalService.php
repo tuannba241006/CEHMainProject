@@ -3,14 +3,17 @@
 namespace App\Services;
 
 use App\Exceptions\BusinessException;
+use App\Mail\EventApprovedMailable;
 use App\Models\DatPhong;
 use App\Models\DonViToChuc;
 use App\Models\PhongHoiTruong;
 use App\Models\SuKien;
+use App\Models\SuKienDongToChuc;
 use App\Models\ThongBao;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class EventApprovalService
 {
@@ -183,7 +186,7 @@ class EventApprovalService
         $reason = $this->validateReason($data['ly_do'] ?? null, 5);
         $duyetLuonCapPhong = (bool) ($data['duyet_luon_cap_phong'] ?? false);
 
-        return DB::transaction(function () use ($actor, $eventId, $reason, $duyetLuonCapPhong) {
+        $approvedEvent = DB::transaction(function () use ($actor, $eventId, $reason, $duyetLuonCapPhong) {
             $lockedActor = $this->lockActor($actor);
             $this->ensureAdminPCTSV($lockedActor);
 
@@ -288,6 +291,12 @@ class EventApprovalService
 
             return $event->fresh();
         });
+
+        if ($approvedEvent->trang_thai === 'APPROVED') {
+            $this->sendApprovedEmails($approvedEvent, 'Admin P.CTSV (Duyệt thay cấp Khoa & Cấp phòng)');
+        }
+
+        return $approvedEvent;
     }
 
     /**
@@ -295,7 +304,7 @@ class EventApprovalService
      */
     public function approveAdmin(User $actor, int $eventId, ?string $reason = null): SuKien
     {
-        return DB::transaction(function () use ($actor, $eventId, $reason) {
+        $approvedEvent = DB::transaction(function () use ($actor, $eventId, $reason) {
             $lockedActor = $this->lockActor($actor);
             $this->ensureAdminPCTSV($lockedActor);
 
@@ -360,6 +369,10 @@ class EventApprovalService
 
             return $event->fresh();
         });
+
+        $this->sendApprovedEmails($approvedEvent, 'Phòng Công tác Sinh viên (P.CTSV)');
+
+        return $approvedEvent;
     }
 
     /**
@@ -798,6 +811,54 @@ class EventApprovalService
                 'noi_dung' => $message,
                 'loai_thong_bao' => 'DE_XUAT_SU_KIEN',
             ]);
+        }
+    }
+
+    private function sendApprovedEmails(SuKien $event, string $approvalModeLabel): void
+    {
+        $event->loadMissing('phongHoiTruong');
+
+        $acceptedCohostUnitIds = SuKienDongToChuc::query()
+            ->where('ma_su_kien', $event->ma_su_kien)
+            ->where('trang_thai_xac_nhan', 'DONG_Y')
+            ->pluck('ma_don_vi_to_chuc')
+            ->all();
+
+        $recipientUnitIds = array_values(array_unique(array_filter(array_merge(
+            [(int) $event->ma_don_vi_to_chuc],
+            array_map('intval', $acceptedCohostUnitIds)
+        ))));
+
+        if (empty($recipientUnitIds)) {
+            return;
+        }
+
+        $recipients = User::query()
+            ->whereIn('ma_don_vi_to_chuc', $recipientUnitIds)
+            ->where('hoat_dong', 1)
+            ->whereNotNull('email')
+            ->where('email', '<>', '')
+            ->get(['email', 'ho_ten'])
+            ->unique('email');
+
+        $startTimeLabel = $event->thoi_gian_bat_dau
+            ? $event->thoi_gian_bat_dau->copy()->setTimezone('Asia/Ho_Chi_Minh')->format('H:i d/m/Y')
+            : 'Chưa xác định';
+
+        $roomLabel = $event->phongHoiTruong
+            ? trim($event->phongHoiTruong->ten_phong . ' (' . ($event->phongHoiTruong->co_so === 'CoSo2' ? 'Cơ sở 2' : 'Cơ sở 1') . ')')
+            : 'Chưa xác định';
+
+        foreach ($recipients as $recipient) {
+            Mail::to($recipient->email)->queue(
+                new EventApprovedMailable(
+                    recipientName: $recipient->ho_ten ?: 'Ban tổ chức',
+                    eventTitle: (string) $event->ten_su_kien,
+                    startTimeLabel: $startTimeLabel,
+                    roomLabel: $roomLabel,
+                    approvalModeLabel: $approvalModeLabel
+                )
+            );
         }
     }
 }
