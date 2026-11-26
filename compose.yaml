@@ -27,6 +27,9 @@ services:
     ports:
       - "8000:8000"
     environment: &backend-environment
+      TZ: Asia/Ho_Chi_Minh
+      APP_TIMEZONE: Asia/Ho_Chi_Minh
+      DB_TIMEZONE: "+07:00"
       APP_ENV: local
       APP_DEBUG: "true"
       DB_CONNECTION: mysql
@@ -113,7 +116,9 @@ services:
   db:
     image: mysql:8.4
     restart: unless-stopped
+    command: ["--default-time-zone=+07:00"]
     environment:
+      TZ: Asia/Ho_Chi_Minh
       MYSQL_DATABASE: ceh
       MYSQL_USER: ceh_user
       MYSQL_PASSWORD: ceh_local_password
