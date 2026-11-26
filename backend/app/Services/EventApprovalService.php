@@ -846,7 +846,7 @@ class EventApprovalService
             : 'Chưa xác định';
 
         $roomLabel = $event->phongHoiTruong
-            ? trim($event->phongHoiTruong->ten_phong . ' (' . ($event->phongHoiTruong->co_so === 'CoSo2' ? 'Cơ sở 2' : 'Cơ sở 1') . ')')
+            ? trim($event->phongHoiTruong->ten_phong.' ('.($event->phongHoiTruong->co_so === 'CoSo2' ? 'Cơ sở 2' : 'Cơ sở 1').')')
             : 'Chưa xác định';
 
         foreach ($recipients as $recipient) {
