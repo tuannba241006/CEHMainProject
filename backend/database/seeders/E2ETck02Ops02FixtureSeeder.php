@@ -311,7 +311,7 @@ class E2ETck02Ops02FixtureSeeder extends Seeder
                 'thoi_gian_ket_thuc' => $event['thoi_gian_ket_thuc'],
                 'trang_thai' => 'CONFIRMED',
                 'han_giu_cho_tam' => null,
-                'ghi_chu' => 'Đặt phòng chính thức: ' . $event['ten_su_kien'],
+                'ghi_chu' => 'Đặt phòng chính thức: '.$event['ten_su_kien'],
                 'thoi_gian_tao' => $now,
                 'thoi_gian_cap_nhat' => $now,
             ]);

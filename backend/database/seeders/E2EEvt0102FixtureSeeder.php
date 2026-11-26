@@ -49,7 +49,7 @@ class E2EEvt0102FixtureSeeder extends Seeder
         );
         $webdevUser = DB::table('tai_khoan')->where('email', 'webdev@uit.edu.vn')->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản Host A CLB: %s (ID: %d, Đơn vị: %d, pass: Organizer@123)",
+            'Đã cấu hình tài khoản Host A CLB: %s (ID: %d, Đơn vị: %d, pass: Organizer@123)',
             $webdevUser->email,
             $webdevUser->ma_tai_khoan,
             $webdevUser->ma_don_vi_to_chuc
@@ -80,7 +80,7 @@ class E2EEvt0102FixtureSeeder extends Seeder
         );
         $htttUser = DB::table('tai_khoan')->where('email', 'httt@uit.edu.vn')->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản Cấp Khoa / Co-host: %s (ID: %d, Đơn vị: %d, pass: Organizer@123)",
+            'Đã cấu hình tài khoản Cấp Khoa / Co-host: %s (ID: %d, Đơn vị: %d, pass: Organizer@123)',
             $htttUser->email,
             $htttUser->ma_tai_khoan,
             $htttUser->ma_don_vi_to_chuc
@@ -111,7 +111,7 @@ class E2EEvt0102FixtureSeeder extends Seeder
         );
         $pctsvUser = DB::table('tai_khoan')->where('email', 'pctsv@uit.edu.vn')->first();
         $this->command->info(sprintf(
-            "Đã cấu hình tài khoản Đơn vị / Admin P.CTSV: %s (ID: %d, Đơn vị: %d, pass: Organizer@123)",
+            'Đã cấu hình tài khoản Đơn vị / Admin P.CTSV: %s (ID: %d, Đơn vị: %d, pass: Organizer@123)',
             $pctsvUser->email,
             $pctsvUser->ma_tai_khoan,
             $pctsvUser->ma_don_vi_to_chuc
@@ -139,7 +139,7 @@ class E2EEvt0102FixtureSeeder extends Seeder
         DB::table('su_kien_dong_to_chuc')->whereIn('ma_su_kien', $fixtureEventIds)->delete();
         DB::table('su_kien')->whereIn('ma_su_kien', $fixtureEventIds)->delete();
 
-        $this->command->info('Đã dọn dẹp dữ liệu cũ cho các sự kiện: ' . implode(', ', $fixtureEventIds));
+        $this->command->info('Đã dọn dẹp dữ liệu cũ cho các sự kiện: '.implode(', ', $fixtureEventIds));
 
         // -------------------------------------------------------------------------
         // 3. KHỞI TẠO CÁC SỰ KIỆN FIXTURE (801 - 806)

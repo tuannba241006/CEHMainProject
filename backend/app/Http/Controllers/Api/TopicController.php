@@ -37,7 +37,7 @@ class TopicController extends Controller
     {
         $validated = $request->validate([
             'ten_chuyen_de' => 'required|string|max:255|unique:chuyen_de,ten_chuyen_de',
-            'mo_ta'         => 'nullable|string',
+            'mo_ta' => 'nullable|string',
         ]);
 
         $topic = ChuyenDe::create($validated + ['da_xoa' => false]);
@@ -53,8 +53,8 @@ class TopicController extends Controller
         $topic = ChuyenDe::findOrFail($id);
 
         $validated = $request->validate([
-            'ten_chuyen_de' => 'sometimes|string|max:255|unique:chuyen_de,ten_chuyen_de,' . $id . ',ma_chuyen_de',
-            'mo_ta'         => 'nullable|string',
+            'ten_chuyen_de' => 'sometimes|string|max:255|unique:chuyen_de,ten_chuyen_de,'.$id.',ma_chuyen_de',
+            'mo_ta' => 'nullable|string',
         ]);
 
         $topic->update($validated);

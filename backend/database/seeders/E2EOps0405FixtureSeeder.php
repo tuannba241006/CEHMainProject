@@ -146,10 +146,10 @@ class E2EOps0405FixtureSeeder extends Seeder
         $userMap = [];
         foreach ($accounts as $acc) {
             $query = DB::table('tai_khoan');
-            if (!empty($acc['mssv'])) {
+            if (! empty($acc['mssv'])) {
                 $query->where(function ($q) use ($acc) {
                     $q->where('mssv', $acc['mssv'])
-                      ->orWhere('email', $acc['email']);
+                        ->orWhere('email', $acc['email']);
                 });
             } else {
                 $query->where('email', $acc['email']);
@@ -171,7 +171,7 @@ class E2EOps0405FixtureSeeder extends Seeder
 
             $freshUser = DB::table('tai_khoan')->where('ma_tai_khoan', $userId)->first();
             $userMap[$acc['email']] = $freshUser;
-            if (!empty($acc['mssv'])) {
+            if (! empty($acc['mssv'])) {
                 $userMap[$acc['mssv']] = $freshUser;
             }
 
@@ -333,7 +333,7 @@ class E2EOps0405FixtureSeeder extends Seeder
                 'thoi_gian_ket_thuc' => $event['thoi_gian_ket_thuc'],
                 'trang_thai' => 'CONFIRMED',
                 'han_giu_cho_tam' => null,
-                'ghi_chu' => 'Đặt phòng chính thức: ' . $event['ten_su_kien'],
+                'ghi_chu' => 'Đặt phòng chính thức: '.$event['ten_su_kien'],
                 'thoi_gian_tao' => $now,
                 'thoi_gian_cap_nhat' => $now,
             ]);

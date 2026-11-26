@@ -34,12 +34,12 @@ class OrganizationController extends Controller
 
         return response()->json([
             'success' => true,
-            'data'    => $orgs->items(),
-            'meta'    => [
-                'current_page'    => $orgs->currentPage(),
-                'last_page'       => $orgs->lastPage(),
-                'per_page'        => $orgs->perPage(),
-                'total'           => $orgs->total(),
+            'data' => $orgs->items(),
+            'meta' => [
+                'current_page' => $orgs->currentPage(),
+                'last_page' => $orgs->lastPage(),
+                'per_page' => $orgs->perPage(),
+                'total' => $orgs->total(),
             ],
             'server_time' => now()->setTimezone('+07:00')->toIso8601String(),
         ], 200);
@@ -51,13 +51,13 @@ class OrganizationController extends Controller
     public function adminStore(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'ten_don_vi'        => 'required|string|max:200',
-            'ma_dinh_danh'      => 'nullable|string|min:2|max:50|unique:don_vi_to_chuc,ma_dinh_danh',
-            'loai_don_vi'       => 'required|string|in:CLB,DoanHoi,Khoa,PhongBan',
-            'ma_don_vi_cha'     => 'nullable|integer|exists:don_vi_to_chuc,ma_don_vi_to_chuc',
-            'mo_ta'             => 'nullable|string',
-            'logo_url'          => 'nullable|string|max:500',
-            'hoat_dong'         => 'boolean',
+            'ten_don_vi' => 'required|string|max:200',
+            'ma_dinh_danh' => 'nullable|string|min:2|max:50|unique:don_vi_to_chuc,ma_dinh_danh',
+            'loai_don_vi' => 'required|string|in:CLB,DoanHoi,Khoa,PhongBan',
+            'ma_don_vi_cha' => 'nullable|integer|exists:don_vi_to_chuc,ma_don_vi_to_chuc',
+            'mo_ta' => 'nullable|string',
+            'logo_url' => 'nullable|string|max:500',
+            'hoat_dong' => 'boolean',
         ]);
 
         if (empty($validated['ma_dinh_danh'])) {
@@ -69,7 +69,7 @@ class OrganizationController extends Controller
             $uniqueCode = $code;
             $counter = 1;
             while (DonViToChuc::where('ma_dinh_danh', $uniqueCode)->exists()) {
-                $uniqueCode = substr($code, 0, 25) . '_' . $counter++;
+                $uniqueCode = substr($code, 0, 25).'_'.$counter++;
             }
             $validated['ma_dinh_danh'] = $uniqueCode;
         }
@@ -87,13 +87,13 @@ class OrganizationController extends Controller
         $org = DonViToChuc::findOrFail($id);
 
         $validated = $request->validate([
-            'ten_don_vi'    => 'sometimes|string|max:200',
-            'ma_dinh_danh'  => 'sometimes|nullable|string|min:2|max:50|unique:don_vi_to_chuc,ma_dinh_danh,' . $id . ',ma_don_vi_to_chuc',
-            'loai_don_vi'   => 'sometimes|string|in:CLB,DoanHoi,Khoa,PhongBan',
+            'ten_don_vi' => 'sometimes|string|max:200',
+            'ma_dinh_danh' => 'sometimes|nullable|string|min:2|max:50|unique:don_vi_to_chuc,ma_dinh_danh,'.$id.',ma_don_vi_to_chuc',
+            'loai_don_vi' => 'sometimes|string|in:CLB,DoanHoi,Khoa,PhongBan',
             'ma_don_vi_cha' => 'nullable|integer|exists:don_vi_to_chuc,ma_don_vi_to_chuc',
-            'mo_ta'         => 'nullable|string',
-            'logo_url'      => 'nullable|string|max:500',
-            'hoat_dong'     => 'boolean',
+            'mo_ta' => 'nullable|string',
+            'logo_url' => 'nullable|string|max:500',
+            'hoat_dong' => 'boolean',
         ]);
 
         $org->update($validated);

@@ -303,6 +303,7 @@ class EventAnalyticsService
 
         $congSuatPhong = $roomRows->map(function ($rm, $idx) {
             $rates = [94.5, 88.0, 78.4, 82.1, 75.0, 70.0];
+
             return [
                 'ma_phong' => (int) $rm->ma_phong,
                 'ten_phong' => (string) $rm->ten_phong,

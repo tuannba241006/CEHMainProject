@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -85,7 +84,7 @@ class E2ETestBookingFixtureSeeder extends Seeder
             $savedUser = DB::table('tai_khoan')->where('email', $student['email'])->first();
             $studentMap[$student['email']] = $savedUser;
             $this->command->info(sprintf(
-                "Đã cấu hình tài khoản: %s (ID: %d, MSSV: %s, pass: Student@123)",
+                'Đã cấu hình tài khoản: %s (ID: %d, MSSV: %s, pass: Student@123)',
                 $savedUser->email,
                 $savedUser->ma_tai_khoan,
                 $savedUser->mssv
@@ -319,7 +318,7 @@ class E2ETestBookingFixtureSeeder extends Seeder
             );
 
             $this->command->info(sprintf(
-                "Đã cấu hình sự kiện ID %d: %s (trạng thái: %s, còn lại: %s/%s)",
+                'Đã cấu hình sự kiện ID %d: %s (trạng thái: %s, còn lại: %s/%s)',
                 $event['ma_su_kien'],
                 $event['ten_su_kien'],
                 $event['trang_thai'],
@@ -346,7 +345,7 @@ class E2ETestBookingFixtureSeeder extends Seeder
         ]);
 
         $this->command->info(sprintf(
-            "Đã tạo Waitlist Offer [CLAIM] - Entry ID: %d | User: %s (ID %d) | Event: 804 | Thứ tự: 1 | Hạn: +45 phút",
+            'Đã tạo Waitlist Offer [CLAIM] - Entry ID: %d | User: %s (ID %d) | Event: 804 | Thứ tự: 1 | Hạn: +45 phút',
             $waitlistOffer2Id,
             $student2->email,
             $student2->ma_tai_khoan
@@ -364,7 +363,7 @@ class E2ETestBookingFixtureSeeder extends Seeder
         ]);
 
         $this->command->info(sprintf(
-            "Đã tạo Waitlist Offer [DECLINE] - Entry ID: %d | User: %s (ID %d) | Event: 805 | Thứ tự: 1 | Hạn: +45 phút",
+            'Đã tạo Waitlist Offer [DECLINE] - Entry ID: %d | User: %s (ID %d) | Event: 805 | Thứ tự: 1 | Hạn: +45 phút',
             $waitlistOffer3Id,
             $student3->email,
             $student3->ma_tai_khoan

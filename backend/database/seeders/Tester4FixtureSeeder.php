@@ -2,10 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\DangKy;
-use App\Models\HangDoiWaitlist;
-use App\Models\SuKien;
-use App\Models\User;
 use App\Services\CryptoService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -533,7 +529,7 @@ class Tester4FixtureSeeder extends Seeder
                 'ten_su_kien' => 'Chuyên đề Microservices (Cách T-2h đúng 5 phút -> Sàn 15p kích hoạt đóng băng)',
                 'anh_bia' => 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&h=400&fit=crop',
                 'dien_gia' => 'Principal Architect FPT Software',
-                'mo_ta' => 'Sự kiện bắt đầu lúc ' . $now->copy()->addMinutes(125)->format('H:i d/m/Y') . ' (cách mốc chốt sổ T-2h chỉ còn 5 phút, dưới ngưỡng sàn 15 phút). Khi SV1 hủy vé, slot phải tự động chuyển vào so_slot_dong_bang, không được phát hành lại!',
+                'mo_ta' => 'Sự kiện bắt đầu lúc '.$now->copy()->addMinutes(125)->format('H:i d/m/Y').' (cách mốc chốt sổ T-2h chỉ còn 5 phút, dưới ngưỡng sàn 15 phút). Khi SV1 hủy vé, slot phải tự động chuyển vào so_slot_dong_bang, không được phát hành lại!',
                 'lo_trinh' => json_encode([
                     ['time' => '10:00 - 12:00', 'title' => 'Kafka & Microservices'],
                 ]),
@@ -563,7 +559,7 @@ class Tester4FixtureSeeder extends Seeder
                 'ten_su_kien' => 'Chuyên đề AI in Healthcare & Chuẩn đoán Y khoa (Cách T-2h đúng 10 phút - Bộ 2)',
                 'anh_bia' => 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&h=400&fit=crop',
                 'dien_gia' => 'Bác sĩ & Kỹ sư VinBrain',
-                'mo_ta' => 'Sự kiện bắt đầu lúc ' . $now->copy()->addMinutes(130)->format('H:i d/m/Y') . ' (cách mốc T-2h 10 phút, < 15 phút). Hủy vé sẽ kích hoạt quy tắc sàn 15 phút.',
+                'mo_ta' => 'Sự kiện bắt đầu lúc '.$now->copy()->addMinutes(130)->format('H:i d/m/Y').' (cách mốc T-2h 10 phút, < 15 phút). Hủy vé sẽ kích hoạt quy tắc sàn 15 phút.',
                 'lo_trinh' => json_encode([
                     ['time' => '10:30 - 12:30', 'title' => 'Chẩn đoán hình ảnh qua Deep Learning'],
                 ]),
