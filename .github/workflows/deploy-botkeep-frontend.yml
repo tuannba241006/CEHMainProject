@@ -41,13 +41,6 @@ jobs:
           VITE_API_URL: https://api-ceh-das.bot-keep.xyz
         run: npm run build
 
-      - name: Add static SPA fallback files
-        run: |
-          cp frontend/dist/index.html frontend/dist/404.html
-          printf '/* /index.html 200\n' > frontend/dist/_redirects
-          test -s frontend/dist/index.html
-          test -s frontend/dist/404.html
-          test -s frontend/dist/_redirects
 
       - name: Publish dist to botkeep-static branch
         env:
