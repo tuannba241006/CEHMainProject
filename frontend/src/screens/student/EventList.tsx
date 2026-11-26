@@ -287,11 +287,13 @@ export default function EventList({
               <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3.5 shadow-xs text-center min-w-[120px]">
                 <div className="text-2xl font-display font-bold text-indigo-600">
                   {serverStats.openCount ??
-                    events.filter(
-                      (e) =>
-                        computeStatus(e) === "open" ||
-                        computeStatus(e) === "nearly_full",
-                    ).length}
+                    (listLoading
+                      ? "—"
+                      : events.filter(
+                          (e) =>
+                            computeStatus(e) === "open" ||
+                            computeStatus(e) === "nearly_full",
+                        ).length)}
                 </div>
                 <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mt-0.5">
                   Đang mở đăng ký
@@ -299,7 +301,7 @@ export default function EventList({
               </div>
               <div className="bg-white border border-slate-200 rounded-2xl px-5 py-3.5 shadow-xs text-center min-w-[120px]">
                 <div className="text-2xl font-display font-bold text-emerald-600">
-                  {serverStats.totalCount ?? totalRecords}
+                  {serverStats.totalCount ?? (listLoading ? "—" : totalRecords)}
                 </div>
                 <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide mt-0.5">
                   Tổng sự kiện
@@ -398,9 +400,9 @@ export default function EventList({
                 >
                   <option value="">Đang mở & Sắp tới</option>
                   <option value="con_cho">Còn chỗ mở đăng ký</option>
-                  <option value="PUBLISHED">Sắp diễn ra (PUBLISHED)</option>
-                  <option value="HAPPENING">Đang diễn ra (HAPPENING)</option>
-                  <option value="COMPLETED">Đã kết thúc (COMPLETED)</option>
+                  <option value="PUBLISHED">Sắp diễn ra</option>
+                  <option value="HAPPENING">Đang diễn ra</option>
+                  <option value="COMPLETED">Đã kết thúc</option>
                 </select>
               </div>
             </div>

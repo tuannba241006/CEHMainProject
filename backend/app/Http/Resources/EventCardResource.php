@@ -45,6 +45,7 @@ class EventCardResource extends JsonResource
             'trang_thai' => (string) $this->trang_thai,
             'dieu_khoan_drl' => (string) $this->dieu_khoan_drl,
             'diem_drl_du_kien' => (int) $this->diem_drl_du_kien,
+            'thoi_gian_tao' => $this->thoi_gian_tao?->copy()->setTimezone('Asia/Ho_Chi_Minh')->toIso8601String(),
         ];
     }
 }

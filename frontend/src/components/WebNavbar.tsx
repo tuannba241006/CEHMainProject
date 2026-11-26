@@ -121,17 +121,17 @@ export default function WebNavbar({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Brand & Portal Badge */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-5 min-w-0">
             <button
               onClick={() => onNavigate("home")}
-              className="flex items-center gap-3 text-left group focus:outline-none cursor-pointer"
+              className="flex items-center gap-2.5 text-left group focus:outline-none cursor-pointer shrink-0"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-display font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-display font-bold text-sm shadow-sm shrink-0 group-hover:scale-105 transition-transform">
                 CEH
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-display font-bold text-base text-slate-900 group-hover:text-indigo-600 transition-colors">
+                  <span className="font-display font-bold text-sm sm:text-base text-slate-900 whitespace-nowrap group-hover:text-indigo-600 transition-colors">
                     Campus Event Hub
                   </span>
                   <span
@@ -143,7 +143,7 @@ export default function WebNavbar({
                         else if (role === "admin" || role === "student_affairs") onNavigate("/admin/dashboard")
                       }
                     }}
-                    className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                    className={`hidden xl:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap shrink-0 ${
                       isGuest
                         ? "bg-slate-100 text-slate-600 border-slate-200"
                         : "bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 cursor-pointer"
@@ -160,17 +160,17 @@ export default function WebNavbar({
                             : "Sinh viên"}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 font-normal">
+                <p className="text-[11px] text-slate-500 font-normal whitespace-nowrap leading-tight">
                   Cổng sự kiện & rèn luyện đại học
                 </p>
               </div>
             </button>
 
             {/* Center Navigation Links (Desktop) */}
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => onNavigate("home")}
-                className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
+                className={`px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   isExplore
                     ? "bg-indigo-50 text-indigo-700"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
@@ -236,74 +236,33 @@ export default function WebNavbar({
               )}
 
               {!isGuest && role === "faculty_manager" && (
-                <>
-                  <button
-                    onClick={() => onNavigate("/faculty/approvals")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
-                  >
-                    <Building2 className="w-4 h-4 shrink-0 text-indigo-600" />
-                    <span>Bàn làm việc Khoa</span>
-                  </button>
-                  <button
-                    onClick={() => onNavigate("/organizer/events")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
-                  >
-                    <Calendar className="w-4 h-4 shrink-0 text-slate-500" />
-                    <span>Sự kiện Khoa</span>
-                  </button>
-                  <button
-                    onClick={() => onNavigate("staff-scanner")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer border border-amber-200"
-                  >
-                    <Camera className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span>Soát vé Camera</span>
-                  </button>
-                </>
+                <button
+                  onClick={() => onNavigate("/faculty/approvals")}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
+                >
+                  <Building2 className="w-4 h-4 shrink-0 text-indigo-600" />
+                  <span>Không gian Khoa ↗</span>
+                </button>
               )}
 
               {!isGuest && role === "organizer" && (
-                <>
-                  <button
-                    onClick={() => onNavigate("/organizer/events")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
-                  >
-                    <CalendarDays className="w-4 h-4 shrink-0 text-indigo-600" />
-                    <span>Quản lý sự kiện</span>
-                  </button>
-                  <button
-                    onClick={() => onNavigate("/organizer/participants")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
-                  >
-                    <Users className="w-4 h-4 shrink-0 text-slate-500" />
-                    <span>Người tham gia</span>
-                  </button>
-                  <button
-                    onClick={() => onNavigate("staff-scanner")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 transition-all cursor-pointer border border-amber-200"
-                  >
-                    <Camera className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span>Soát vé Camera</span>
-                  </button>
-                </>
+                <button
+                  onClick={() => onNavigate("/organizer/events")}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
+                >
+                  <CalendarDays className="w-4 h-4 shrink-0 text-indigo-600" />
+                  <span>Không gian Ban tổ chức ↗</span>
+                </button>
               )}
 
               {!isGuest && (role === "admin" || role === "student_affairs") && (
-                <>
-                  <button
-                    onClick={() => onNavigate("/admin/dashboard")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
-                  >
-                    <Sliders className="w-4 h-4 shrink-0 text-indigo-600" />
-                    <span>Cổng Quản trị viên</span>
-                  </button>
-                  <button
-                    onClick={() => onNavigate(role === "student_affairs" ? "/affairs/approvals" : "/admin/reports")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
-                  >
-                    <ClipboardList className="w-4 h-4 shrink-0 text-slate-500" />
-                    <span>Duyệt hồ sơ sự kiện</span>
-                  </button>
-                </>
+                <button
+                  onClick={() => onNavigate("/admin/dashboard")}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold whitespace-nowrap text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer"
+                >
+                  <Sliders className="w-4 h-4 shrink-0 text-indigo-600" />
+                  <span>Cổng Quản trị viên ↗</span>
+                </button>
               )}
             </nav>
           </div>
@@ -313,7 +272,7 @@ export default function WebNavbar({
             {/* Public verification button (desktop) */}
             <button
               onClick={onVerify}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-colors cursor-pointer"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -484,7 +443,7 @@ export default function WebNavbar({
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className="flex items-center gap-2 p-1 pl-2 sm:pr-3 rounded-full hover:bg-slate-100 transition-colors focus:outline-none border border-slate-200 cursor-pointer"
                   >
-                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-display font-bold text-xs flex items-center justify-center overflow-hidden">
+                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-display font-bold text-xs flex items-center justify-center overflow-hidden shrink-0">
                       {user.avatar ? (
                         <img
                           src={user.avatar}
@@ -492,15 +451,24 @@ export default function WebNavbar({
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        user.initials
+                        (user.ho_ten || user.name || "U")
+                          .replace(/[^a-zA-ZÀ-ỹ0-9\s]/g, "")
+                          .trim()
+                          .split(/\s+/)
+                          .slice(0, 2)
+                          .map((w) => w[0])
+                          .join("")
+                          .toUpperCase() || "U"
                       )}
                     </div>
                     <div className="hidden sm:block text-left">
-                      <div className="text-xs font-bold text-slate-900 leading-none truncate max-w-[120px]">
-                        {user.displayName}
+                      <div className="text-xs font-bold text-slate-900 leading-none truncate max-w-[140px]">
+                        {user.ho_ten || user.name || user.displayName}
                       </div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                        {user.studentId}
+                      <div className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[140px]">
+                        {role === "student"
+                          ? user.studentId
+                          : user.don_vi?.ten_don_vi || user.email}
                       </div>
                     </div>
                     <svg

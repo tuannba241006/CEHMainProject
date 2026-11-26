@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react"
 import { useLocation, useNavigate } from "react-router"
 import { useUser } from "../../context/UserContext"
-import { BiAssistantDrawer } from "../../components/BiAssistantDrawer"
+
+const AI_BI_ASSISTANT_ENABLED = false
 import {
   LayoutDashboard,
   ClipboardList,
@@ -85,7 +86,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <span>Admin · CTSV</span>
               <Shield className="w-3.5 h-3.5 text-indigo-600" />
             </p>
-            <p className="text-[11px] text-slate-500 truncate">Hệ thống Quản trị Học cụ</p>
+            <p className="text-[11px] text-slate-500 truncate">Hệ thống Quản trị Sự kiện</p>
           </div>
         </div>
       </div>
@@ -189,7 +190,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </span>
         </header>
         <main>{children}</main>
-        <BiAssistantDrawer role="admin" />
+        {AI_BI_ASSISTANT_ENABLED && (
+          <p className="sr-only">AI BI Drawer Enabled</p>
+        )}
       </div>
     </div>
   )

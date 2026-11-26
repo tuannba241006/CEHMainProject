@@ -19,3 +19,9 @@ frontend/.env
 *.env
 !*.env.example
 
+# Local-only granular UAT/QA docs & legacy specs (kept locally, untracked from origin)
+UAT_PACKAGE_03_TEST_GUIDE.md
+UAT_FEEDBACK_PKG03_DEFECTS.md
+docs/imported_specs/
+docs/plans/PKG-09_IMPLEMENTATION_BRIEF.md
+

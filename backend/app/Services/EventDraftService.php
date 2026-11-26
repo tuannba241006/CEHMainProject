@@ -193,7 +193,12 @@ class EventDraftService
         }
 
         // 7. Thực thi lưu vào CSDL trong Transaction
-        return DB::transaction(function () use ($data, $hostUnitId, $unlimited, $soLuongToiDa, $coHostIds) {
+        $tz = config('app.timezone', 'Asia/Ho_Chi_Minh');
+        $normalizedPublish = $published->copy()->setTimezone($tz);
+        $normalizedStart = $start->copy()->setTimezone($tz);
+        $normalizedEnd = $end->copy()->setTimezone($tz);
+
+        return DB::transaction(function () use ($data, $hostUnitId, $unlimited, $soLuongToiDa, $coHostIds, $normalizedPublish, $normalizedStart, $normalizedEnd) {
             $event = SuKien::create([
                 'ma_don_vi_to_chuc' => $hostUnitId,
                 'ma_chuyen_de' => (int) $data['ma_chuyen_de'],
@@ -204,9 +209,9 @@ class EventDraftService
                 'mo_ta' => trim((string) $data['mo_ta']),
                 'lo_trinh' => $data['lo_trinh'] ?? null,
                 'doi_tuong_tham_gia' => $data['doi_tuong_tham_gia'] ?? null,
-                'ngay_cong_bo' => $data['ngay_cong_bo'],
-                'thoi_gian_bat_dau' => $data['thoi_gian_bat_dau'],
-                'thoi_gian_ket_thuc' => $data['thoi_gian_ket_thuc'],
+                'ngay_cong_bo' => $normalizedPublish,
+                'thoi_gian_bat_dau' => $normalizedStart,
+                'thoi_gian_ket_thuc' => $normalizedEnd,
                 'khong_gioi_han_slot' => $unlimited ? 1 : 0,
                 'so_luong_toi_da' => $soLuongToiDa,
                 'so_ve_con_lai' => $soLuongToiDa,
@@ -322,7 +327,12 @@ class EventDraftService
         }
 
         // 8. Cập nhật trong Transaction
-        return DB::transaction(function () use ($event, $data, $unlimited, $soLuongToiDa, $coHostIds) {
+        $tz = config('app.timezone', 'Asia/Ho_Chi_Minh');
+        $normalizedPublish = $published->copy()->setTimezone($tz);
+        $normalizedStart = $start->copy()->setTimezone($tz);
+        $normalizedEnd = $end->copy()->setTimezone($tz);
+
+        return DB::transaction(function () use ($event, $data, $unlimited, $soLuongToiDa, $coHostIds, $normalizedPublish, $normalizedStart, $normalizedEnd) {
             $event->update([
                 'ma_chuyen_de' => (int) $data['ma_chuyen_de'],
                 'ma_phong' => (int) $data['ma_phong'],
@@ -332,9 +342,9 @@ class EventDraftService
                 'mo_ta' => trim((string) $data['mo_ta']),
                 'lo_trinh' => $data['lo_trinh'] ?? null,
                 'doi_tuong_tham_gia' => $data['doi_tuong_tham_gia'] ?? null,
-                'ngay_cong_bo' => $data['ngay_cong_bo'],
-                'thoi_gian_bat_dau' => $data['thoi_gian_bat_dau'],
-                'thoi_gian_ket_thuc' => $data['thoi_gian_ket_thuc'],
+                'ngay_cong_bo' => $normalizedPublish,
+                'thoi_gian_bat_dau' => $normalizedStart,
+                'thoi_gian_ket_thuc' => $normalizedEnd,
                 'khong_gioi_han_slot' => $unlimited ? 1 : 0,
                 'so_luong_toi_da' => $soLuongToiDa,
                 'so_ve_con_lai' => $soLuongToiDa,

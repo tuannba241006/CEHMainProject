@@ -277,7 +277,7 @@ export default function Login({
           </p>
         </div>
         <p className="relative text-xs text-slate-600">
-          © 2026 Campus Event Hub · Prototype tương tác
+          © 2026 Campus Event Hub · Trường Đại học Công nghệ Thông tin (UIT)
         </p>
       </aside>
       <main className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-8">

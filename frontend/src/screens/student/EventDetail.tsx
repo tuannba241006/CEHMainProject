@@ -745,7 +745,7 @@ export default function EventDetail({
                         {event.co_so === "CoSo2" ? "2 (Dĩ An)" : "1 (Thủ Đức)"}
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Điểm danh 2 chiều bằng QR HMAC (CEH1 standard)
+                        Điểm danh 2 chiều bằng mã QR điện tử bảo mật
                       </p>
                     </div>
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
@@ -1230,7 +1230,7 @@ export default function EventDetail({
             <p className="leading-relaxed">
               Liên hệ Phòng Công tác Sinh viên (CTSV) qua email{" "}
               <span className="font-medium text-slate-700">
-                ctsv@demo.edu.vn
+                ctsv@uit.edu.vn
               </span>{" "}
               nếu cần hỗ trợ đăng ký.
             </p>
@@ -1386,7 +1386,7 @@ export default function EventDetail({
                 <span className="font-semibold text-slate-800 text-right">
                   {event.khong_gioi_han_slot
                     ? "Sự kiện mở tự do (Không giới hạn slot)"
-                    : "Sự kiện giới hạn slot (Vé điện tử HMAC-SHA256)"}
+                    : "Sự kiện giới hạn slot (Vé điện tử mã QR)"}
                 </span>
               </div>
               <div className="flex justify-between gap-3">

@@ -66,6 +66,16 @@ const icons = {
   ),
 }
 
+function getInitials(displayName: string, fallback: string): string {
+  const baseName = displayName.split("(")[0].trim()
+  const words = baseName.split(/\s+/).filter(Boolean)
+  const chars = words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() || "")
+    .join("")
+  return chars || fallback
+}
+
 export function ManagementLayout({
   children,
   role,
@@ -73,7 +83,7 @@ export function ManagementLayout({
   onNavigate,
   onLogout,
 }: Props) {
-  const { role: activeRole } = useUser()
+  const { user, role: activeRole } = useUser()
   const isAdministrator =
     role === "student_affairs" ||
     activeRole === "admin" ||
@@ -132,7 +142,10 @@ export function ManagementLayout({
   const subtitle = isFaculty
     ? "Ban tổ chức & Thẩm định cấp Khoa"
     : "Quản trị viên cao nhất cấp Trường"
-  const initials = isFaculty ? "KQ" : "AD"
+  const displayName = user.ho_ten || title
+  const displayEmail =
+    user.email || (isFaculty ? "khoa.httt@uit.edu.vn" : "ctsv@uit.edu.vn")
+  const initials = getInitials(user.ho_ten || "", isFaculty ? "CB" : "AD")
   const unread = notifications.filter(
     (item) => !item.read && item.audience === role,
   ).length
@@ -210,9 +223,11 @@ export function ManagementLayout({
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-navy truncate">{title}</p>
+            <p className="text-sm font-semibold text-navy truncate">
+              {user.ho_ten || title}
+            </p>
             <p className="text-xs text-slate-400 truncate">
-              {isFaculty ? "khoa.httt@uit.edu.vn" : "ctsv@uit.edu.vn"}
+              {user.email || (isFaculty ? "khoa.httt@uit.edu.vn" : "ctsv@uit.edu.vn")}
             </p>
           </div>
         </div>
@@ -283,13 +298,15 @@ export function ManagementLayout({
             <span className="text-sm font-semibold text-slate-800">
               {current === "faculty-inbox"
                 ? "Thẩm định hồ sơ sự kiện"
-                : current === "affairs-inbox"
-                  ? "Phê duyệt hồ sơ cấp Trường & Phòng ốc"
-                  : current === "affairs-results"
-                    ? "Phê duyệt kết quả & Điểm ĐRL"
-                    : current === "affairs-certificates"
-                      ? "Cấp phát & Quản lý chứng nhận"
-                      : "Chi tiết hồ sơ sự kiện"}
+                : current === "faculty-events"
+                  ? "Sự kiện trực thuộc Khoa"
+                  : current === "affairs-inbox"
+                    ? "Phê duyệt hồ sơ cấp Trường & Phòng ốc"
+                    : current === "affairs-results"
+                      ? "Phê duyệt kết quả & Điểm ĐRL"
+                      : current === "affairs-certificates"
+                        ? "Cấp phát & Quản lý chứng nhận"
+                        : "Chi tiết hồ sơ sự kiện"}
             </span>
           </div>
 
@@ -309,10 +326,10 @@ export function ManagementLayout({
               </div>
               <div className="text-left">
                 <p className="text-xs font-bold text-slate-900 leading-none">
-                  {title}
+                  {displayName}
                 </p>
                 <p className="text-[10px] text-slate-400 mt-0.5">
-                  {isFaculty ? "khoa.httt@uit.edu.vn" : "ctsv@uit.edu.vn"}
+                  {displayEmail}
                 </p>
               </div>
             </div>

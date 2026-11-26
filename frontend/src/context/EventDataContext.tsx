@@ -348,7 +348,7 @@ export interface EventDataContextType {
   refetch: () => Promise<void>
   getEvent: (id: string) => LiveEvent | undefined
   computeStatus: (e: LiveEvent) => EventStatus
-  cancelEvent: (eventId: string, reason: string) => { success: boolean; error?: string }
+  cancelEvent: (eventId: string, reason: string, skipRemote?: boolean) => { success: boolean; error?: string }
   setEvents: React.Dispatch<React.SetStateAction<LiveEvent[]>>
 }
 
@@ -426,12 +426,14 @@ export function EventDataProvider({ children }: { children: ReactNode }) {
     return events.find((e) => e.id === id || String(e.ma_su_kien) === id)
   }
 
-  function cancelEvent(eventId: string, reason: string) {
+  function cancelEvent(eventId: string, reason: string, skipRemote = false) {
     if (!reason.trim()) {
       return { success: false, error: "Vui lòng nhập lý do hủy sự kiện." }
     }
-    const numId = Number(eventId.replace(/\D/g, "")) || eventId
-    eventsService.emergencyCancel(numId, reason.trim()).catch(() => {})
+    if (!skipRemote) {
+      const numId = Number(eventId.replace(/\D/g, "")) || eventId
+      eventsService.emergencyCancel(numId, reason.trim()).catch(() => {})
+    }
     setEvents((prev) =>
       prev.map((e) =>
         e.id === eventId || String(e.ma_su_kien) === eventId
