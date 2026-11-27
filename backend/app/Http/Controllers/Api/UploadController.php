@@ -19,12 +19,18 @@ class UploadController extends Controller
      */
     public function uploadImage(Request $request): JsonResponse
     {
-        $request->validate([
-            'file' => 'required|image|max:5120',
-            'loai' => 'nullable|in:poster,logo,avatar,banner',
+        $data = $request->validate([
+            'file' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:max_width=4096,max_height=4096'],
+            'loai' => ['nullable', 'in:poster,logo,avatar,banner'],
         ]);
 
-        $loai = $request->input('loai', 'poster');
+        $loai = $data['loai'] ?? 'poster';
+        $role = (string) $request->user()->loai_tai_khoan;
+        if (! in_array($role, ['Admin', 'ToChuc', 'SinhVien'], true)
+            || ($role === 'SinhVien' && $loai !== 'avatar')) {
+            return $this->errorResponse('FORBIDDEN', 'Bạn không có quyền tải lên loại ảnh này.', null, 403);
+        }
+
         $path = $request->file('file')->store("uploads/{$loai}", 'public');
         $url = Storage::url($path);
 

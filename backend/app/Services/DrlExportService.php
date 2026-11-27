@@ -176,7 +176,7 @@ class DrlExportService
         // Write UTF-8 BOM so Excel opens Vietnamese fonts cleanly
         fwrite($output, "\xEF\xBB\xBF");
 
-        fputcsv($output, $this->headers);
+        fputcsv($output, $this->headers, ',', '"', '');
 
         $idx = 1;
         foreach ($records as $record) {
@@ -190,7 +190,7 @@ class DrlExportService
             $vao = $record->thoi_gian_vao ? Carbon::parse($record->thoi_gian_vao)->setTimezone('+07:00')->format('Y-m-d H:i:s') : '';
             $ra = $record->thoi_gian_ra ? Carbon::parse($record->thoi_gian_ra)->setTimezone('+07:00')->format('Y-m-d H:i:s') : '';
 
-            fputcsv($output, [
+            $row = [
                 $record->stt ?? $idx,
                 $record->mssv ?? '',
                 $record->ho_ten ?? '',
@@ -203,7 +203,14 @@ class DrlExportService
                 $ra,
                 $record->thoi_luong_tham_du_phut ?? 0,
                 $record->ghi_chu_tham_du ?? '',
-            ]);
+            ];
+
+            // Sanitize only text fields; retain numeric columns as numeric CSV data.
+            foreach ([1, 2, 3, 4, 5, 6, 8, 9, 11] as $column) {
+                $row[$column] = CsvFormulaGuard::escapeCell($row[$column]);
+            }
+
+            fputcsv($output, $row, ',', '"', '');
             $idx++;
         }
 

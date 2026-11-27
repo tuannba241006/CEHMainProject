@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomScheduleController;
 use App\Http\Controllers\Api\SelfAttendanceController;
 use App\Http\Controllers\Api\StaffAttendanceController;
+use App\Http\Controllers\Api\StepUpAuthController;
 use App\Http\Controllers\Api\TicketCancelController;
 use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\TopicController;
@@ -80,6 +81,7 @@ $authRoutes = function () {
     Route::middleware(['auth:sanctum,web', 'single.session', 'password.changed'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('/me', [AuthController::class, 'me'])->name('auth.me');
+        Route::post('/confirm-sensitive-action', [StepUpAuthController::class, 'confirm'])->middleware('throttle:10,1')->name('auth.confirm-sensitive-action');
         Route::put('/profile', [AuthController::class, 'updateProfile'])->name('auth.profile');
         Route::match(['put', 'post'], '/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
     });
@@ -92,7 +94,7 @@ $adminRoutes = function () {
         Route::post('/users', [AdminUserController::class, 'createInternal'])->name('admin.users.create');
         Route::post('/users/create-internal', [AdminUserController::class, 'createInternal'])->name('admin.users.create-internal');
         Route::put('/users/{id}/status', [AdminUserController::class, 'updateStatus'])->name('admin.users.status');
-        Route::put('/users/{id}/assign-organizer', [AdminUserController::class, 'assignOrganizer'])->name('admin.users.assign-organizer');
+        Route::put('/users/{id}/assign-organizer', [AdminUserController::class, 'assignOrganizer'])->name('admin.users.assign-organizer')->middleware('step-up');
         Route::get('/users/{id}/tickets', [AdminUserController::class, 'studentTickets'])->whereNumber('id')->name('admin.users.tickets');
 
         // Gap 3 Endpoint 4: Admin CRUD Organizations
@@ -232,7 +234,7 @@ $attendanceRoutes = function () {
         Route::get('/events/{id}/staff', [StaffAttendanceController::class, 'listStaff'])->whereNumber('id');
         Route::post('/events/{id}/staff', [StaffAttendanceController::class, 'assignStaff'])->whereNumber('id');
         Route::delete('/events/{id}/staff/{user_id}', [StaffAttendanceController::class, 'removeStaff'])->whereNumber('id')->whereNumber('user_id');
-        Route::post('/attendance/manual-override', [AttendanceOverrideController::class, 'manualOverride']);
+        Route::post('/attendance/manual-override', [AttendanceOverrideController::class, 'manualOverride'])->middleware('step-up');
     });
     Route::get('/kiosk/totp-stream', [KioskSessionController::class, 'totpStream']);
     Route::middleware(['auth:sanctum,web', 'role:SinhVien,ToChuc,Admin', 'password.changed'])->group(function () {
@@ -266,7 +268,7 @@ $feedbackAndCertificateRoutes = function () {
     Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
         Route::post('/admin/tickets/{id}/feedback-grace', [FeedbackController::class, 'grantGrace'])->whereNumber('id')->name('admin.tickets.feedback-grace');
         Route::get('/admin/certificates', [CertificateController::class, 'adminIndex'])->name('admin.certificates.index');
-        Route::post('/admin/certificates/{id}/revoke', [CertificateController::class, 'revoke'])->whereNumber('id')->name('admin.certificates.revoke');
+        Route::post('/admin/certificates/{id}/revoke', [CertificateController::class, 'revoke'])->whereNumber('id')->name('admin.certificates.revoke')->middleware('step-up');
     });
 };
 
@@ -280,7 +282,7 @@ $drlAndAnalyticsRoutes = function () {
     });
 
     Route::middleware(['auth:sanctum,web', 'role:Admin', 'password.changed'])->group(function () {
-        Route::post('/events/{id}/drl/unlock', [DrlController::class, 'unlock'])->whereNumber('id')->name('events.drl.unlock');
+        Route::post('/events/{id}/drl/unlock', [DrlController::class, 'unlock'])->whereNumber('id')->name('events.drl.unlock')->middleware('step-up');
         Route::get('/admin/analytics/macro', [MacroBiController::class, 'macro'])->name('admin.analytics.macro');
         Route::get('/admin/analytics/macro/export', [MacroBiController::class, 'exportMacro'])->name('admin.analytics.macro.export');
         Route::get('/admin/analytics/no-show-violations', [MacroBiController::class, 'noShowViolations'])->name('admin.analytics.no-show-violations');

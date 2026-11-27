@@ -31,6 +31,11 @@ class KioskAndAttendanceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Keep date-sensitive attendance fixtures away from midnight.
+        // tearDown() already resets the mocked Carbon clock.
+        Carbon::setTestNow(now()->startOfDay()->addHours(12));
+
         $unit = DonViToChuc::first() ?? DonViToChuc::create(['ten_don_vi' => 'Khoa Kiosk Test '.Str::random(8), 'ma_dinh_danh' => 'KIOSK_'.Str::upper(Str::random(8)), 'loai_don_vi' => 'Khoa']);
         $room = PhongHoiTruong::where('trang_thai', 'KhaDung')->first() ?? PhongHoiTruong::create(['ten_phong' => 'Kiosk Test', 'suc_chua_toi_da' => 100, 'co_so' => 'CoSo1', 'trang_thai' => 'KhaDung']);
         $topic = ChuyenDe::first() ?? ChuyenDe::create(['ten_chuyen_de' => 'Kiosk', 'mo_ta' => 'Kiosk test', 'da_xoa' => 0]);

@@ -76,6 +76,10 @@ class SelfAttendanceAndOverrideTest extends TestCase
     {
         parent::setUp();
 
+        // Legacy business-rule tests; Step-up is tested separately.
+        // This override exists only inside the PHPUnit test process.
+        config()->set('ceh_security.step_up_enabled', false);
+
         $this->travelTo(Carbon::parse('2026-10-25 10:00:00+07:00')->utc());
         $unit = $this->unit();
         $this->host = $this->user('ToChuc', $unit);

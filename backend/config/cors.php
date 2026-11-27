@@ -30,10 +30,8 @@ return [
         array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', '')))
     )))),
 
-    'allowed_origins_patterns' => [
-        '#^https?://.*\.bot-keep\.xyz$#',
-        '#^http://(localhost|127\.0\.0\.1)(:\d+)?$#',
-    ],
+    // Credentialed CORS must use the explicit origin allowlist above.
+    'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
 

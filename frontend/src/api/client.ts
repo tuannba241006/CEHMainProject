@@ -169,7 +169,7 @@ export async function request<T>(
       return request<T>(path, options, true)
     }
 
-    if (response.status === 401) {
+    if (response.status === 401 && path !== "/auth/confirm-sensitive-action") {
       tokenStore.clear()
       const normalizedPath = path.startsWith("/") ? path : `/${path}`
       const isIdentityEndpoint =
@@ -201,6 +201,34 @@ export async function request<T>(
       }
     }
 
+    // React only intercepts our own Step-up 428, never unrelated HTTP 428 responses.
+    if (response.status === 428 && !isRetry &&
+        (payload as ApiErrorPayload | undefined)?.error === "REAUTHENTICATION_REQUIRED" &&
+        path !== "/auth/confirm-sensitive-action" && typeof window !== "undefined") {
+      const approved = await new Promise<boolean>((resolve) => {
+        let settled = false
+        const settle = (value: boolean) => {
+          if (settled) return
+          settled = true
+          window.clearTimeout(expiry)
+          resolve(value)
+        }
+        const expiry = window.setTimeout(() => {
+          settle(false)
+          window.dispatchEvent(new CustomEvent("ceh:stepup_expired", {
+            detail: { resolve: settle },
+          }))
+        }, 120_000)
+        const event = new CustomEvent("ceh:stepup_required", {
+          cancelable: true,
+          detail: { resolve: settle },
+        })
+        window.dispatchEvent(event)
+        // If no dialog has mounted, reject immediately rather than hanging forever.
+        if (!event.defaultPrevented) settle(false)
+      })
+      if (approved) return request<T>(path, options, true)
+    }
     if (!response.ok)
       throw new ApiError(response.status, (payload || {}) as ApiErrorPayload)
     return payload as T
