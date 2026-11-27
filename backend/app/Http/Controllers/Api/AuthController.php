@@ -458,6 +458,7 @@ class AuthController extends Controller
         $throttleKey = 'forgot-password:'.hash('sha256', Str::lower(trim($email)));
         if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
             $retryAfter = max(1, RateLimiter::availableIn($throttleKey));
+
             return $this->errorResponse(
                 'RATE_LIMIT_EXCEEDED',
                 'Bạn đã yêu cầu OTP quá 3 lần trong 10 phút. Vui lòng thử lại sau.',
@@ -595,7 +596,7 @@ class AuthController extends Controller
         }
 
         // PKG01_RESET_ATOMIC_V1: serialize token consumption by account and OTP.
-        $ok = DB::transaction(function () use ($user, $newPassword, $cachedData, $token): bool {
+        $ok = DB::transaction(function () use ($user, $newPassword, $cachedData): bool {
             $lockedUser = User::query()->whereKey($user->getAuthIdentifier())->lockForUpdate()->first();
             if (! $lockedUser) {
                 return false;

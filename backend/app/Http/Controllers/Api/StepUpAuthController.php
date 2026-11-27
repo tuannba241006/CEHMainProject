@@ -25,10 +25,12 @@ final class StepUpAuthController
         $key = 'stepup:'.$user->getAuthIdentifier().'|'.$request->ip();
         if (RateLimiter::tooManyAttempts($key, 5)) {
             $seconds = RateLimiter::availableIn($key);
+
             return response()->json(['success' => false, 'error' => 'RATE_LIMIT_EXCEEDED'], 429, ['Retry-After' => $seconds]);
         }
         if (! Hash::check($data['mat_khau'], $user->mat_khau)) {
             RateLimiter::hit($key, 60);
+
             return response()->json(['success' => false, 'error' => 'INVALID_CREDENTIALS'], 401);
         }
         RateLimiter::clear($key);

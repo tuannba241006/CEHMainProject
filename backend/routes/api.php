@@ -3,7 +3,6 @@
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AttendanceOverrideController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\StepUpAuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CertificateController;
 use App\Http\Controllers\Api\DrlController;
@@ -24,6 +23,7 @@ use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\RoomScheduleController;
 use App\Http\Controllers\Api\SelfAttendanceController;
 use App\Http\Controllers\Api\StaffAttendanceController;
+use App\Http\Controllers\Api\StepUpAuthController;
 use App\Http\Controllers\Api\TicketCancelController;
 use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\TopicController;

@@ -31,6 +31,7 @@ final class RequireRecentAuthentication
                 'message' => 'Vui lòng xác thực lại trước khi thực hiện thao tác nhạy cảm.',
             ], 428);
         }
+
         return $next($request);
     }
 }
