@@ -359,7 +359,14 @@ export default function AdminParticipants() {
               const ticketsForEvt = tickets.filter(
                 (t) => t.eventId === eventId || String(t.ma_su_kien) === String(eventId),
               )
-              const total = ticketsForEvt.filter((t) => t.status !== "cancelled").length
+              const contextTotal = ticketsForEvt.filter((t) => t.status !== "cancelled").length
+              const apiRegistered =
+                typeof evt.registered === "number"
+                  ? evt.registered
+                  : evt.so_luong_toi_da != null && evt.so_ve_con_lai != null
+                    ? Math.max(0, evt.so_luong_toi_da - evt.so_ve_con_lai)
+                    : 0
+              const total = Math.max(contextTotal, apiRegistered)
               const attended = ticketsForEvt.filter((t) => t.status === "attended").length
               const organizer = evt.ten_don_vi_host || evt.organizer || "P.CTSV"
 

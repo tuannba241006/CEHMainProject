@@ -23,6 +23,8 @@ interface DemoAccount {
   initials: string
 }
 
+const SHOW_DEMO_ACCOUNTS = import.meta.env.VITE_SHOW_DEMO_LOGIN === "true"
+
 const ACCOUNTS: DemoAccount[] = [
   // --- SINH VIÊN / CTV ---
   {
@@ -446,42 +448,44 @@ export default function Login({
               Xác thực chứng nhận công khai →
             </button>
           </div>
-          <div className="mt-5">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="h-px bg-slate-200 flex-1" />
-              <span className="text-xs text-slate-400">
-                Tài khoản trải nghiệm nhanh
-              </span>
-              <span className="h-px bg-slate-200 flex-1" />
-            </div>
-            <div className="space-y-2">
-              {portalAccounts(portal).map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => void quickLogin(account)}
-                  className="w-full bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-left hover:border-indigo/40 hover:bg-indigo-50/20 transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-light text-indigo flex items-center justify-center text-xs font-bold shrink-0">
-                      {account.initials}
+          {SHOW_DEMO_ACCOUNTS && (
+            <div className="mt-5">
+              <div className="flex items-center gap-3 mb-3">
+                <span className="h-px bg-slate-200 flex-1" />
+                <span className="text-xs text-slate-400">
+                  Tài khoản trải nghiệm nhanh
+                </span>
+                <span className="h-px bg-slate-200 flex-1" />
+              </div>
+              <div className="space-y-2">
+                {portalAccounts(portal).map((account) => (
+                  <button
+                    key={account.email}
+                    type="button"
+                    onClick={() => void quickLogin(account)}
+                    className="w-full bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3 text-left hover:border-indigo/40 hover:bg-indigo-50/20 transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-light text-indigo flex items-center justify-center text-xs font-bold shrink-0">
+                        {account.initials}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-navy">
+                          {account.label}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {account.email} · {account.desc}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-navy">
-                        {account.label}
-                      </p>
-                      <p className="text-xs text-slate-400 truncate">
-                        {account.email} · {account.desc}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg shrink-0 opacity-80 group-hover:opacity-100">
-                    Đăng nhập →
-                  </span>
-                </button>
-              ))}
+                    <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg shrink-0 opacity-80 group-hover:opacity-100">
+                      Đăng nhập →
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
       {forgot && (
@@ -512,7 +516,7 @@ export default function Login({
                   Đăng ký tài khoản sinh viên
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  Biểu mẫu prototype, chưa tạo tài khoản backend thật.
+                  Nhập thông tin sinh viên UIT để nhận mã OTP xác thực qua email.
                 </p>
               </div>
               <button

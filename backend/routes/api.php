@@ -28,6 +28,8 @@ use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\TopicController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\WaitlistController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +44,41 @@ Route::get('/health', function () {
         'server_time' => now()->setTimezone('+07:00')->toIso8601String(),
     ]);
 });
+
+// Internal Laravel Scheduler webhook for PaaS hosting without native cron (e.g., Botkeep)
+Route::post('/internal/scheduler/run', function (Request $request) {
+    $expectedSecret = (string) config('services.scheduler.secret', '');
+
+    if ($expectedSecret === '') {
+        return response()->json([
+            'success' => false,
+            'error_code' => 'CRON_SECRET_NOT_CONFIGURED',
+            'message' => 'Scheduler endpoint is disabled until CRON_SECRET is configured.',
+        ], 503);
+    }
+
+    $providedSecret = (string) $request->header('X-Cron-Secret', '');
+
+    if ($providedSecret === '' || ! hash_equals($expectedSecret, $providedSecret)) {
+        return response()->json([
+            'success' => false,
+            'error_code' => 'FORBIDDEN',
+            'message' => 'Invalid scheduler secret.',
+        ], 403);
+    }
+
+    $exitCode = Artisan::call('schedule:run');
+
+    return response()->json([
+        'success' => $exitCode === 0,
+        'data' => [
+            'exit_code' => $exitCode,
+            'executed_at' => now()->setTimezone('+07:00')->toIso8601String(),
+            'output' => trim(Artisan::output()),
+        ],
+        'message' => 'Scheduler run completed.',
+    ], $exitCode === 0 ? 200 : 500);
+})->middleware('throttle:30,1')->name('internal.scheduler.run');
 
 // PKG-04: Public Event Discovery (UC-DISC-01)
 // API versioned: /api/v1/...

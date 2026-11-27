@@ -28,8 +28,8 @@ export default function Staff({ onNavigate, onLogout }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [apiEvents, setApiEvents] = useState<EventCard[]>([])
-  const [staffItems, setStaffItems] = useState(STAFF_LIST)
-  const [selectedEventId, setSelectedEventId] = useState<number | string>(101)
+  const [staffItems, setStaffItems] = useState<typeof STAFF_LIST>([])
+  const [selectedEventId, setSelectedEventId] = useState<number | string>("")
   const [newStaffMssv, setNewStaffMssv] = useState("")
   const [newStaffName, setNewStaffName] = useState("")
   const [submittingStaff, setSubmittingStaff] = useState(false)
@@ -61,11 +61,14 @@ export default function Staff({ onNavigate, onLogout }: Props) {
   }, [])
 
   useEffect(() => {
-    if (!selectedEventId) return
+    if (!selectedEventId) {
+      setStaffItems([])
+      return
+    }
     attendanceService
       .staff(selectedEventId)
       .then((res) => {
-        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        if (res.data && Array.isArray(res.data)) {
           const mapped = res.data.map((item, idx) => ({
             id: `STF-${item.id || idx + 1}`,
             name: `Cộng tác viên ${item.ma_tai_khoan}`,
@@ -79,9 +82,13 @@ export default function Staff({ onNavigate, onLogout }: Props) {
             userId: item.ma_tai_khoan,
           }))
           setStaffItems(mapped)
+        } else {
+          setStaffItems([])
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        setStaffItems([])
+      })
   }, [selectedEventId, apiEvents])
 
   const [showModal, setShowModal] = useState(false)

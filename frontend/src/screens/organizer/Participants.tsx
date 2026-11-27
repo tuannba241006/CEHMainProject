@@ -273,97 +273,64 @@ export default function Participants({ onNavigate, onLogout }: Props) {
 
   const remote = useApiParticipants(selectedEventId)
 
-  // Loading skeleton to eliminate demo events flash (BUG-PKG03-20)
-  if (!selectedEventId && remote.eventsLoading) {
-    return (
-      <OrgLayout
-        current="org-participants"
-        onNavigate={onNavigate}
-        onLogout={onLogout}
-      >
-        <div className="p-6 lg:p-8 max-w-screen-xl">
-          <div className="mb-6">
-            <h1
-              className="font-display font-bold text-2xl"
-              style={{ color: "#1a1a2e" }}
-            >
-              Người tham gia
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-              Đang tải danh sách sự kiện đơn vị quản lý...
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm animate-pulse"
-              >
-                <div className="h-28 bg-slate-200 rounded-xl mb-3" />
-                <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-slate-100 rounded w-1/2" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </OrgLayout>
-    )
-  }
-
-  const events: ParticipantEvent[] = remote.events.map((event) => ({
-    id: String(event.ma_su_kien),
-    ma_su_kien: event.ma_su_kien,
-    title: event.ten_su_kien,
-    ten_su_kien: event.ten_su_kien,
-    dien_gia: event.dien_gia,
-    ten_chuyen_de: event.ten_chuyen_de,
-    ten_don_vi_host: event.ten_don_vi_host,
-    danh_sach_ten_dong_to_chuc: event.danh_sach_ten_dong_to_chuc ?? [],
-    ten_phong: event.ten_phong,
-    co_so: (event.co_so as "CoSo1" | "CoSo2") || "CoSo1",
-    thoi_gian_bat_dau: event.thoi_gian_bat_dau,
-    thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
-    khong_gioi_han_slot: event.so_luong_toi_da === null,
-    so_ve_con_lai: event.so_ve_con_lai,
-    so_luong_toi_da: event.so_luong_toi_da,
-    trang_thai: event.trang_thai,
-    dieu_khoan_drl: "Dieu3",
-    diem_drl_du_kien: 5,
-    gio_tinh_nguyen: 0,
-    mo_ta: "",
-    lo_trinh: [],
-    doi_tuong_tham_gia: null,
-    speaker: event.dien_gia || "",
-    topic: event.ten_chuyen_de,
-    description: "",
-    date: event.thoi_gian_bat_dau.slice(0, 10),
-    time: event.thoi_gian_bat_dau.slice(11, 16),
-    endTime: event.thoi_gian_ket_thuc.slice(11, 16),
-    location: `${event.ten_phong} (${event.co_so})`,
-    room: event.ten_phong,
-    capacity: event.so_luong_toi_da ?? 100,
-    registered:
-      (event.so_luong_toi_da ?? 100) - (event.so_ve_con_lai ?? 0),
-    registrationOpen:
-      event.trang_thai === "HAPPENING" ||
-      event.trang_thai === "PUBLISHED" ||
-      event.trang_thai === "APPROVED",
-    isCancelled: event.trang_thai === "CANCELLED",
-    banner: event.anh_bia || "",
-    organizer: event.ten_don_vi_host,
-    benefits: [],
-    schedule: [],
-    don_vi_host: {
-      ma_don_vi: 0,
-      ten_don_vi: event.ten_don_vi_host ?? "",
-      loai_don_vi: "CLB",
-    },
-    ma_don_vi_to_chuc: 0,
-    coHosts: event.danh_sach_ten_dong_to_chuc ?? [],
-    status: event.trang_thai,
-    statusLabel:
-      API_EVENT_STATUS_LABELS[event.trang_thai] || event.trang_thai,
-  }))
+  const events: ParticipantEvent[] = useMemo(
+    () =>
+      remote.events.map((event) => ({
+        id: String(event.ma_su_kien),
+        ma_su_kien: event.ma_su_kien,
+        title: event.ten_su_kien,
+        ten_su_kien: event.ten_su_kien,
+        dien_gia: event.dien_gia,
+        ten_chuyen_de: event.ten_chuyen_de,
+        ten_don_vi_host: event.ten_don_vi_host,
+        danh_sach_ten_dong_to_chuc: event.danh_sach_ten_dong_to_chuc ?? [],
+        ten_phong: event.ten_phong,
+        co_so: (event.co_so as "CoSo1" | "CoSo2") || "CoSo1",
+        thoi_gian_bat_dau: event.thoi_gian_bat_dau,
+        thoi_gian_ket_thuc: event.thoi_gian_ket_thuc,
+        khong_gioi_han_slot: event.so_luong_toi_da === null,
+        so_ve_con_lai: event.so_ve_con_lai,
+        so_luong_toi_da: event.so_luong_toi_da,
+        trang_thai: event.trang_thai,
+        dieu_khoan_drl: "Dieu3",
+        diem_drl_du_kien: 5,
+        gio_tinh_nguyen: 0,
+        mo_ta: "",
+        lo_trinh: [],
+        doi_tuong_tham_gia: null,
+        speaker: event.dien_gia || "",
+        topic: event.ten_chuyen_de,
+        description: "",
+        date: event.thoi_gian_bat_dau.slice(0, 10),
+        time: event.thoi_gian_bat_dau.slice(11, 16),
+        endTime: event.thoi_gian_ket_thuc.slice(11, 16),
+        location: `${event.ten_phong} (${event.co_so})`,
+        room: event.ten_phong,
+        capacity: event.so_luong_toi_da ?? 100,
+        registered:
+          (event.so_luong_toi_da ?? 100) - (event.so_ve_con_lai ?? 0),
+        registrationOpen:
+          event.trang_thai === "HAPPENING" ||
+          event.trang_thai === "PUBLISHED" ||
+          event.trang_thai === "APPROVED",
+        isCancelled: event.trang_thai === "CANCELLED",
+        banner: event.anh_bia || "",
+        organizer: event.ten_don_vi_host,
+        benefits: [],
+        schedule: [],
+        don_vi_host: {
+          ma_don_vi: 0,
+          ten_don_vi: event.ten_don_vi_host ?? "",
+          loai_don_vi: "CLB",
+        },
+        ma_don_vi_to_chuc: 0,
+        coHosts: event.danh_sach_ten_dong_to_chuc ?? [],
+        status: event.trang_thai,
+        statusLabel:
+          API_EVENT_STATUS_LABELS[event.trang_thai] || event.trang_thai,
+      })),
+    [remote.events],
+  )
 
   // Data scoping cô lập tuyệt đối:
   // - Admin (P.CTSV): CHỈ THẤY các sự kiện thuộc P.CTSV! Tuyệt đối không lẫn lộn sự kiện của các CLB khác.
@@ -407,6 +374,43 @@ export default function Participants({ onNavigate, onLogout }: Props) {
 
     return filteredList.length > 0 ? filteredList : events
   }, [events, role, user])
+
+  // Loading skeleton to eliminate demo events flash (BUG-PKG03-20)
+  if (!selectedEventId && remote.eventsLoading) {
+    return (
+      <OrgLayout
+        current="org-participants"
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      >
+        <div className="p-6 lg:p-8 max-w-screen-xl">
+          <div className="mb-6">
+            <h1
+              className="font-display font-bold text-2xl"
+              style={{ color: "#1a1a2e" }}
+            >
+              Người tham gia
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "#64748b" }}>
+              Đang tải danh sách sự kiện đơn vị quản lý...
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm animate-pulse"
+              >
+                <div className="h-28 bg-slate-200 rounded-xl mb-3" />
+                <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-slate-100 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </OrgLayout>
+    )
+  }
 
   // Event list view
   if (!selectedEventId) {

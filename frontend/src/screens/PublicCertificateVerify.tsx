@@ -267,12 +267,21 @@ export default function PublicCertificateVerify({
                     Mã chứng nhận “{code}” không tồn tại trong hệ thống lưu trữ hoặc đã bị xóa.
                   </p>
                 </div>
-              ) : (
+              ) : (() => {
+                const normalizedStatus = (certificate.status || "").toLowerCase()
+                const isCertValid =
+                  normalizedStatus === "issued" ||
+                  normalizedStatus === "valid" ||
+                  normalizedStatus === "hop_le"
+                const isCertRevoked =
+                  normalizedStatus === "revoked" ||
+                  normalizedStatus === "da_thu_hoi"
+                return (
                 <div
                   className={`p-6 sm:p-7 rounded-2xl border ${
-                    certificate.status === "issued" || certificate.status === "valid"
+                    isCertValid
                       ? "bg-emerald-50/40 border-emerald-200"
-                      : certificate.status === "revoked"
+                      : isCertRevoked
                         ? "bg-rose-50/40 border-rose-200"
                         : "bg-indigo-50/40 border-indigo-200"
                   }`}
@@ -281,16 +290,16 @@ export default function PublicCertificateVerify({
                     <div className="flex items-center gap-3">
                       <div
                         className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-lg ${
-                          certificate.status === "issued" || certificate.status === "valid"
+                          isCertValid
                             ? "bg-emerald-100 text-emerald-700"
-                            : certificate.status === "revoked"
+                            : isCertRevoked
                               ? "bg-rose-100 text-rose-700"
                               : "bg-indigo-100 text-indigo-700"
                         }`}
                       >
-                        {certificate.status === "issued" || certificate.status === "valid" ? (
+                        {isCertValid ? (
                           <CheckCircle2 className="w-6 h-6" />
-                        ) : certificate.status === "revoked" ? (
+                        ) : isCertRevoked ? (
                           <XCircle className="w-6 h-6" />
                         ) : (
                           <AlertTriangle className="w-6 h-6" />
@@ -298,9 +307,9 @@ export default function PublicCertificateVerify({
                       </div>
                       <div>
                         <h2 className="font-display font-bold text-lg text-slate-900 leading-snug">
-                          {certificate.status === "issued" || certificate.status === "valid"
+                          {isCertValid
                             ? "Chứng nhận hợp lệ & chính thức"
-                            : certificate.status === "revoked"
+                            : isCertRevoked
                               ? "Chứng nhận này đã bị thu hồi"
                               : "Chứng nhận đã được cấp lại với mã mới"}
                         </h2>
@@ -311,7 +320,7 @@ export default function PublicCertificateVerify({
                       </div>
                     </div>
 
-                    <CertificateBadge status={certificate.status} />
+                    <CertificateBadge status={isCertValid ? "HOP_LE" : isCertRevoked ? "DA_THU_HOI" : certificate.status} />
                   </div>
 
                   {/* Metadata Grid */}
@@ -366,7 +375,8 @@ export default function PublicCertificateVerify({
                     </span>
                   </div>
                 </div>
-              )}
+                )
+              })()}
             </div>
           )}
         </div>

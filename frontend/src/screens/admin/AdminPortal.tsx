@@ -170,7 +170,7 @@ export const DEFAULT_MACRO_DATA: AdminMacroDashboard = {
 
 export default function AdminPortal({ section }: { section: Section }) {
   const navigate = useNavigate()
-  const { tickets, certificates, attendanceRecords } = useApp()
+  const { events: liveEvents, tickets, certificates, attendanceRecords } = useApp()
   const { showToast } = useToast()
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
@@ -799,7 +799,13 @@ export default function AdminPortal({ section }: { section: Section }) {
                       {macroData?.ty_le_show_up_toan_truong_pct ?? 0}%
                     </div>
                     <p className="text-[11px] text-emerald-600 mt-1 font-medium">
-                      Đạt tỷ lệ cao (&gt; 90%)
+                      {(macroData?.ty_le_show_up_toan_truong_pct ?? 0) >= 90
+                        ? "Đạt tỷ lệ cao (≥ 90%)"
+                        : (macroData?.ty_le_show_up_toan_truong_pct ?? 0) >= 60
+                          ? "Mức tham dự khá"
+                          : (macroData?.ty_le_show_up_toan_truong_pct ?? 0) > 0
+                            ? "Cần cải thiện tỷ lệ tham dự"
+                            : "Chưa có dữ liệu điểm danh"}
                     </p>
                   </div>
 
@@ -851,7 +857,14 @@ export default function AdminPortal({ section }: { section: Section }) {
                       </span>
                     </div>
                     <div className="font-display font-bold text-2xl lg:text-3xl text-purple-900 flex items-baseline">
-                      4.82
+                      {(() => {
+                        const rated = (macroData?.top_don_vi_hoat_dong_tich_cuc ?? []).filter(
+                          (u) => typeof u.diem_hai_long_tb === "number" && u.diem_hai_long_tb > 0,
+                        )
+                        if (rated.length === 0) return "—"
+                        const avg = rated.reduce((sum, u) => sum + (u.diem_hai_long_tb ?? 0), 0) / rated.length
+                        return avg.toFixed(2)
+                      })()}
                       <span className="text-xs font-normal text-slate-500 ml-1">/ 5.0</span>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-1 leading-tight">
@@ -1241,48 +1254,76 @@ export default function AdminPortal({ section }: { section: Section }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {EVENTS.slice(0, 4).map((evt) => (
-                      <tr
-                        key={evt.id}
-                        className="hover:bg-slate-50/60 transition-colors"
-                      >
-                        <td className="p-3 font-semibold text-navy max-w-xs truncate">
-                          {evt.title}
-                        </td>
-                        <td className="p-3 text-xs text-slate-600">
-                          {evt.organizer}
-                        </td>
-                        <td className="p-3 text-xs text-slate-500 whitespace-nowrap">
-                          {evt.room} · {evt.time}
-                        </td>
-                        <td className="p-3">
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Đang mở đăng ký
-                          </span>
-                        </td>
-                        <td className="p-3 text-right whitespace-nowrap">
-                          <button
-                            onClick={() => navigate(`/kiosk/${evt.id}`)}
-                            className="px-3 py-1.5 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 border border-cyan-200 text-xs font-semibold mr-2 transition-colors cursor-pointer shadow-2xs"
-                            title="Khởi tạo phiên Kiosk trình chiếu mã QR điểm danh hội trường"
-                          >
-                            <span className="flex items-center gap-1.5"><Monitor className="w-3.5 h-3.5" /> Mở Kiosk</span>
-                          </button>
-                          <button
-                            onClick={() =>
-                              setDialog({
-                                kind: "eventReconciliation",
-                                event: evt,
-                              })
-                            }
-                            className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-                            title="Đối soát người tham gia & điều chỉnh thủ công trực tiếp"
-                          >
-                            <span className="flex items-center gap-1.5"><UsersIcon className="w-3.5 h-3.5" /> Đối soát & Giải tỏa nghi vấn</span>
-                          </button>
+                    {liveEvents.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-xs text-slate-400">
+                          Chưa có sự kiện nào trong hệ thống.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      liveEvents.slice(0, 6).map((evt) => {
+                        const rawSt = (evt.trang_thai || "").toUpperCase()
+                        const statusLabel =
+                          rawSt === "HAPPENING"
+                            ? "Đang diễn ra"
+                            : rawSt === "COMPLETED"
+                              ? "Đã kết thúc"
+                              : rawSt === "CANCELLED"
+                                ? "Đã hủy"
+                                : "Đang mở đăng ký"
+                        const statusClass =
+                          rawSt === "HAPPENING"
+                            ? "bg-sky-50 text-sky-700 border-sky-200"
+                            : rawSt === "COMPLETED"
+                              ? "bg-slate-100 text-slate-600 border-slate-200"
+                              : rawSt === "CANCELLED"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        const evtNumericId = evt.ma_su_kien ?? evt.id
+                        return (
+                          <tr
+                            key={evt.id}
+                            className="hover:bg-slate-50/60 transition-colors"
+                          >
+                            <td className="p-3 font-semibold text-navy max-w-xs truncate">
+                              {evt.title || evt.ten_su_kien}
+                            </td>
+                            <td className="p-3 text-xs text-slate-600">
+                              {evt.ten_don_vi_host || evt.organizer || "—"}
+                            </td>
+                            <td className="p-3 text-xs text-slate-500 whitespace-nowrap">
+                              {evt.room || evt.ten_phong || "—"} · {evt.time || ""}
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusClass}`}>
+                                {statusLabel}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => navigate(`/kiosk/${evtNumericId}`)}
+                                className="px-3 py-1.5 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 border border-cyan-200 text-xs font-semibold mr-2 transition-colors cursor-pointer shadow-2xs"
+                                title="Khởi tạo phiên Kiosk trình chiếu mã QR điểm danh hội trường"
+                              >
+                                <span className="flex items-center gap-1.5"><Monitor className="w-3.5 h-3.5" /> Mở Kiosk</span>
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setDialog({
+                                    kind: "eventReconciliation",
+                                    event: evt,
+                                  })
+                                }
+                                className="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+                                title="Đối soát người tham gia & điều chỉnh thủ công trực tiếp"
+                              >
+                                <span className="flex items-center gap-1.5"><UsersIcon className="w-3.5 h-3.5" /> Đối soát & Giải tỏa nghi vấn</span>
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
