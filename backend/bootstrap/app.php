@@ -3,6 +3,8 @@
 use App\Http\Middleware\EnsurePasswordChanged;
 use App\Http\Middleware\EnsureSingleActiveSession;
 use App\Http\Middleware\EnsureUserRole;
+use App\Http\Middleware\RequireRecentAuthentication;
+use App\Http\Middleware\VerifyApiSessionCsrf;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -26,19 +28,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->validateCsrfTokens(except: [
-            'api/*',
-        ]);
+        // API browser sessions have their own CSRF middleware below.
+        // Do not register a blanket api/* CSRF exemption.
 
         $middleware->api(prepend: [
             EncryptCookies::class,
             AddQueuedCookiesToResponse::class,
             StartSession::class,
+            VerifyApiSessionCsrf::class,
         ]);
 
         $middleware->alias([
             'single.session' => EnsureSingleActiveSession::class,
             'role' => EnsureUserRole::class,
+            'step-up' => RequireRecentAuthentication::class,
             'password.changed' => EnsurePasswordChanged::class,
         ]);
     })

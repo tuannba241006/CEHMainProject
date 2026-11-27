@@ -20,6 +20,7 @@ use App\Models\DonViToChuc;
 use App\Models\OtpQuenMatKhau;
 use App\Models\User;
 use App\Services\CryptoService;
+use App\Support\StepUpProof;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -288,7 +289,7 @@ class AuthController extends Controller
         $passwordValid = $user && Hash::check($password, $user->mat_khau);
 
         if (! $user || ! $passwordValid) {
-            RateLimiter::hit($throttleKey, 60);
+            RateLimiter::hit($throttleKey, 300);
 
             return $this->errorResponse(
                 'INVALID_CREDENTIALS',
@@ -315,6 +316,7 @@ class AuthController extends Controller
 
         if ($request->hasSession()) {
             $request->session()->regenerate();
+            StepUpProof::forget($request);
 
             // Enforce Single Active Session for SinhVien
             if ($user->isSinhVien()) {
@@ -436,6 +438,7 @@ class AuthController extends Controller
         $user->mat_khau = Hash::make($request->input('mat_khau_moi'), ['rounds' => 12]);
         $user->buoc_doi_mat_khau = false;
         $user->save();
+        StepUpProof::forget($request);
 
         return $this->successResponse(
             new UserResource($user),
@@ -451,6 +454,19 @@ class AuthController extends Controller
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
         $email = $request->input('email');
+        // Keyed by normalized email (not whether it exists), preserving anti-enumeration.
+        $throttleKey = 'forgot-password:'.hash('sha256', Str::lower(trim($email)));
+        if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+            $retryAfter = max(1, RateLimiter::availableIn($throttleKey));
+            return $this->errorResponse(
+                'RATE_LIMIT_EXCEEDED',
+                'Bạn đã yêu cầu OTP quá 3 lần trong 10 phút. Vui lòng thử lại sau.',
+                ['retry_after' => $retryAfter],
+                429,
+                ['Retry-After' => $retryAfter]
+            );
+        }
+        RateLimiter::hit($throttleKey, 600);
         $user = User::where('email', $email)->first();
 
         // Always return generic success to prevent email enumeration (SRS UC-AUTH-04, NFR-SEC)
@@ -578,17 +594,51 @@ class AuthController extends Controller
             );
         }
 
-        DB::transaction(function () use ($user, $newPassword, $cachedData, $token) {
+        // PKG01_RESET_ATOMIC_V1: serialize token consumption by account and OTP.
+        $ok = DB::transaction(function () use ($user, $newPassword, $cachedData, $token): bool {
+            $lockedUser = User::query()->whereKey($user->getAuthIdentifier())->lockForUpdate()->first();
+            if (! $lockedUser) {
+                return false;
+            }
+            $otpRecord = OtpQuenMatKhau::query()
+                ->whereKey($cachedData['otp_id'])
+                ->where('ma_tai_khoan', $lockedUser->getAuthIdentifier())
+                ->lockForUpdate()->first();
+            if (! $otpRecord || $otpRecord->da_su_dung) {
+                return false;
+            }
+            $user = $lockedUser;
             $user->mat_khau = Hash::make($newPassword, ['rounds' => 12]);
             $user->save();
 
-            // Mark OTP as used
-            OtpQuenMatKhau::where('id', $cachedData['otp_id'])->update([
-                'da_su_dung' => true,
-            ]);
+            // Session-backed logins are revoked on password reset.
+            DB::table('sessions')->where('user_id', $user->getAuthIdentifier())->delete();
 
-            Cache::forget('password_reset_'.$token);
+            // Mark OTP as used
+            OtpQuenMatKhau::where('ma_tai_khoan', $user->getAuthIdentifier())
+                ->where('da_su_dung', false)
+                ->update(['da_su_dung' => true]);
+
+            return true;
         });
+
+        if (! $ok) {
+            return $this->errorResponse(
+                'RESET_TOKEN_INVALID',
+                'Token đặt lại mật khẩu không hợp lệ hoặc đã được sử dụng.',
+                null,
+                400
+            );
+        }
+
+        Cache::forget('password_reset_'.$token);
+
+        StepUpProof::forget($request);
+        if ($request->hasSession() && (string) Auth::guard('web')->id() === (string) $user->getAuthIdentifier()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         return $this->successResponse(
             null,

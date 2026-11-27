@@ -11,6 +11,15 @@ class ChangePasswordRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // OpenAPI v3.2.3 calls this field mat_khau_cu.
+        // Keep mat_khau_hien_tai as a backwards-compatible alias.
+        if (! $this->exists('mat_khau_hien_tai') && $this->exists('mat_khau_cu')) {
+            $this->merge(['mat_khau_hien_tai' => $this->input('mat_khau_cu')]);
+        }
+    }
+
     public function rules(): array
     {
         return [

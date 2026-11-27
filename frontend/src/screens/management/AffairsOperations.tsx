@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import {
   useApp,
   type AttendanceRecord,
@@ -9,6 +9,7 @@ import { useToast } from "../../components/Toast"
 import { ManagementLayout } from "./ManagementLayout"
 import { drlService } from "../../api/services/drl.service"
 import { certificatesService } from "../../api/services/certificates.service"
+import { isApiMode } from "../../api/config"
 import { feedbackService } from "../../api/services/feedback.service"
 import { eventsService } from "../../api/services/events.service"
 import { attendanceService } from "../../api/services/attendance.service"
@@ -940,14 +941,28 @@ export function Certificates({ embedded = false }: {
   const [revokeId, setRevokeId] = useState<string | null>(null)
   const [reason, setReason] = useState("")
   const [remoteCerts, setRemoteCerts] = useState<any[] | null>(null)
+  const [certLoading, setCertLoading] = useState(isApiMode())
+  const [certError, setCertError] = useState<string | null>(null)
+  const [revokePending, setRevokePending] = useState(false)
+  const revokeBusy = useRef(false)
 
+  // certificate-api-empty-state-v1: [] from a working API is NOT demo data.
   const loadAdminCerts = useCallback(() => {
+    if (!isApiMode()) return
+    setCertLoading(true)
+    setCertError(null)
     certificatesService.adminList().then((res) => {
-      const payload = res?.data || res
+      const payload = res?.data ?? res
       if (Array.isArray(payload)) {
         setRemoteCerts(payload)
+      } else {
+        setRemoteCerts([])
+        setCertError("Phản hồi danh sách chứng nhận không hợp lệ.")
       }
-    }).catch(() => {})
+    }).catch((err: unknown) => {
+      setRemoteCerts([])
+      setCertError(err instanceof Error ? err.message : "Không tải được danh sách chứng nhận.")
+    }).finally(() => setCertLoading(false))
   }, [])
 
   useEffect(() => {
@@ -955,23 +970,21 @@ export function Certificates({ embedded = false }: {
   }, [loadAdminCerts])
 
   const certList = useMemo(() => {
-    if (remoteCerts && remoteCerts.length > 0) {
-      return remoteCerts.map((c: any) => ({
-        id: String(c.id),
-        code: c.code || c.ma_hash?.slice(0, 16) || `CERT-${c.id}`,
-        eventId: String(c.ma_su_kien),
-        eventTitle: c.ten_su_kien || "Sự kiện học thuật",
-        recipientName: c.ma_tai_khoan === 344 ? "Trần Thị Bình" : (c.recipientName || `Sinh viên #${c.ma_tai_khoan}`),
-        studentId: c.ma_tai_khoan === 344 ? "22520002" : (c.studentId || "22520001"),
-        issuedAt: c.ngay_cap,
-        issuer: c.don_vi_to_chuc || "Khoa Hệ thống Thông tin",
-        status: c.da_thu_hoi ? "revoked" : "issued",
-        hash: c.ma_hash,
-        participantRole: "Người tham dự",
-        eventTime: "",
-      } as unknown as Certificate))
-    }
-    return certificates
+    if (!isApiMode()) return certificates
+    return (remoteCerts ?? []).map((c: any) => ({
+      id: String(c.id),
+      code: c.code || c.ma_hash?.slice(0, 16) || `CERT-${c.id}`,
+      eventId: String(c.ma_su_kien),
+      eventTitle: c.ten_su_kien || "Sự kiện học thuật",
+      recipientName: c.recipientName || `Sinh viên #${c.ma_tai_khoan}`,
+      studentId: c.studentId || "",
+      issuedAt: c.ngay_cap,
+      issuer: c.don_vi_to_chuc || "",
+      status: c.da_thu_hoi ? "revoked" : "issued",
+      hash: c.ma_hash,
+      participantRole: "Người tham dự",
+      eventTime: "",
+    } as unknown as Certificate))
   }, [remoteCerts, certificates])
 
   async function issue(id: string) {
@@ -984,16 +997,37 @@ export function Certificates({ embedded = false }: {
     )
   }
   async function revoke() {
-    if (!revokeId) return
+    if (!revokeId || revokeBusy.current) return
+    const trimmedReason = reason.trim()
+    if (trimmedReason.length < 5) {
+      showToast("Lý do thu hồi phải có ít nhất 5 ký tự.", "error")
+      return
+    }
+    const numericId = Number(revokeId)
+    if (isApiMode() && (!Number.isSafeInteger(numericId) || numericId <= 0)) {
+      showToast("Mã chứng nhận không hợp lệ.", "error")
+      return
+    }
+    revokeBusy.current = true
+    setRevokePending(true)
     try {
-      await certificatesService.revoke(Number(revokeId) || 1, reason)
-      revokeCertificate(revokeId, reason)
+      if (isApiMode()) {
+        // Exactly one mutation; DO NOT call useApp().revokeCertificate() afterward.
+        await certificatesService.revoke(numericId, trimmedReason)
+        loadAdminCerts()
+      } else {
+        // Demo context owns its own mutation. Call it only in demo mode.
+        const result = await revokeCertificate(revokeId, trimmedReason)
+        if (!result.success) throw new Error(result.error || "Không thể thu hồi.")
+      }
       showToast("Đã thu hồi chứng nhận.", "success")
       setRevokeId(null)
       setReason("")
-      loadAdminCerts()
     } catch (err: any) {
       showToast(err?.message || "Không thể thu hồi.", "error")
+    } finally {
+      revokeBusy.current = false
+      setRevokePending(false)
     }
   }
   function replace(id: string) {
@@ -1034,7 +1068,16 @@ export function Certificates({ embedded = false }: {
         </p>
       </div>
       <div className="space-y-3">
-        {certList.map((cert) => (
+        {isApiMode() && certLoading && <p className="text-sm text-slate-500">Đang tải danh sách chứng nhận...</p>}
+        {isApiMode() && !certLoading && certError && (
+          <div role="alert" className="text-sm text-red-700">
+            {certError} <button type="button" onClick={loadAdminCerts} className="underline">Thử lại</button>
+          </div>
+        )}
+        {!certLoading && !certError && certList.length === 0 && (
+          <p className="text-sm text-slate-500">Chưa có chứng nhận nào.</p>
+        )}
+        {!certLoading && !certError && certList.map((cert) => (
           <article
             key={cert.id}
             className="bg-white rounded-2xl border border-slate-100 p-4 sm:p-5 shadow-sm"
@@ -1127,18 +1170,21 @@ export function Certificates({ embedded = false }: {
               className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500"
               placeholder="Nhập lý do thu hồi (Ví dụ: Phát hiện gian lận quẹt thẻ thay hoặc vi phạm quy chế sau sự kiện)..."
             />
+            <p className="mt-2 text-xs text-slate-500">Lý do thu hồi phải có ít nhất 5 ký tự.</p>
             <div className="flex gap-3 mt-5">
               <button
-                onClick={() => setRevokeId(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-xs cursor-pointer"
+                onClick={() => { setRevokeId(null); setReason("") }}
+                disabled={revokePending}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-xs cursor-pointer disabled:opacity-50"
               >
                 Hủy bỏ
               </button>
               <button
                 onClick={revoke}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer"
+                disabled={revokePending || reason.trim().length < 5}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Xác nhận thu hồi
+                {revokePending ? "Đang thu hồi..." : "Xác nhận thu hồi"}
               </button>
             </div>
           </div>

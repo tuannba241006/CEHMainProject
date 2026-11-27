@@ -55,6 +55,10 @@ class DrlAccreditationTest extends TestCase
     {
         parent::setUp();
 
+        // Legacy business-rule tests; Step-up is tested separately.
+        // This override exists only inside the PHPUnit test process.
+        config()->set('ceh_security.step_up_enabled', false);
+
         $this->cryptoService = app(CryptoService::class);
 
         $this->donViHost = DonViToChuc::create([
